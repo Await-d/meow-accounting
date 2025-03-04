@@ -4,4 +4,4 @@ export { default as Statistics } from './Statistics';
 export { default as CategoryStats } from './CategoryStats';
 export { default as ThemeSwitch } from './ThemeSwitch';
 export { ToastProvider, useToast } from './Toast';
-export { default as Skeleton } from './Skeleton'; 
+export { default as Skeleton } from './Skeleton';

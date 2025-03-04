@@ -23,10 +23,11 @@ export interface Statistics {
 // 分类统计数据类型
 export interface CategoryStats {
     name: string;
+    category_icon: string;
     amount: number;
+    trend: number[];
     percentage: number;
-    trend: Array<{
-        date: string;
-        amount: number;
-    }>;
-} 
+}
+
+// 时间范围类型
+export type TimeRange = 'week' | 'month' | 'quarter' | 'year'; 

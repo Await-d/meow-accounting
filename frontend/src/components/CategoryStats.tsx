@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardBody, Select, SelectItem, Button, ButtonGroup } from '@nextui-org/react';
+import { Card, CardBody, Select, SelectItem, Button, ButtonGroup, Spinner } from '@nextui-org/react';
 import { Pie, Line, Bar } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -17,7 +17,7 @@ import {
 import { useCategoryStats } from '@/lib/api';
 import { useToast } from './Toast';
 import Skeleton from './Skeleton';
-import type { CategoryStats as CategoryStatsType } from '@/lib/types';
+import type { CategoryStats as CategoryStatsType, TimeRange } from '@/lib/types';
 
 // 注册Chart.js组件
 ChartJS.register(
@@ -34,12 +34,28 @@ ChartJS.register(
 );
 
 type ChartType = 'pie' | 'line' | 'bar';
-type TimeRange = 'week' | 'month' | 'quarter' | 'year';
 
-export default function CategoryStats() {
+interface Props {
+    timeRange: TimeRange;
+    onTimeRangeChange?: (range: TimeRange) => void;
+}
+
+interface ChartDataset {
+    label: string;
+    data: number[];
+    borderColor?: string;
+    backgroundColor?: string | string[];
+    tension?: number;
+}
+
+interface CategoryChartData {
+    labels: string[];
+    datasets: ChartDataset[];
+}
+
+export default function CategoryStatsComponent({ timeRange, onTimeRangeChange }: Props) {
     const [chartType, setChartType] = useState<ChartType>('pie');
-    const [timeRange, setTimeRange] = useState<TimeRange>('month');
-    const { data: categoryData = [], isLoading, error } = useCategoryStats<CategoryStatsType[]>(timeRange);
+    const { data: categoryData = [], isLoading, error } = useCategoryStats(timeRange);
     const { showToast } = useToast();
 
     useEffect(() => {
@@ -49,8 +65,27 @@ export default function CategoryStats() {
     }, [error, showToast]);
 
     if (error || isLoading) {
-        return <Skeleton type="category" />;
+        return (
+            <div className="w-full h-[400px] flex items-center justify-center">
+                <Spinner size="lg" />
+            </div>
+        );
     }
+
+    if (categoryData.length === 0) {
+        return (
+            <div className="w-full h-[400px] flex items-center justify-center text-gray-500">
+                暂无数据
+            </div>
+        );
+    }
+
+    // 生成日期标签（最近7天）
+    const dateLabels = Array.from({ length: categoryData[0]?.trend?.length || 0 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - ((categoryData[0]?.trend?.length || 0) - 1 - i));
+        return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    });
 
     // 准备图表数据
     const pieData = {
@@ -68,11 +103,12 @@ export default function CategoryStats() {
     };
 
     const lineData = {
-        labels: categoryData[0]?.trend?.map(t => t.date) || [],
+        labels: dateLabels,
         datasets: categoryData.map(category => ({
             label: category.name,
-            data: category.trend?.map(t => t.amount) || [],
+            data: category.trend || [],
             tension: 0.1,
+            borderColor: `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`,
         })),
     };
 
@@ -123,29 +159,39 @@ export default function CategoryStats() {
                         <Select
                             size="sm"
                             value={timeRange}
-                            onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+                            onChange={(e) => onTimeRangeChange?.(e.target.value as TimeRange)}
+                            className="min-w-[120px]"
+                            classNames={{
+                                trigger: "min-w-[120px]",
+                                listbox: "min-w-[120px]"
+                            }}
+                            aria-label="选择时间范围"
+                            label="时间范围"
                         >
-                            <SelectItem key="week" value="week">本周</SelectItem>
-                            <SelectItem key="month" value="month">本月</SelectItem>
-                            <SelectItem key="quarter" value="quarter">本季度</SelectItem>
-                            <SelectItem key="year" value="year">本年</SelectItem>
+                            <SelectItem key="week" value="week" aria-label="本周">本周</SelectItem>
+                            <SelectItem key="month" value="month" aria-label="本月">本月</SelectItem>
+                            <SelectItem key="quarter" value="quarter" aria-label="本季度">本季度</SelectItem>
+                            <SelectItem key="year" value="year" aria-label="本年">本年</SelectItem>
                         </Select>
-                        <ButtonGroup size="sm">
+                        <ButtonGroup size="sm" aria-label="图表类型选择">
                             <Button
                                 variant={chartType === 'pie' ? 'solid' : 'bordered'}
                                 onPress={() => setChartType('pie')}
+                                aria-label="切换为饼图"
                             >
                                 饼图
                             </Button>
                             <Button
                                 variant={chartType === 'line' ? 'solid' : 'bordered'}
                                 onPress={() => setChartType('line')}
+                                aria-label="切换为趋势图"
                             >
                                 趋势
                             </Button>
                             <Button
                                 variant={chartType === 'bar' ? 'solid' : 'bordered'}
                                 onPress={() => setChartType('bar')}
+                                aria-label="切换为柱状图"
                             >
                                 柱状图
                             </Button>

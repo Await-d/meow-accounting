@@ -37,14 +37,16 @@ async function fetchAPI<T>(
 // 交易记录相关API
 export interface Transaction {
     id: number;
-    amount: number;
     type: 'income' | 'expense';
+    amount: number;
     category_id: number;
     category_name: string;
     category_icon: string;
     description: string;
     date: string;
 }
+
+export type CreateTransactionData = Omit<Transaction, 'id'>;
 
 interface TransactionsResponse {
     data: Transaction[];
@@ -67,9 +69,25 @@ export function useCreateTransaction() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (transaction: Omit<Transaction, 'id'>) =>
+        mutationFn: (transaction: CreateTransactionData) =>
             fetchAPI<Transaction>('/transactions', {
                 method: 'POST',
+                body: JSON.stringify(transaction),
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            queryClient.invalidateQueries({ queryKey: ['statistics'] });
+        },
+    });
+}
+
+export function useUpdateTransaction() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (transaction: Transaction) =>
+            fetchAPI<Transaction>(`/transactions/${transaction.id}`, {
+                method: 'PUT',
                 body: JSON.stringify(transaction),
             }),
         onSuccess: () => {

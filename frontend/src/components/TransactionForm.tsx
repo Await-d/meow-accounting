@@ -1,21 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Button,
-    Input,
-    Select,
-    SelectItem,
-    Textarea
-} from '@nextui-org/react';
-import dayjs from 'dayjs';
-import { useCategories, useCreateTransaction, type Transaction } from '@/lib/api';
+import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from "@nextui-org/react";
+import { useCategories, useCreateTransaction, useUpdateTransaction, type Transaction, type CreateTransactionData } from '@/lib/api';
 import { useToast } from './Toast';
+import { useState, useEffect } from 'react';
 
 interface TransactionFormProps {
     isOpen: boolean;
@@ -23,80 +11,37 @@ interface TransactionFormProps {
     transaction?: Transaction | null;
 }
 
-export default function TransactionForm({ isOpen, onClose, transaction }: TransactionFormProps) {
-    const [type, setType] = useState<'income' | 'expense'>('expense');
+const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps) => {
+    const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
     const [amount, setAmount] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [description, setDescription] = useState('');
-    const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
     const { data: categories = [], isLoading: isLoadingCategories } = useCategories();
     const { showToast } = useToast();
     const createTransaction = useCreateTransaction();
+    const updateTransaction = useUpdateTransaction();
+
+    const filteredCategories = categories.filter(cat => cat.type === transactionType);
 
     // 当编辑模式下，填充表单数据
     useEffect(() => {
         if (transaction) {
-            setType(transaction.type);
+            setTransactionType(transaction.type);
             setAmount(transaction.amount.toString());
             setCategoryId(transaction.category_id.toString());
-            setDescription(transaction.description || '');
+            setDescription(transaction.description);
             setDate(transaction.date);
         }
     }, [transaction]);
 
-    // 重置表单
     const resetForm = () => {
-        setType('expense');
+        setTransactionType('expense');
         setAmount('');
         setCategoryId('');
         setDescription('');
-        setDate(dayjs().format('YYYY-MM-DD'));
-    };
-
-    const handleSubmit = async () => {
-        if (!amount || !categoryId) {
-            showToast('请填写金额和选择分类', 'error');
-            return;
-        }
-
-        try {
-            if (transaction) {
-                // 编辑模式
-                const response = await fetch(`http://localhost:3001/api/transactions/${transaction.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        type,
-                        amount: parseFloat(amount),
-                        category_id: parseInt(categoryId),
-                        description,
-                        date,
-                    }),
-                });
-
-                if (response.ok) {
-                    showToast('修改成功', 'success');
-                    onClose();
-                } else {
-                    showToast('修改失败', 'error');
-                }
-            } else {
-                // 创建模式
-                await createTransaction.mutateAsync({
-                    type,
-                    amount: parseFloat(amount),
-                    category_id: parseInt(categoryId),
-                    description,
-                    date,
-                });
-                showToast('添加成功', 'success');
-                onClose();
-            }
-        } catch (error) {
-            showToast('操作失败', 'error');
-        }
+        setDate(new Date().toISOString().split('T')[0]);
     };
 
     const handleClose = () => {
@@ -104,70 +49,138 @@ export default function TransactionForm({ isOpen, onClose, transaction }: Transa
         onClose();
     };
 
-    const filteredCategories = categories.filter(category => category.type === type);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!amount || !categoryId || !description || !date) {
+            showToast('请填写所有必填字段', 'error');
+            return;
+        }
+
+        const selectedCategory = categories.find(cat => cat.id.toString() === categoryId);
+        if (!selectedCategory) {
+            showToast('请选择有效的分类', 'error');
+            return;
+        }
+
+        const transactionData: CreateTransactionData = {
+            type: transactionType,
+            amount: Number(amount),
+            category_id: Number(categoryId),
+            description,
+            date,
+            category_name: selectedCategory.name,
+            category_icon: selectedCategory.icon,
+        };
+
+        try {
+            if (transaction) {
+                // 编辑模式
+                await updateTransaction.mutateAsync({
+                    ...transactionData,
+                    id: transaction.id,
+                });
+                showToast('修改成功', 'success');
+            } else {
+                // 创建模式
+                await createTransaction.mutateAsync(transactionData);
+                showToast('添加成功', 'success');
+            }
+            onClose();
+            resetForm();
+        } catch (error) {
+            showToast('操作失败：' + (error instanceof Error ? error.message : '未知错误'), 'error');
+        }
+    };
 
     return (
         <Modal isOpen={isOpen} onClose={handleClose} size="lg">
             <ModalContent>
-                <ModalHeader>{transaction ? '编辑交易' : '新增交易'}</ModalHeader>
-                <ModalBody className="gap-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Select
-                            label="类型"
-                            selectedKeys={[type]}
-                            onChange={(e) => setType(e.target.value as 'income' | 'expense')}
-                        >
-                            <SelectItem key="expense" value="expense">支出</SelectItem>
-                            <SelectItem key="income" value="income">收入</SelectItem>
-                        </Select>
-
-                        <Input
-                            type="number"
-                            label="金额"
-                            value={amount}
-                            onValueChange={setAmount}
-                        />
-
-                        <Select
-                            label="分类"
-                            selectedKeys={categoryId ? [categoryId] : []}
-                            onChange={(e) => setCategoryId(e.target.value)}
-                            isLoading={isLoadingCategories}
-                        >
-                            {filteredCategories.map((category) => (
-                                <SelectItem key={category.id.toString()} value={category.id.toString()}>
-                                    <div className="flex items-center gap-2">
-                                        <span>{category.icon}</span>
-                                        <span>{category.name}</span>
-                                    </div>
+                <form onSubmit={handleSubmit}>
+                    <ModalHeader>{transaction ? '编辑交易' : '新增交易'}</ModalHeader>
+                    <ModalBody className="gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Select
+                                label="类型"
+                                selectedKeys={new Set([transactionType])}
+                                onChange={(e) => setTransactionType(e.target.value as 'income' | 'expense')}
+                                aria-label="选择交易类型"
+                            >
+                                <SelectItem
+                                    key="expense"
+                                    value="expense"
+                                    aria-label="支出"
+                                >
+                                    支出
                                 </SelectItem>
-                            ))}
-                        </Select>
+                                <SelectItem
+                                    key="income"
+                                    value="income"
+                                    aria-label="收入"
+                                >
+                                    收入
+                                </SelectItem>
+                            </Select>
 
-                        <Input
-                            type="date"
-                            label="日期"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                        />
+                            <Input
+                                type="number"
+                                label="金额"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                aria-label="输入金额"
+                            />
 
-                        <Textarea
-                            label="描述"
-                            value={description}
-                            onValueChange={setDescription}
-                            className="col-span-2"
-                        />
-                    </div>
-                </ModalBody>
-                <ModalFooter>
-                    <Button color="danger" variant="light" onPress={handleClose}>
-                        取消
-                    </Button>
-                    <Button color="primary" onPress={handleSubmit} isLoading={createTransaction.isPending}>
-                        保存
-                    </Button>
-                </ModalFooter>
+                            <Select
+                                label="分类"
+                                selectedKeys={categoryId ? new Set([categoryId]) : new Set()}
+                                onChange={(e) => setCategoryId(e.target.value)}
+                                isLoading={isLoadingCategories}
+                                aria-label="选择交易分类"
+                            >
+                                {filteredCategories.map((category) => (
+                                    <SelectItem
+                                        key={category.id.toString()}
+                                        value={category.id.toString()}
+                                        textValue={category.name}
+                                        aria-label={category.name}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span aria-hidden="true">{category.icon}</span>
+                                            <span>{category.name}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </Select>
+
+                            <Input
+                                type="date"
+                                label="日期"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                aria-label="选择日期"
+                            />
+
+                            <Input
+                                className="md:col-span-2"
+                                label="描述"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                aria-label="输入交易描述"
+                            />
+                        </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button color="danger" variant="light" onPress={handleClose}>
+                            取消
+                        </Button>
+                        <Button color="primary" type="submit">
+                            确定
+                        </Button>
+                    </ModalFooter>
+                </form>
             </ModalContent>
         </Modal>
     );
-} 
+};
+
+export default TransactionForm; 
