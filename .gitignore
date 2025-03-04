@@ -1,0 +1,59 @@
+# 依赖
+node_modules/
+.pnp/
+.pnp.js
+
+# 测试
+coverage/
+.nyc_output/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# 生产环境
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 调试日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+*.pem
+
+# PWA
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+
+# Sentry
+.sentryclirc
+
+# 其他
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# 本地文件
+TODO.md
+NOTES.md 
+/backend/database/bill.db
