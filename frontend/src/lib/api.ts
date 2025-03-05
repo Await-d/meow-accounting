@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import { LoginData, RegisterData, AuthResponse } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -169,4 +170,40 @@ export function useCreateCategory() {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
         },
     });
+}
+
+// 用户注册
+export async function register(data: RegisterData): Promise<AuthResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || '注册失败');
+    }
+
+    return response.json();
+}
+
+// 用户登录
+export async function login(data: LoginData): Promise<AuthResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || '登录失败');
+    }
+
+    return response.json();
 } 
