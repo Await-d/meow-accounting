@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useCallback, useState, useRef, useMemo } from 'react';
 import {
     Table,
@@ -17,21 +18,26 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter,
+    ButtonGroup,
 } from '@nextui-org/react';
-import { ArrowPathIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, PencilIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import dayjs from 'dayjs';
-import { useTransactions, type Transaction } from '@/lib/api';
+import { useTransactions, type Transaction, type TransactionFilter } from '@/lib/api';
 import { useToast } from './Toast';
 import Skeleton from './Skeleton';
 import TransactionForm from './TransactionForm';
+import { default as TransactionFilterComponent } from './TransactionFilter';
+import TransactionImport from './TransactionImport';
 
 export default function TransactionList() {
     const [page, setPage] = useState(1);
+    const [filter, setFilter] = useState<TransactionFilter>({});
     const containerRef = useRef<HTMLDivElement>(null);
     const { showToast } = useToast();
     const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
     const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+    const { isOpen: isImportOpen, onOpen: onImportOpen, onClose: onImportClose } = useDisclosure();
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
     const {
@@ -42,7 +48,7 @@ export default function TransactionList() {
         hasNextPage,
         fetchNextPage,
         isFetchingNextPage,
-    } = useTransactions();
+    } = useTransactions(filter);
 
     // 合并所有页面的交易记录
     const transactions = useMemo(() => {
@@ -127,14 +133,26 @@ export default function TransactionList() {
         <div className="space-y-4">
             <div className="flex justify-between items-center sticky top-0 bg-background/70 backdrop-blur-lg z-10 py-2">
                 <h2 className="text-xl font-semibold">最近交易</h2>
-                <Button
-                    isIconOnly
-                    variant="light"
-                    onPress={handleRefresh}
-                    isLoading={isRefetching}
-                >
-                    <ArrowPathIcon className="h-5 w-5" />
-                </Button>
+                <div className="flex items-center gap-2">
+                    <TransactionFilterComponent onFilter={setFilter} />
+                    <ButtonGroup>
+                        <Button
+                            variant="flat"
+                            startContent={<ArrowUpTrayIcon className="h-4 w-4" />}
+                            onPress={onImportOpen}
+                        >
+                            导入
+                        </Button>
+                        <Button
+                            isIconOnly
+                            variant="light"
+                            onPress={handleRefresh}
+                            isLoading={isRefetching}
+                        >
+                            <ArrowPathIcon className="h-5 w-5" />
+                        </Button>
+                    </ButtonGroup>
+                </div>
             </div>
 
             <div
@@ -242,6 +260,12 @@ export default function TransactionList() {
                     setSelectedTransaction(null);
                 }}
                 transaction={selectedTransaction}
+            />
+
+            {/* 导入对话框 */}
+            <TransactionImport
+                isOpen={isImportOpen}
+                onClose={onImportClose}
             />
         </div>
     );

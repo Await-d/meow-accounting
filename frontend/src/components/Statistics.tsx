@@ -1,7 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
-import { Card, CardBody } from '@nextui-org/react';
+import { useEffect, useState } from 'react';
+import {
+    Card,
+    CardBody,
+    Select,
+    SelectItem,
+    Button,
+    Table,
+    TableHeader,
+    TableColumn,
+    TableBody,
+    TableRow,
+    TableCell,
+} from '@nextui-org/react';
 import { Line, Pie } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -14,6 +26,7 @@ import {
     Legend,
     ArcElement,
 } from 'chart.js';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { useStatistics } from '@/lib/api';
 import { useToast } from './Toast';
 import Skeleton from './Skeleton';
@@ -32,7 +45,8 @@ ChartJS.register(
 );
 
 export default function Statistics() {
-    const { data: statistics, isLoading, error } = useStatistics();
+    const [timeRange, setTimeRange] = useState<'month' | 'quarter' | 'year'>('month');
+    const { data: statistics, isLoading, error } = useStatistics(timeRange);
     const { showToast } = useToast();
 
     useEffect(() => {
@@ -40,6 +54,31 @@ export default function Statistics() {
             showToast('获取统计数据失败', 'error');
         }
     }, [error, showToast]);
+
+    // 导出CSV
+    const exportToCSV = () => {
+        if (!statistics) return;
+
+        const { details } = statistics;
+        const headers = ['分类', '类型', '交易次数', '总金额'];
+        const rows = details.map(d => [
+            d.category_name,
+            d.type === 'income' ? '收入' : '支出',
+            d.transaction_count,
+            d.total_amount.toFixed(2)
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `统计数据_${new Date().toLocaleDateString()}.csv`;
+        link.click();
+    };
 
     if (isLoading || !statistics) {
         return <Skeleton type="statistics" />;
@@ -88,6 +127,28 @@ export default function Statistics() {
 
     return (
         <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <Select
+                    label="时间范围"
+                    selectedKeys={new Set([timeRange])}
+                    onChange={(e) => setTimeRange(e.target.value as 'month' | 'quarter' | 'year')}
+                    className="w-48"
+                >
+                    <SelectItem key="month" value="month">本月</SelectItem>
+                    <SelectItem key="quarter" value="quarter">本季度</SelectItem>
+                    <SelectItem key="year" value="year">本年</SelectItem>
+                </Select>
+
+                <Button
+                    color="primary"
+                    variant="flat"
+                    startContent={<ArrowDownTrayIcon className="h-4 w-4" />}
+                    onPress={exportToCSV}
+                >
+                    导出数据
+                </Button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="col-span-1">
                     <CardBody>
@@ -154,6 +215,46 @@ export default function Statistics() {
                     </CardBody>
                 </Card>
             </div>
+
+            <Card>
+                <CardBody>
+                    <h3 className="text-lg font-semibold mb-4">详细统计</h3>
+                    <Table aria-label="分类统计详情">
+                        <TableHeader>
+                            <TableColumn>分类</TableColumn>
+                            <TableColumn>类型</TableColumn>
+                            <TableColumn>交易次数</TableColumn>
+                            <TableColumn>总金额</TableColumn>
+                            <TableColumn>占比</TableColumn>
+                        </TableHeader>
+                        <TableBody>
+                            {details.map((detail) => {
+                                const total = detail.type === 'income' ? totalIncome : totalExpense;
+                                const percentage = total > 0 ? (detail.total_amount / total * 100).toFixed(2) : '0.00';
+
+                                return (
+                                    <TableRow key={`${detail.category_name}-${detail.type}`}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <span>{detail.category_icon}</span>
+                                                <span>{detail.category_name}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={detail.type === 'income' ? 'text-success' : 'text-danger'}>
+                                                {detail.type === 'income' ? '收入' : '支出'}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>{detail.transaction_count}</TableCell>
+                                        <TableCell>¥{detail.total_amount.toFixed(2)}</TableCell>
+                                        <TableCell>{percentage}%</TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </CardBody>
+            </Card>
         </div>
     );
 } 

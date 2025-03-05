@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { LoginData, RegisterData, AuthResponse } from './types';
+import { getToken } from '@/utils/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -17,12 +18,16 @@ async function fetchAPI<T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<T> {
+    const token = getToken();
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers,
+    };
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        },
+        headers,
     });
 
     if (!response.ok) {
@@ -55,11 +60,31 @@ interface TransactionsResponse {
     hasMore: boolean;
 }
 
-export function useTransactions(page: number = 1, limit: number = 20) {
+export interface TransactionFilter {
+    startDate?: string;
+    endDate?: string;
+    type?: 'income' | 'expense';
+    categoryId?: number;
+    minAmount?: number;
+    maxAmount?: number;
+}
+
+export function useTransactions(filter: TransactionFilter = {}, page: number = 1, limit: number = 20) {
+    const queryString = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        ...(filter.startDate && { startDate: filter.startDate }),
+        ...(filter.endDate && { endDate: filter.endDate }),
+        ...(filter.type && { type: filter.type }),
+        ...(filter.categoryId && { categoryId: filter.categoryId.toString() }),
+        ...(filter.minAmount && { minAmount: filter.minAmount.toString() }),
+        ...(filter.maxAmount && { maxAmount: filter.maxAmount.toString() }),
+    }).toString();
+
     return useInfiniteQuery({
-        queryKey: ['transactions', limit],
+        queryKey: ['transactions', filter, limit],
         queryFn: ({ pageParam = page }) =>
-            fetchAPI<TransactionsResponse>(`/transactions?page=${pageParam}&limit=${limit}`),
+            fetchAPI<TransactionsResponse>(`/transactions?${queryString}`),
         getNextPageParam: (lastPage, allPages) =>
             lastPage.hasMore ? allPages.length + 1 : undefined,
         initialPageParam: page,
@@ -113,12 +138,26 @@ export interface Statistics {
     }[];
 }
 
-export function useStatistics() {
-    const startDate = dayjs().startOf('month').format('YYYY-MM-DD');
-    const endDate = dayjs().endOf('month').format('YYYY-MM-DD');
+export function useStatistics(timeRange: 'month' | 'quarter' | 'year' = 'month') {
+    const now = dayjs();
+    let startDate: string;
+    let endDate = now.format('YYYY-MM-DD');
+
+    switch (timeRange) {
+        case 'quarter':
+            const quarterStart = Math.floor(now.month() / 3) * 3;
+            startDate = now.month(quarterStart).startOf('month').format('YYYY-MM-DD');
+            break;
+        case 'year':
+            startDate = now.startOf('year').format('YYYY-MM-DD');
+            break;
+        case 'month':
+        default:
+            startDate = now.startOf('month').format('YYYY-MM-DD');
+    }
 
     return useQuery({
-        queryKey: ['statistics', startDate, endDate],
+        queryKey: ['statistics', timeRange],
         queryFn: () =>
             fetchAPI<Statistics>(`/statistics?startDate=${startDate}&endDate=${endDate}`),
         staleTime: 5 * 60 * 1000, // 5分钟后过期
@@ -133,7 +172,7 @@ export interface CategoryStats {
     trend: number[];
 }
 
-export function useCategoryStats(timeRange: 'week' | 'month' | 'quarter' | 'year') {
+export function useCategoryStats(timeRange: 'week' | 'month' | 'quarter' | 'year' = 'month') {
     return useQuery({
         queryKey: ['categoryStats', timeRange],
         queryFn: () => fetchAPI<CategoryStats[]>(`/statistics/categories?range=${timeRange}`),
@@ -206,4 +245,81 @@ export async function login(data: LoginData): Promise<AuthResponse> {
     }
 
     return response.json();
-} 
+}
+
+// 家庭相关类型
+export interface Family {
+    id: number;
+    name: string;
+    description: string;
+    owner_id: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface FamilyMember {
+    id: number;
+    family_id: number;
+    user_id: number;
+    role: 'owner' | 'admin' | 'member';
+    created_at: string;
+    username: string;
+    email: string;
+}
+
+export interface CreateFamilyData {
+    name: string;
+    description: string;
+}
+
+export interface AddFamilyMemberData {
+    userId: number;
+    role: 'admin' | 'member';
+}
+
+// 家庭相关 API
+export async function createFamily(data: CreateFamilyData): Promise<{ id: number }> {
+    return fetchAPI<{ id: number }>('/families', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+export async function getUserFamilies(): Promise<Family[]> {
+    return fetchAPI<Family[]>('/families/user');
+}
+
+export async function getFamilyById(id: number): Promise<Family> {
+    return fetchAPI<Family>(`/families/${id}`);
+}
+
+export async function getFamilyMembers(familyId: number): Promise<FamilyMember[]> {
+    return fetchAPI<FamilyMember[]>(`/families/${familyId}/members`);
+}
+
+export async function addFamilyMember(familyId: number, data: AddFamilyMemberData): Promise<void> {
+    return fetchAPI<void>(`/families/${familyId}/members`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+export async function updateMemberRole(familyId: number, userId: number, role: 'admin' | 'member'): Promise<void> {
+    return fetchAPI<void>(`/families/${familyId}/members/${userId}/role`, {
+        method: 'PUT',
+        body: JSON.stringify({ role })
+    });
+}
+
+export async function removeFamilyMember(familyId: number, userId: number): Promise<void> {
+    return fetchAPI<void>(`/families/${familyId}/members/${userId}`, {
+        method: 'DELETE'
+    });
+}
+
+// 通过邮箱查找用户
+export async function findUserByEmail(email: string): Promise<{ id: number; username: string; email: string }> {
+    return fetchAPI<{ id: number; username: string; email: string }>(
+        `/users/search?email=${encodeURIComponent(email)}`
+    );
+}

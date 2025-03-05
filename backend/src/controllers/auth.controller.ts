@@ -1,5 +1,12 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-05 19:23:46
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-05 22:01:08
+ * @Description: 请填写简介
+ */
 import { Request, Response } from 'express';
-import { createUser, findUserByEmail, verifyPassword } from '../models/user';
+import { createUser, findUserByEmail, findUserById, verifyPassword } from '../models/user';
 import { generateToken } from '../middleware/auth';
 import { validateEmail, validatePassword } from '../utils/validation';
 
@@ -28,13 +35,19 @@ export async function register(req: Request, res: Response) {
 
         // 创建新用户
         const userId = await createUser(username, email, password);
-        const token = generateToken(userId);
+        const user = await findUserById(userId);
+        if (!user) {
+            throw new Error('创建用户失败');
+        }
+
+        const token = generateToken(user);
 
         res.status(201).json({
             user: {
-                id: userId,
-                username,
-                email
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role
             },
             token
         });
@@ -66,13 +79,14 @@ export async function login(req: Request, res: Response) {
         }
 
         // 生成token
-        const token = generateToken(user.id);
+        const token = generateToken(user);
 
         res.json({
             user: {
                 id: user.id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                role: user.role
             },
             token
         });

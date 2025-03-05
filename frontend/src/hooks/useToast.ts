@@ -1,17 +1,35 @@
-import { useToast as useNextUIToast } from '@nextui-org/react';
+/*
+ * @Author: Await
+ * @Date: 2025-03-05 19:27:32
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-05 21:57:26
+ * @Description: 请填写简介
+ */
+import { useDisclosure } from '@nextui-org/react';
+import { useState } from 'react';
 
-type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+interface ToastState {
+    message: string;
+    type: ToastType;
+}
 
 export function useToast() {
-    const { toast } = useNextUIToast();
+    const { isOpen, onOpen, onClose } = useDisclosure();
+    const [state, setState] = useState<ToastState>({ message: '', type: 'info' });
 
     const showToast = (message: string, type: ToastType = 'info') => {
-        toast({
-            description: message,
-            type,
-            duration: 3000,
-        });
+        setState({ message, type });
+        onOpen();
+        setTimeout(onClose, 3000);
     };
 
-    return { showToast };
+    return {
+        showToast,
+        isOpen,
+        onClose,
+        message: state.message,
+        type: state.type,
+    };
 } 

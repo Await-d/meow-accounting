@@ -1,106 +1,91 @@
-/*
- * @Author: Await
- * @Date: 2025-03-04 19:13:33
- * @LastEditors: Await
- * @LastEditTime: 2025-03-04 19:22:52
- * @Description: 请填写简介
- */
-import { createContext, useContext, useState, useCallback } from 'react';
-import { Modal, ModalContent } from '@nextui-org/react';
+'use client';
 
-type ToastType = 'success' | 'error' | 'info' | 'warning';
-
-interface ToastState {
-    open: boolean;
-    message: string;
-    type: ToastType;
-}
+import { createContext, useContext } from 'react';
+import { Modal, ModalContent, ModalBody } from '@nextui-org/react';
+import { useToast as useToastHook } from '@/hooks/useToast';
+import type { ToastType } from '@/hooks/useToast';
 
 interface ToastContextType {
     showToast: (message: string, type?: ToastType) => void;
 }
 
-const ToastContext = createContext<ToastContextType>({
-    showToast: () => { },
-});
+const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-export const useToast = () => useContext(ToastContext);
+export function useToast() {
+    const context = useContext(ToastContext);
+    if (!context) {
+        throw new Error('useToast must be used within a ToastProvider');
+    }
+    return context;
+}
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-    const [toast, setToast] = useState<ToastState>({
-        open: false,
-        message: '',
-        type: 'info',
-    });
+    const toast = useToastHook();
 
-    const showToast = useCallback((message: string, type: ToastType = 'info') => {
-        setToast({
-            open: true,
-            message,
-            type,
-        });
-        // 3秒后自动关闭
-        setTimeout(() => {
-            setToast(prev => ({ ...prev, open: false }));
-        }, 3000);
-    }, []);
-
-    const handleClose = () => {
-        setToast(prev => ({ ...prev, open: false }));
+    const getColorClass = () => {
+        switch (toast.type) {
+            case 'success':
+                return 'bg-success-500';
+            case 'error':
+                return 'bg-danger-500';
+            case 'warning':
+                return 'bg-warning-500';
+            default:
+                return 'bg-primary-500';
+        }
     };
 
-    const getColor = (type: ToastType) => {
-        switch (type) {
+    const getIcon = () => {
+        switch (toast.type) {
             case 'success':
-                return 'success';
+                return '✓';
             case 'error':
-                return 'danger';
+                return '✕';
             case 'warning':
-                return 'warning';
+                return '⚠';
             default:
-                return 'default';
+                return 'ℹ';
         }
     };
 
     return (
-        <ToastContext.Provider value={{ showToast }}>
+        <ToastContext.Provider value={{ showToast: toast.showToast }}>
             {children}
             <Modal
-                isOpen={toast.open}
-                onClose={handleClose}
+                isOpen={toast.isOpen}
+                onClose={toast.onClose}
                 hideCloseButton
-                placement="bottom"
-                classNames={{
-                    wrapper: "items-end",
-                    base: "mb-4 mx-auto max-w-[90vw] min-w-[200px]",
-                }}
+                className="bg-transparent shadow-none fixed top-4 right-4 m-0"
+                size="sm"
+                placement="top"
                 motionProps={{
                     variants: {
                         enter: {
-                            y: 0,
+                            x: 0,
                             opacity: 1,
                             transition: {
                                 duration: 0.3,
-                                ease: "easeOut",
-                            },
+                                ease: "easeOut"
+                            }
                         },
                         exit: {
-                            y: 20,
+                            x: 20,
                             opacity: 0,
                             transition: {
                                 duration: 0.2,
-                                ease: "easeIn",
-                            },
-                        },
+                                ease: "easeIn"
+                            }
+                        }
                     }
                 }}
             >
                 <ModalContent>
-                    <div className={`p-3 text-center text-${getColor(toast.type)}`}>
-                        {toast.message}
-                    </div>
+                    <ModalBody className={`${getColorClass()} text-white rounded-lg p-3 flex items-center gap-2`}>
+                        <span className="text-lg">{getIcon()}</span>
+                        <span>{toast.message}</span>
+                    </ModalBody>
                 </ModalContent>
             </Modal>
         </ToastContext.Provider>
     );
-} 
+}

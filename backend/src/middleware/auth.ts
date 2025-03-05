@@ -1,50 +1,74 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-05 19:23:23
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-05 22:00:33
+ * @Description: 请填写简介
+ */
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { findUserById } from '../models/user';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-export interface AuthRequest extends Request {
-    user?: {
-        id: number;
-        username: string;
-        email: string;
-    };
+// 扩展 Request 类型以包含 user 属性
+declare module 'express' {
+    interface Request {
+        user?: {
+            id: number;
+            username: string;
+            email: string;
+            role: 'admin' | 'user';
+        };
+    }
 }
 
-export async function auth(req: AuthRequest, res: Response, next: NextFunction) {
+// JWT 密钥
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// 生成 JWT token
+export function generateToken(user: { id: number; username: string; email: string; role: string }) {
+    return jwt.sign(
+        { id: user.id, username: user.username, email: user.email, role: user.role },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+    );
+}
+
+// 认证中间件
+export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
     try {
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-
-        if (!token) {
-            throw new Error();
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: '未提供认证令牌' });
         }
 
+        const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
-        const user = await findUserById(decoded.id);
 
+        const user = await findUserById(decoded.id);
         if (!user) {
-            throw new Error();
+            return res.status(401).json({ error: '用户不存在' });
         }
 
+        // 将用户信息添加到请求对象
         req.user = {
             id: user.id,
             username: user.username,
-            email: user.email
+            email: user.email,
+            role: user.role
         };
 
         next();
     } catch (error) {
-        res.status(401).json({ error: '请先登录' });
+        if (error instanceof jwt.JsonWebTokenError) {
+            return res.status(401).json({ error: '无效的认证令牌' });
+        }
+        console.error('认证失败:', error);
+        res.status(500).json({ error: '认证失败' });
     }
 }
 
-export function generateToken(userId: number): string {
-    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '7d' });
-}
-
 // 可选的认证中间件，用于支持访客模式
-export async function optionalAuth(req: AuthRequest, res: Response, next: NextFunction) {
+export async function optionalAuth(req: Request, res: Response, next: NextFunction) {
     try {
         const token = req.header('Authorization')?.replace('Bearer ', '');
 
@@ -56,7 +80,8 @@ export async function optionalAuth(req: AuthRequest, res: Response, next: NextFu
                 req.user = {
                     id: user.id,
                     username: user.username,
-                    email: user.email
+                    email: user.email,
+                    role: user.role
                 };
             }
         }
@@ -66,4 +91,12 @@ export async function optionalAuth(req: AuthRequest, res: Response, next: NextFu
         // 即使认证失败也继续执行
         next();
     }
+}
+
+// 管理员权限中间件
+export function adminMiddleware(req: Request, res: Response, next: NextFunction) {
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({ error: '需要管理员权限' });
+    }
+    next();
 } 
