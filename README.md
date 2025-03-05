@@ -4,6 +4,21 @@
 
 ## 最近更新
 
+### 2024-03-04 (计划中)
+- 👥 添加用户系统
+  - 用户注册和登录
+  - 个人信息管理
+  - 账号安全设置
+- 👨‍👩‍👧‍👦 新增家庭功能
+  - 创建和管理家庭
+  - 邀请家庭成员
+  - 家庭账单共享
+  - 成员权限管理
+- 🔒 隐私模式
+  - 首页隐私控制
+  - 访客浏览模式
+  - 权限分级管理
+
 ### 2024-03-04
 - 🎨 优化分类统计组件的可访问性
 - 📊 改进图表展示效果
@@ -20,6 +35,9 @@
 - 💾 本地存储：数据保存在本地SQLite数据库
 - 🚀 PWA支持：可安装到移动设备
 - ♿ 可访问性：支持屏幕阅读器
+- 👥 多用户支持：用户注册和登录
+- 👨‍👩‍👧‍👦 家庭共享：家庭成员协作记账
+- �� 隐私保护：可控的数据可见性
 
 ## 技术栈
 
@@ -197,6 +215,90 @@ npm start  # 生产环境运行
 - GET `/api/statistics?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`
 - 响应：包含收支统计和分类统计
 
+### 用户管理
+
+#### 用户注册
+- POST `/api/auth/register`
+- 请求体：
+```json
+{
+  "username": "用户名",
+  "email": "邮箱",
+  "password": "密码"
+}
+```
+
+#### 用户登录
+- POST `/api/auth/login`
+- 请求体：
+```json
+{
+  "email": "邮箱",
+  "password": "密码"
+}
+```
+
+#### 获取用户信息
+- GET `/api/user/profile`
+- 响应：用户个人信息
+
+#### 更新用户信息
+- PUT `/api/user/profile`
+- 请求体：用户信息字段
+
+### 家庭管理
+
+#### 创建家庭
+- POST `/api/family`
+- 请求体：
+```json
+{
+  "name": "家庭名称",
+  "description": "描述"
+}
+```
+
+#### 获取家庭信息
+- GET `/api/family/:id`
+- 响应：家庭详细信息
+
+#### 邀请成员
+- POST `/api/family/:id/invite`
+- 请求体：
+```json
+{
+  "email": "成员邮箱",
+  "role": "member|admin"
+}
+```
+
+#### 管理成员权限
+- PUT `/api/family/:id/members/:userId`
+- 请求体：
+```json
+{
+  "role": "member|admin",
+  "permissions": ["read", "write", "manage"]
+}
+```
+
+### 隐私设置
+
+#### 获取隐私设置
+- GET `/api/settings/privacy`
+- 响应：当前隐私设置
+
+#### 更新隐私设置
+- PUT `/api/settings/privacy`
+- 请求体：
+```json
+{
+  "privacyMode": true,
+  "guestAccess": false,
+  "dataVisibility": "private|family|public"
+}
+```
+
 ## 使用说明
 
 1. 添加交易记录
@@ -313,6 +415,21 @@ npm start  # 生产环境运行
 
 ## 开发计划
 
+### 进行中
+- [ ] 用户系统开发
+  - [ ] 用户注册和登录
+  - [ ] 个人信息管理
+  - [ ] 账号安全设置
+- [ ] 家庭功能实现
+  - [ ] 创建和管理家庭
+  - [ ] 邀请家庭成员
+  - [ ] 权限管理系统
+- [ ] 隐私模式
+  - [ ] 首页隐私控制
+  - [ ] 访客模式
+  - [ ] 权限管理
+
+### 后续计划
 - [ ] 添加数据导出功能
 - [ ] 支持预算管理
 - [ ] 添加图表分析
