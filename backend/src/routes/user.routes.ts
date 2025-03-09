@@ -7,7 +7,7 @@
  */
 import express from 'express';
 import * as userController from '../controllers/user.controller';
-import { authMiddleware } from '../middleware/auth';
+import {authMiddleware} from '../middleware/auth';
 
 const router = express.Router();
 
@@ -17,4 +17,16 @@ router.use(authMiddleware);
 // 通过邮箱查找用户
 router.get('/search', userController.findUserByEmail);
 
-export default router; 
+// 更新用户信息
+router.put('/profile', userController.updateProfile);
+
+// 修改密码
+router.put('/password', userController.changePassword);
+
+// 更新隐私设置
+router.put('/privacy', userController.updatePrivacySettings);
+
+// 验证访客密码（不需要认证）
+router.post('/verify-guest', userController.verifyGuestPassword);
+
+export default router;

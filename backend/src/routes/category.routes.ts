@@ -1,12 +1,15 @@
 import express from 'express';
 import * as categoryController from '../controllers/category.controller';
-import { authMiddleware } from '../middleware/auth';
-import { familyMemberMiddleware } from '../middleware/family';
+import {authMiddleware} from '../middleware/auth';
+import {familyMemberMiddleware} from '../middleware/family';
 
 const router = express.Router();
 
 // 所有路由都需要认证
 router.use(authMiddleware);
+
+// 获取默认分类
+router.get('/default', categoryController.getDefaultCategories);
 
 // 创建分类
 router.post('/', familyMemberMiddleware, categoryController.createCategory);
@@ -23,4 +26,4 @@ router.put('/:familyId/:id', familyMemberMiddleware, categoryController.updateCa
 // 删除分类
 router.delete('/:familyId/:id', familyMemberMiddleware, categoryController.deleteCategory);
 
-export default router; 
+export default router;

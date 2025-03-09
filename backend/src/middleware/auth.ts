@@ -5,9 +5,9 @@
  * @LastEditTime: 2025-03-05 22:00:33
  * @Description: 请填写简介
  */
-import { Request, Response, NextFunction } from 'express';
+import {Request, Response, NextFunction} from 'express';
 import jwt from 'jsonwebtoken';
-import { findUserById } from '../models/user';
+import {findUserById} from '../models/user';
 
 // 扩展 Request 类型以包含 user 属性
 declare module 'express' {
@@ -16,7 +16,7 @@ declare module 'express' {
             id: number;
             username: string;
             email: string;
-            role: 'admin' | 'user';
+            role: 'admin' | 'user' | 'owner';
         };
     }
 }
@@ -27,9 +27,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // 生成 JWT token
 export function generateToken(user: { id: number; username: string; email: string; role: string }) {
     return jwt.sign(
-        { id: user.id, username: user.username, email: user.email, role: user.role },
+        {id: user.id, username: user.username, email: user.email, role: user.role},
         JWT_SECRET,
-        { expiresIn: '7d' }
+        {expiresIn: '7d'}
     );
 }
 
@@ -38,7 +38,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: '未提供认证令牌' });
+            return res.status(401).json({error: '未提供认证令牌'});
         }
 
         const token = authHeader.split(' ')[1];
@@ -46,7 +46,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
         const user = await findUserById(decoded.id);
         if (!user) {
-            return res.status(401).json({ error: '用户不存在' });
+            return res.status(401).json({error: '用户不存在'});
         }
 
         // 将用户信息添加到请求对象
@@ -60,10 +60,10 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
         next();
     } catch (error) {
         if (error instanceof jwt.JsonWebTokenError) {
-            return res.status(401).json({ error: '无效的认证令牌' });
+            return res.status(401).json({error: '无效的认证令牌'});
         }
         console.error('认证失败:', error);
-        res.status(500).json({ error: '认证失败' });
+        res.status(500).json({error: '认证失败'});
     }
 }
 
@@ -96,7 +96,7 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
 // 管理员权限中间件
 export function adminMiddleware(req: Request, res: Response, next: NextFunction) {
     if (req.user?.role !== 'admin') {
-        return res.status(403).json({ error: '需要管理员权限' });
+        return res.status(403).json({error: '需要管理员权限'});
     }
     next();
-} 
+}

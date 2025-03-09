@@ -1,4 +1,4 @@
-import { db } from './db';
+import {db} from './db';
 
 // 创建事务表
 export async function createTransactionTable() {
@@ -38,21 +38,15 @@ export async function createTransaction(data: {
     user_id: number;
     family_id: number;
 }) {
+    const {amount, type, category_id, description = '', date, user_id, family_id} = data;
+
     const sql = `
         INSERT INTO transactions (amount, type, category_id, description, date, user_id, family_id)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
-        const result = await db.run(sql, [
-            data.amount,
-            data.type,
-            data.category_id,
-            data.description,
-            data.date,
-            data.user_id,
-            data.family_id
-        ]);
+        const result = await db.run(sql, [amount, type, category_id, description, date, user_id, family_id]) as any;
 
         return {
             id: result.lastID,
@@ -75,7 +69,7 @@ export async function getTransactions(params: {
     pageSize?: number;
 }) {
     let conditions = ['family_id = ?'];
-    const values = [params.family_id];
+    const values: any[] = [params.family_id];
 
     if (params.startDate) {
         conditions.push('date >= ?');
@@ -117,7 +111,7 @@ export async function getTransactions(params: {
             FROM transactions
             WHERE ${conditions.join(' AND ')}
         `;
-        const { total } = await db.get(countSql, values.slice(0, -2));
+        const {total} = await db.get(countSql, values.slice(0, -2));
 
         return {
             data: transactions,
@@ -192,7 +186,7 @@ export async function updateTransaction(id: number, data: {
 
     try {
         await db.run(sql, values);
-        return { id, ...data };
+        return {id, ...data};
     } catch (error) {
         console.error('更新事务失败:', error);
         throw error;
@@ -220,7 +214,7 @@ export async function getCategoryStats(params: {
     type?: 'income' | 'expense';
 }) {
     let conditions = ['t.family_id = ?'];
-    const values = [params.family_id];
+    const values: any[] = [params.family_id];
 
     if (params.startDate) {
         conditions.push('t.date >= ?');
@@ -256,4 +250,48 @@ export async function getCategoryStats(params: {
         console.error('获取分类统计失败:', error);
         throw error;
     }
-} 
+}
+
+// 获取统计数据
+export async function getStatistics({familyId, startDate, endDate}: {
+    familyId: number;
+    startDate: string;
+    endDate: string;
+}) {
+    try {
+        // 获取总收入和支出
+        const summary = await db.get(`
+            SELECT 
+                SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as totalIncome,
+                SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as totalExpense
+            FROM transactions 
+            WHERE family_id = ? AND date BETWEEN ? AND ?
+        `, [familyId, startDate, endDate]) as unknown as { totalIncome: number, totalExpense: number };
+
+        // 获取分类明细
+        const details = await db.all(`
+            SELECT 
+                t.type,
+                c.name as category_name,
+                c.icon as category_icon,
+                SUM(t.amount) as total_amount,
+                COUNT(*) as transaction_count
+            FROM transactions t
+            JOIN categories c ON t.category_id = c.id
+            WHERE t.family_id = ? AND t.date BETWEEN ? AND ?
+            GROUP BY t.type, t.category_id
+            ORDER BY total_amount DESC
+        `, [familyId, startDate, endDate]);
+
+        return {
+            summary: {
+                totalIncome: summary.totalIncome || 0,
+                totalExpense: summary.totalExpense || 0
+            },
+            details
+        };
+    } catch (error) {
+        console.error('获取统计数据失败:', error);
+        throw error;
+    }
+}

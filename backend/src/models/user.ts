@@ -7,6 +7,8 @@ export interface User {
     email: string;
     password: string;
     role: 'admin' | 'user';
+    privacy_mode: boolean;
+    guest_password: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -20,13 +22,15 @@ export function createUserTable() {
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'user',
+            privacy_mode BOOLEAN DEFAULT 0,
+            guest_password TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `;
 
     return new Promise<void>((resolve, reject) => {
-        db.run(sql, (err) => {
+        db.run(sql, (err: Error | null) => {
             if (err) {
                 reject(err);
                 return;
@@ -41,7 +45,7 @@ export async function hasAnyUser(): Promise<boolean> {
     return new Promise((resolve, reject) => {
         const sql = 'SELECT COUNT(*) as count FROM users';
 
-        db.get(sql, (err, row: { count: number }) => {
+        db.get(sql, (err: Error | null, row: { count: number }) => {
             if (err) {
                 reject(err);
                 return;
@@ -57,13 +61,10 @@ export async function createUser(username: string, email: string, password: stri
     const hasUsers = await hasAnyUser();
     const role = hasUsers ? 'user' : 'admin';
 
-    return new Promise((resolve, reject) => {
-        const sql = `
-            INSERT INTO users (username, email, password, role)
-            VALUES (?, ?, ?, ?)
-        `;
+    return new Promise<number>((resolve, reject) => {
+        const sql = 'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)';
 
-        db.run(sql, [username, email, hashedPassword, role], function (err) {
+        db.run(sql, [username, email, hashedPassword, role], function (this: { lastID: number }, err: Error | null) {
             if (err) {
                 reject(err);
                 return;
@@ -105,7 +106,7 @@ export async function findUserById(id: number): Promise<User | null> {
 
 // 更新用户信息
 export function updateUser(id: number, data: Partial<User>): Promise<void> {
-    const { username, email, password } = data;
+    const {username, email, password, privacy_mode, guest_password} = data;
     const updates: string[] = [];
     const values: any[] = [];
 
@@ -120,6 +121,14 @@ export function updateUser(id: number, data: Partial<User>): Promise<void> {
     if (password) {
         updates.push('password = ?');
         values.push(password);
+    }
+    if (privacy_mode !== undefined) {
+        updates.push('privacy_mode = ?');
+        values.push(privacy_mode ? 1 : 0);
+    }
+    if (guest_password !== undefined) {
+        updates.push('guest_password = ?');
+        values.push(guest_password);
     }
 
     updates.push('updated_at = CURRENT_TIMESTAMP');
@@ -145,4 +154,4 @@ export function updateUser(id: number, data: Partial<User>): Promise<void> {
 // 验证密码
 export async function verifyPassword(user: User, password: string): Promise<boolean> {
     return bcrypt.compare(password, user.password);
-} 
+}

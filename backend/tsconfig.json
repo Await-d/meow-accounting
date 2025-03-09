@@ -1,3 +1,10 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-04 18:45:48
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-09 10:12:53
+ * @Description: 请填写简介
+ */
 {
     "compilerOptions": {
         "target": "es6",
@@ -7,7 +14,11 @@
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true
+        "forceConsistentCasingInFileNames": true,
+        "typeRoots": [
+            "./node_modules/@types",
+            "./src/types"
+        ]
     },
     "include": [
         "src/**/*"

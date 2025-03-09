@@ -73,7 +73,7 @@ export const createTransaction = (req: Request, res: Response) => {
     VALUES (?, ?, ?, ?, ?)
   `;
 
-    db.run(query, [amount, type, category_id, description, date], function (err) {
+    db.run(query, [amount, type, category_id, description, date], function (this: { lastID: number }, err: Error | null) {
         if (err) {
             return res.status(500).json({ error: '创建交易记录失败' });
         }
