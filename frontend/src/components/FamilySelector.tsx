@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useCallback } from 'react';
 import {
     Button,
     Dropdown,
@@ -14,15 +16,18 @@ import {
     Input
 } from '@nextui-org/react';
 import { useFamily } from '@/hooks/useFamily';
+import { useCreateFamily } from '@/lib/api';
 import { useToast } from '@/components/Toast';
+import type { Family } from '@/lib/types';
 
 export default function FamilySelector() {
-    const { families, currentFamily, loading, createFamily, switchFamily } = useFamily();
+    const { families = [], currentFamily, isLoading, setCurrentFamily } = useFamily();
     const { isOpen, onOpen, onClose } = useDisclosure();
     const { showToast } = useToast();
-    const [newFamilyName, setNewFamilyName] = React.useState('');
-    const [newFamilyDescription, setNewFamilyDescription] = React.useState('');
-    const [nameError, setNameError] = React.useState('');
+    const [newFamilyName, setNewFamilyName] = useState('');
+    const [newFamilyDescription, setNewFamilyDescription] = useState('');
+    const [nameError, setNameError] = useState('');
+    const { mutate: createFamily, isPending: isCreating } = useCreateFamily();
 
     const validateFamilyName = (name: string) => {
         if (!name || name.trim().length === 0) {
@@ -40,40 +45,61 @@ export default function FamilySelector() {
         setNameError(validateFamilyName(value));
     };
 
-    const handleCreateFamily = async () => {
+    const handleCreateFamily = () => {
         const error = validateFamilyName(newFamilyName);
         if (error) {
             setNameError(error);
             return;
         }
 
-        try {
-            await createFamily({
-                name: newFamilyName,
-                description: newFamilyDescription
-            });
-            onClose();
-            setNewFamilyName('');
-            setNewFamilyDescription('');
-            setNameError('');
-        } catch (error) {
-            showToast('创建家庭失败', 'error');
-        }
+        createFamily({
+            name: newFamilyName,
+            description: newFamilyDescription
+        }, {
+            onSuccess: () => {
+                onClose();
+                setNewFamilyName('');
+                setNewFamilyDescription('');
+                setNameError('');
+                showToast('创建家庭成功', 'success');
+            },
+            onError: () => {
+                showToast('创建家庭失败', 'error');
+            }
+        });
     };
 
+    const handleSwitchFamily = useCallback((familyId: string) => {
+        const family = families.find(f => f.id.toString() === familyId);
+        if (family) {
+            setCurrentFamily(family);
+            showToast('切换家庭成功', 'success');
+        }
+    }, [families, setCurrentFamily, showToast]);
+
     const items = React.useMemo(() => {
-        const menuItems = families.map((family) => ({
+        if (!families || families.length === 0) {
+            return [{
+                key: 'create',
+                label: '创建新家庭',
+                className: 'text-primary'
+            }];
+        }
+
+        const menuItems = families.map((family: Family) => ({
             key: family.id.toString(),
             label: family.name,
-            className: ''
+            className: currentFamily?.id === family.id ? 'text-primary' : ''
         }));
+
         menuItems.push({
             key: 'create',
             label: '创建新家庭',
             className: 'text-primary'
         });
+
         return menuItems;
-    }, [families]);
+    }, [families, currentFamily]);
 
     return (
         <div className="flex items-center gap-2">
@@ -82,7 +108,7 @@ export default function FamilySelector() {
                     <Button
                         variant="bordered"
                         className="min-w-[120px]"
-                        isLoading={loading}
+                        isLoading={isLoading || isCreating}
                     >
                         {currentFamily?.name || '选择家庭'}
                     </Button>
@@ -94,9 +120,11 @@ export default function FamilySelector() {
                         if (key === 'create') {
                             onOpen();
                         } else {
-                            switchFamily(Number(key));
+                            handleSwitchFamily(key.toString());
                         }
                     }}
+                    selectionMode="single"
+                    selectedKeys={currentFamily ? new Set([currentFamily.id.toString()]) : new Set()}
                 >
                     {(item) => (
                         <DropdownItem key={item.key} className={item.className}>
@@ -136,6 +164,7 @@ export default function FamilySelector() {
                             color="primary"
                             onPress={handleCreateFamily}
                             isDisabled={!newFamilyName || !!nameError}
+                            isLoading={isCreating}
                         >
                             创建
                         </Button>

@@ -2,14 +2,14 @@
  * @Author: Await
  * @Date: 2025-03-04 18:52:47
  * @LastEditors: Await
- * @LastEditTime: 2025-03-05 20:37:53
+ * @LastEditTime: 2025-03-07 20:53:33
  * @Description: 请填写简介
  */
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { Providers } from '@/app/providers';
-import { AuthProvider } from '@/providers/AuthProvider';
+import { Providers } from '@/providers';
+import { AuthProvider } from '@/hooks/useAuth';
 import { ToastProvider } from '@/components/Toast';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -56,13 +56,13 @@ export default function RootLayout({
                 <meta name="theme-color" content="#000000" />
             </head>
             <body className={inter.className}>
-                <Providers>
-                    <AuthProvider>
-                        <ToastProvider>
+                <ToastProvider>
+                    <Providers>
+                        <AuthProvider>
                             {children}
-                        </ToastProvider>
-                    </AuthProvider>
-                </Providers>
+                        </AuthProvider>
+                    </Providers>
+                </ToastProvider>
             </body>
         </html>
     );

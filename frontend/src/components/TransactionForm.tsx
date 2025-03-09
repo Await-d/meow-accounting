@@ -1,7 +1,8 @@
 'use client';
 
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from "@nextui-org/react";
-import { useCategories, useCreateTransaction, useUpdateTransaction, type Transaction, type CreateTransactionData } from '@/lib/api';
+import { useCategories, useCreateTransaction, useUpdateTransaction } from '@/lib/api';
+import type { Transaction, CreateTransactionData } from '@/lib/types';
 import { useToast } from './Toast';
 import { useState, useEffect } from 'react';
 
@@ -136,6 +137,7 @@ const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps)
                                 onChange={(e) => setCategoryId(e.target.value)}
                                 isLoading={isLoadingCategories}
                                 aria-label="选择交易分类"
+                                errorMessage={filteredCategories.length === 0 && !isLoadingCategories ? "请先选择一个家庭并添加分类" : undefined}
                             >
                                 {filteredCategories.map((category) => (
                                     <SelectItem
@@ -174,7 +176,7 @@ const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps)
                             取消
                         </Button>
                         <Button color="primary" type="submit">
-                            确定
+                            {transaction ? '保存' : '添加'}
                         </Button>
                     </ModalFooter>
                 </form>

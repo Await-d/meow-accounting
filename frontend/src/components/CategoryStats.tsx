@@ -1,222 +1,353 @@
-import { useState, useEffect } from 'react';
-import { Card, CardBody, Select, SelectItem, Button, ButtonGroup, Spinner } from '@nextui-org/react';
-import { Pie, Line, Bar } from 'react-chartjs-2';
+'use client';
+
+import { useState, useMemo } from 'react';
+import {
+    Card,
+    CardBody,
+    Progress,
+    Chip,
+    Select,
+    SelectItem,
+    Button,
+    ButtonGroup,
+    Tabs,
+    Tab,
+    Tooltip,
+} from '@nextui-org/react';
+import { Pie, Doughnut } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    BarElement,
     ArcElement,
-    Title,
-    Tooltip,
+    Tooltip as ChartTooltip,
     Legend,
-    Colors
+    ChartData,
 } from 'chart.js';
 import { useCategoryStats } from '@/lib/api';
-import { useToast } from './Toast';
+import { useAuth } from '@/hooks/useAuth';
+import { CategoryStats as CategoryStatsType, TimeRange } from '@/lib/types';
 import Skeleton from './Skeleton';
-import type { CategoryStats as CategoryStatsType, TimeRange } from '@/lib/types';
+import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 
-// 注册Chart.js组件
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    BarElement,
-    ArcElement,
-    Title,
-    Tooltip,
-    Legend,
-    Colors
-);
+// 注册 Chart.js 组件
+ChartJS.register(ArcElement, ChartTooltip, Legend);
 
-type ChartType = 'pie' | 'line' | 'bar';
+// 定义颜色常量
+const CHART_COLORS = [
+    'rgba(54, 162, 235, 0.8)',   // 蓝色
+    'rgba(255, 99, 132, 0.8)',   // 红色
+    'rgba(75, 192, 192, 0.8)',   // 青色
+    'rgba(255, 159, 64, 0.8)',   // 橙色
+    'rgba(153, 102, 255, 0.8)',  // 紫色
+    'rgba(255, 205, 86, 0.8)',   // 黄色
+    'rgba(201, 203, 207, 0.8)',  // 灰色
+    'rgba(100, 255, 100, 0.8)',  // 绿色
+    'rgba(200, 100, 100, 0.8)',  // 棕红色
+    'rgba(100, 100, 255, 0.8)',  // 蓝紫色
+];
 
-interface Props {
-    timeRange: TimeRange;
-    onTimeRangeChange?: (range: TimeRange) => void;
-}
-
-interface ChartDataset {
-    label: string;
-    data: number[];
-    borderColor?: string;
-    backgroundColor?: string | string[];
-    tension?: number;
-}
-
-interface CategoryChartData {
-    labels: string[];
-    datasets: ChartDataset[];
-}
-
-export default function CategoryStatsComponent({ timeRange, onTimeRangeChange }: Props) {
-    const [chartType, setChartType] = useState<ChartType>('pie');
-    const { data: categoryData = [], isLoading, error } = useCategoryStats(timeRange);
-    const { showToast } = useToast();
-
-    useEffect(() => {
-        if (error) {
-            showToast('获取分类统计失败', 'error');
+// 图表配置选项
+const CHART_OPTIONS = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: {
+            display: false,
+        },
+        tooltip: {
+            callbacks: {
+                label: function (context: any) {
+                    const label = context.label || '';
+                    const value = context.parsed || 0;
+                    const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    return `${label}: ¥${value.toFixed(2)} (${percentage}%)`;
+                }
+            }
         }
-    }, [error, showToast]);
+    },
+    animation: {
+        animateRotate: true,
+        animateScale: true,
+        duration: 800,
+        easing: 'easeOutQuart' as const,
+    },
+    cutout: '65%', // 中心孔的大小
+};
 
-    if (error || isLoading) {
-        return (
-            <div className="w-full h-[400px] flex items-center justify-center">
-                <Spinner size="lg" />
-            </div>
-        );
-    }
+interface CategoryStatsProps {
+    timeRange: TimeRange;
+    onTimeRangeChange: (range: TimeRange) => void;
+}
 
-    if (categoryData.length === 0) {
-        return (
-            <div className="w-full h-[400px] flex items-center justify-center text-gray-500">
-                暂无数据
-            </div>
-        );
-    }
+export default function CategoryStats({
+    timeRange,
+    onTimeRangeChange
+}: CategoryStatsProps) {
+    const [type, setType] = useState<'income' | 'expense'>('expense');
+    const [chartType, setChartType] = useState<'pie' | 'doughnut'>('doughnut');
+    const [sortBy, setSortBy] = useState<'amount' | 'name'>('amount');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-    // 生成日期标签（最近7天）
-    const dateLabels = Array.from({ length: categoryData[0]?.trend?.length || 0 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - ((categoryData[0]?.trend?.length || 0) - 1 - i));
-        return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-    });
+    const { data: stats, isLoading } = useCategoryStats(timeRange);
+    const { isGuest } = useAuth();
+
+    // 过滤并排序数据
+    const filteredStats = useMemo(() => {
+        if (!stats) return [];
+
+        const filtered = stats.filter(item => item.type === type);
+
+        return [...filtered].sort((a, b) => {
+            if (sortBy === 'amount') {
+                return sortOrder === 'desc' ? b.amount - a.amount : a.amount - b.amount;
+            } else {
+                return sortOrder === 'desc'
+                    ? b.name.localeCompare(a.name)
+                    : a.name.localeCompare(b.name);
+            }
+        });
+    }, [stats, type, sortBy, sortOrder]);
 
     // 准备图表数据
-    const pieData = {
-        labels: categoryData.map(item => item.name),
-        datasets: [{
-            data: categoryData.map(item => item.amount),
-            backgroundColor: [
-                'rgb(255, 99, 132)',
-                'rgb(54, 162, 235)',
-                'rgb(255, 206, 86)',
-                'rgb(75, 192, 192)',
-                'rgb(153, 102, 255)',
-            ],
-        }],
-    };
-
-    const lineData = {
-        labels: dateLabels,
-        datasets: categoryData.map(category => ({
-            label: category.name,
-            data: category.trend || [],
-            tension: 0.1,
-            borderColor: `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`,
-        })),
-    };
-
-    const barData = {
-        labels: categoryData.map(item => item.name),
-        datasets: [{
-            label: '支出金额',
-            data: categoryData.map(item => item.amount),
-            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-            borderColor: 'rgb(54, 162, 235)',
-            borderWidth: 1,
-        }],
-    };
-
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'right' as const,
-            },
-            title: {
-                display: true,
-                text: '分类统计',
-            },
-        },
-    };
-
-    const renderChart = () => {
-        switch (chartType) {
-            case 'pie':
-                return <Pie data={pieData} options={chartOptions} />;
-            case 'line':
-                return <Line data={lineData} options={chartOptions} />;
-            case 'bar':
-                return <Bar data={barData} options={chartOptions} />;
-            default:
-                return null;
+    const chartData: ChartData<'pie' | 'doughnut'> = useMemo(() => {
+        if (!filteredStats || filteredStats.length === 0) {
+            return {
+                labels: ['暂无数据'],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: ['#e5e7eb'],
+                }]
+            };
         }
-    };
 
-    return (
-        <Card className="w-full">
-            <CardBody className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold">分类统计</h2>
-                    <div className="flex gap-2">
+        return {
+            labels: filteredStats.map(item => item.name),
+            datasets: [{
+                data: filteredStats.map(item => isGuest ? Math.random() * 100 : item.amount),
+                backgroundColor: filteredStats.map((_, index) => CHART_COLORS[index % CHART_COLORS.length]),
+                borderWidth: 1,
+                hoverOffset: 8,
+            }]
+        };
+    }, [filteredStats, isGuest]);
+
+    // 计算总额
+    const totalAmount = useMemo(() => {
+        if (!filteredStats || filteredStats.length === 0) return 0;
+        return filteredStats.reduce((sum, item) => sum + item.amount, 0);
+    }, [filteredStats]);
+
+    if (isLoading) {
+        return <Skeleton type="categoryStats" />;
+    }
+
+    // 检查是否有统计数据
+    if (!stats || stats.length === 0) {
+        return (
+            <Card className="w-full">
+                <CardBody className="flex flex-col items-center justify-center p-8 gap-4">
+                    <p className="text-default-500">暂无分类统计数据</p>
+                    <p className="text-sm text-default-400">添加更多交易记录以查看分类统计</p>
+                </CardBody>
+            </Card>
+        );
+    }
+
+    // 检查当前类型是否有数据
+    if (filteredStats.length === 0) {
+        return (
+            <Card className="w-full">
+                <CardBody className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <ButtonGroup>
+                            <Button
+                                color={type === 'expense' ? 'danger' : 'default'}
+                                variant={type === 'expense' ? 'solid' : 'bordered'}
+                                onPress={() => setType('expense')}
+                            >
+                                支出
+                            </Button>
+                            <Button
+                                color={type === 'income' ? 'success' : 'default'}
+                                variant={type === 'income' ? 'solid' : 'bordered'}
+                                onPress={() => setType('income')}
+                            >
+                                收入
+                            </Button>
+                        </ButtonGroup>
+
                         <Select
                             size="sm"
-                            value={timeRange}
-                            onChange={(e) => onTimeRangeChange?.(e.target.value as TimeRange)}
-                            className="min-w-[120px]"
-                            classNames={{
-                                trigger: "min-w-[120px]",
-                                listbox: "min-w-[120px]"
-                            }}
-                            aria-label="选择时间范围"
-                            label="时间范围"
+                            className="w-36"
+                            selectedKeys={[timeRange]}
+                            onChange={(e) => onTimeRangeChange(e.target.value as TimeRange)}
                         >
-                            <SelectItem key="week" value="week" aria-label="本周">本周</SelectItem>
-                            <SelectItem key="month" value="month" aria-label="本月">本月</SelectItem>
-                            <SelectItem key="quarter" value="quarter" aria-label="本季度">本季度</SelectItem>
-                            <SelectItem key="year" value="year" aria-label="本年">本年</SelectItem>
+                            <SelectItem key="week" value="week">本周</SelectItem>
+                            <SelectItem key="month" value="month">本月</SelectItem>
+                            <SelectItem key="quarter" value="quarter">本季度</SelectItem>
+                            <SelectItem key="year" value="year">本年</SelectItem>
                         </Select>
-                        <ButtonGroup size="sm" aria-label="图表类型选择">
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center p-8 gap-2">
+                        <p className="text-default-500">暂无{type === 'expense' ? '支出' : '收入'}分类数据</p>
+                        <Button
+                            color={type === 'expense' ? 'success' : 'danger'}
+                            variant="flat"
+                            className="mt-2"
+                            onPress={() => setType(type === 'expense' ? 'income' : 'expense')}
+                        >
+                            查看{type === 'expense' ? '收入' : '支出'}分类
+                        </Button>
+                    </div>
+                </CardBody>
+            </Card>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <Tabs
+                    selectedKey={type}
+                    onSelectionChange={(key) => setType(key as 'expense' | 'income')}
+                    color={type === 'expense' ? 'danger' : 'success'}
+                    variant="bordered"
+                    size="sm"
+                    classNames={{
+                        tabList: "gap-2",
+                    }}
+                >
+                    <Tab key="expense" title="支出" />
+                    <Tab key="income" title="收入" />
+                </Tabs>
+
+                <div className="flex items-center gap-2">
+                    <ButtonGroup size="sm">
+                        <Tooltip content="饼图" placement="top">
                             <Button
+                                isIconOnly
                                 variant={chartType === 'pie' ? 'solid' : 'bordered'}
+                                color="primary"
                                 onPress={() => setChartType('pie')}
-                                aria-label="切换为饼图"
                             >
-                                饼图
+                                ◔
+                            </Button>
+                        </Tooltip>
+                        <Tooltip content="环形图" placement="top">
+                            <Button
+                                isIconOnly
+                                variant={chartType === 'doughnut' ? 'solid' : 'bordered'}
+                                color="primary"
+                                onPress={() => setChartType('doughnut')}
+                            >
+                                ◕
+                            </Button>
+                        </Tooltip>
+                    </ButtonGroup>
+
+                    <Select
+                        size="sm"
+                        className="w-24 min-w-fit"
+                        selectedKeys={[timeRange]}
+                        onChange={(e) => onTimeRangeChange(e.target.value as TimeRange)}
+                    >
+                        <SelectItem key="week" value="week">本周</SelectItem>
+                        <SelectItem key="month" value="month">本月</SelectItem>
+                        <SelectItem key="quarter" value="quarter">本季度</SelectItem>
+                        <SelectItem key="year" value="year">本年</SelectItem>
+                    </Select>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="h-64 relative flex items-center justify-center">
+                    {chartType === 'pie' ? (
+                        <Pie data={chartData} options={CHART_OPTIONS} />
+                    ) : (
+                        <Doughnut data={chartData} options={CHART_OPTIONS} />
+                    )}
+                    {chartType === 'doughnut' && (
+                        <div className="absolute inset-0 flex items-center justify-center flex-col">
+                            <div className="text-xs text-default-500">总{type === 'expense' ? '支出' : '收入'}</div>
+                            <div className={`text-lg font-bold ${type === 'expense' ? 'text-danger' : 'text-success'}`}>
+                                ¥{isGuest ? '***' : totalAmount.toFixed(2)}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-2 h-64 overflow-y-auto pr-1">
+                    <div className="flex justify-between items-center text-xs text-default-500 px-2 py-1">
+                        <Button
+                            size="sm"
+                            variant="light"
+                            className="!p-1 min-w-8 h-6"
+                            startContent={sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
+                            onPress={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        >
+                            排序
+                        </Button>
+                        <ButtonGroup size="sm">
+                            <Button
+                                size="sm"
+                                variant={sortBy === 'name' ? 'solid' : 'bordered'}
+                                className="!p-1 min-w-8 h-6"
+                                onPress={() => setSortBy('name')}
+                            >
+                                名称
                             </Button>
                             <Button
-                                variant={chartType === 'line' ? 'solid' : 'bordered'}
-                                onPress={() => setChartType('line')}
-                                aria-label="切换为趋势图"
+                                size="sm"
+                                variant={sortBy === 'amount' ? 'solid' : 'bordered'}
+                                className="!p-1 min-w-8 h-6"
+                                onPress={() => setSortBy('amount')}
                             >
-                                趋势
-                            </Button>
-                            <Button
-                                variant={chartType === 'bar' ? 'solid' : 'bordered'}
-                                onPress={() => setChartType('bar')}
-                                aria-label="切换为柱状图"
-                            >
-                                柱状图
+                                金额
                             </Button>
                         </ButtonGroup>
                     </div>
-                </div>
-
-                <div className="h-[300px]">
-                    {renderChart()}
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {categoryData.map(category => (
-                        <Card key={category.name} className="p-4">
-                            <div className="text-center">
-                                <p className="text-default-500">{category.name}</p>
-                                <p className="text-xl font-bold">¥{category.amount.toFixed(2)}</p>
-                                <p className="text-small text-default-400">
-                                    {category.percentage.toFixed(1)}%
-                                </p>
-                            </div>
+                    {filteredStats.map((item, index) => (
+                        <Card key={item.name} className="w-full shadow-none border border-default-100 animate-fadeIn" style={{ animationDelay: `${index * 50}ms` }}>
+                            <CardBody className="py-2 px-3">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}></div>
+                                        <span className="text-sm font-medium line-clamp-1">
+                                            {item.category_icon} {item.name}
+                                        </span>
+                                    </div>
+                                    <div className={`text-sm font-semibold ${type === 'expense' ? 'text-danger' : 'text-success'}`}>
+                                        {isGuest ? '***' : `¥${item.amount.toFixed(2)}`}
+                                    </div>
+                                </div>
+                                <div className="mt-1">
+                                    <Progress
+                                        size="sm"
+                                        value={item.percentage}
+                                        maxValue={100}
+                                        color={type === 'expense' ? 'danger' : 'success'}
+                                        className="mt-1"
+                                        showValueLabel={true}
+                                        formatOptions={{ style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }}
+                                    />
+                                </div>
+                            </CardBody>
                         </Card>
                     ))}
                 </div>
-            </CardBody>
-        </Card>
+            </div>
+
+            {/* 添加全局样式 */}
+            <style jsx global>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.5s ease-out forwards;
+                }
+            `}</style>
+        </div>
     );
 } 

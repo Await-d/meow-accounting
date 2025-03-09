@@ -1,0 +1,278 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
+import { useToast } from '@/components/Toast';
+import { fetchAPI } from '@/lib/api';
+import type { Family, FamilyMember, User } from '@/lib/types';
+
+export function useFamily() {
+    const { user, updateUser } = useAuth();
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+
+    // 获取家庭列表
+    const { data: families, isLoading: isLoadingFamilies } = useQuery({
+        queryKey: ['families'],
+        queryFn: () => fetchAPI<Family[]>('/families/user'),
+        staleTime: 30 * 1000,
+        gcTime: 5 * 60 * 1000,
+    });
+
+    // 获取当前家庭成员
+    const { data: members, isLoading: isLoadingMembers } = useQuery({
+        queryKey: ['familyMembers', user?.currentFamilyId],
+        queryFn: () => fetchAPI<FamilyMember[]>(`/families/${user?.currentFamilyId}/members`),
+        enabled: !!user?.currentFamilyId,
+        staleTime: 30 * 1000,
+        gcTime: 5 * 60 * 1000,
+    });
+
+    // 获取用户的待处理邀请
+    const userInvitations = useUserInvitations();
+
+    // 设置当前家庭
+    const setCurrentFamily = useCallback(
+        (family: Family) => {
+            if (user) {
+                updateUser({
+                    ...user,
+                    currentFamilyId: family.id,
+                } as User);
+                showToast('已切换到' + family.name, 'success');
+            }
+        },
+        [user, updateUser, showToast]
+    );
+
+    return {
+        families,
+        members,
+        currentFamily: families?.find((f: Family) => f.id === user?.currentFamilyId),
+        isLoading: isLoadingFamilies || isLoadingMembers,
+        setCurrentFamily,
+        userInvitations,
+    };
+}
+
+export function useCreateFamily() {
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+
+    return useMutation({
+        mutationFn: (data: { name: string; description: string }) =>
+            fetchAPI<Family>('/families', {
+                method: 'POST',
+                body: JSON.stringify(data),
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['families'] });
+            showToast('创建成功', 'success');
+        },
+        onError: () => {
+            showToast('创建失败', 'error');
+        },
+    });
+}
+
+export function useUpdateFamily() {
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+
+    return useMutation({
+        mutationFn: (data: Family) =>
+            fetchAPI<Family>(`/families/${data.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data),
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['families'] });
+            showToast('更新成功', 'success');
+        },
+        onError: () => {
+            showToast('更新失败', 'error');
+        },
+    });
+}
+
+export function useDeleteFamily() {
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+
+    return useMutation({
+        mutationFn: (id: number) =>
+            fetchAPI(`/families/${id}`, {
+                method: 'DELETE',
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['families'] });
+            showToast('删除成功', 'success');
+        },
+        onError: () => {
+            showToast('删除失败', 'error');
+        },
+    });
+}
+
+export function useAddFamilyMember() {
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+
+    return useMutation({
+        mutationFn: (data: {
+            familyId: number;
+            email: string;
+            role: 'admin' | 'member';
+            isGeneric?: boolean;
+            expiresInHours?: number;
+            maxUses?: number;
+        }) =>
+            fetchAPI<{ message: string; inviteLink: string; token: string; isGeneric: boolean; expiresInHours: number; maxUses: number }>(`/families/${data.familyId}/members`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    email: data.email,
+                    role: data.role,
+                    isGeneric: data.isGeneric,
+                    expiresInHours: data.expiresInHours,
+                    maxUses: data.maxUses
+                }),
+            }),
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ['familyMembers', variables.familyId],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ['familyInvitations', variables.familyId],
+            });
+            showToast(data.isGeneric ? '通用邀请链接已创建' : '邀请已发送', 'success');
+            return data;
+        },
+        onError: () => {
+            showToast('邀请发送失败', 'error');
+        },
+    });
+}
+
+export function useUpdateMemberRole() {
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+
+    return useMutation({
+        mutationFn: (data: { familyId: number; memberId: number; role: 'admin' | 'member' }) =>
+            fetchAPI<FamilyMember>(`/families/${data.familyId}/members/${data.memberId}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    role: data.role,
+                }),
+            }),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ['familyMembers', variables.familyId],
+            });
+            showToast('更新成功', 'success');
+        },
+        onError: () => {
+            showToast('更新失败', 'error');
+        },
+    });
+}
+
+export function useRemoveFamilyMember() {
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+    const { user, updateUser } = useAuth();
+
+    return useMutation({
+        mutationFn: (data: { familyId: number; memberId: number }) => {
+            console.log('调用移除成员API:', data);
+            return fetchAPI(`/families/${data.familyId}/members/${data.memberId}`, {
+                method: 'DELETE',
+            });
+        },
+        onSuccess: (response, variables) => {
+            console.log('移除成员成功，刷新数据:', variables);
+            queryClient.invalidateQueries({
+                queryKey: ['familyMembers', variables.familyId],
+            });
+
+            // 如果是自己退出家庭，需要更新当前家庭ID
+            if (user && variables.memberId === user.id) {
+                // 查询用户的其他家庭
+                queryClient.invalidateQueries({ queryKey: ['families'] });
+
+                // 更新用户的当前家庭ID为undefined
+                updateUser({
+                    ...user,
+                    currentFamilyId: undefined,
+                });
+
+                showToast('您已成功退出家庭', 'success');
+            } else {
+                showToast('移除成功', 'success');
+            }
+        },
+        onError: (error) => {
+            console.error('移除成员失败:', error);
+            showToast('移除失败', 'error');
+        },
+    });
+}
+
+// 获取家庭的所有邀请
+export function useFamilyInvitations(familyId?: number) {
+    return useQuery({
+        queryKey: ['familyInvitations', familyId],
+        queryFn: () => fetchAPI<any[]>(`/families/${familyId}/invitations`),
+        enabled: !!familyId,
+        staleTime: 30 * 1000,
+        gcTime: 5 * 60 * 1000,
+    });
+}
+
+// 删除邀请
+export function useDeleteInvitation() {
+    const queryClient = useQueryClient();
+    const { showToast } = useToast();
+
+    return useMutation({
+        mutationFn: (data: { familyId: number; invitationId: number }) =>
+            fetchAPI(`/families/${data.familyId}/invitations/${data.invitationId}`, {
+                method: 'DELETE',
+            }),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ['familyInvitations', variables.familyId],
+            });
+            showToast('邀请已删除', 'success');
+        },
+        onError: (error) => {
+            console.error('删除邀请失败:', error);
+            showToast('删除邀请失败', 'error');
+        },
+    });
+}
+
+// 获取用户的待处理邀请
+export function useUserInvitations() {
+    const { showToast } = useToast();
+
+    return useQuery({
+        queryKey: ['userInvitations'],
+        queryFn: async () => {
+            try {
+                // 使用fetchAPI函数，确保正确处理认证
+                const data = await fetchAPI<any[]>('/families/invitations');
+                console.log('获取到的用户邀请:', data);
+                return data || [];
+            } catch (error) {
+                console.error('获取用户邀请失败:', error);
+                showToast('获取邀请失败', 'error');
+                return [];
+            }
+        },
+        staleTime: 30 * 1000,
+        gcTime: 5 * 60 * 1000,
+        retry: 3,
+    });
+} 
