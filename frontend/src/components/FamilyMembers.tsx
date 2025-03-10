@@ -25,12 +25,12 @@ import { useFamily } from '@/hooks/useFamily';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/Toast';
 import { findUserByEmail } from '@/lib/api';
-import type { FamilyMember } from '@/lib/api';
+import type { FamilyMember } from '@/lib/types';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function FamilyMembers() {
-    const { currentFamily, members, loading, addMember, updateRole, removeMember, isAdmin } = useFamily();
+    const { currentFamily, members, isLoading, addMember, updateRole, removeMember, isAdmin } = useFamily();
     const { isOpen, onOpen, onClose } = useDisclosure();
     const { showToast } = useToast();
     const { user } = useAuth();
@@ -72,7 +72,7 @@ export default function FamilyMembers() {
             const foundUser = await findUserByEmail(newMemberEmail);
 
             // 检查用户是否已经是成员
-            if (members.some(member => member.user_id === foundUser.id)) {
+            if ((members || []).some(member => member.user_id === foundUser.id)) {
                 showToast('该用户已经是家庭成员', 'error');
                 return;
             }
@@ -203,7 +203,7 @@ export default function FamilyMembers() {
                 </TableHeader>
                 <TableBody
                     items={members}
-                    isLoading={loading}
+                    isLoading={isLoading}
                     loadingContent={<div>加载中...</div>}
                 >
                     {(member) => (

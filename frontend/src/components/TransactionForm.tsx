@@ -19,7 +19,7 @@ const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps)
     const [description, setDescription] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const { data: categories = [], isLoading: isLoadingCategories } = useCategories();
+    const { categories = [], isLoading: isLoadingCategories } = useCategories();
     const { showToast } = useToast();
     const createTransaction = useCreateTransaction();
     const updateTransaction = useUpdateTransaction();

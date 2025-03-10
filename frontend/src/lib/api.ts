@@ -16,7 +16,8 @@ import {
     CreateFamilyData,
     AddFamilyMemberData,
     APIError,
-    User
+    User,
+    UserSettings
 } from './types';
 import { getToken, removeToken } from '@/utils/auth';
 import { useAuth } from '@/hooks/useAuth';
@@ -715,4 +716,22 @@ export function useExportTransactions() {
             }
         },
     });
+}
+
+// 更新用户设置
+export async function updateUserSettings(settings: UserSettings): Promise<User> {
+    const response = await fetch('/api/user/settings', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+        },
+        body: JSON.stringify(settings)
+    });
+
+    if (!response.ok) {
+        throw new APIError(response.status, await response.text());
+    }
+
+    return response.json();
 }

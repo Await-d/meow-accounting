@@ -3,212 +3,140 @@
 import { useState } from 'react';
 import {
     Card,
+    CardHeader,
     CardBody,
-    Input,
     Button,
-    Divider,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    useDisclosure,
+    Input,
+    Select,
+    SelectItem,
+    Divider
 } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/components/Toast';
-import { useUpdateProfile, useChangePassword } from '@/lib/api';
+import { useRoute } from '@/hooks/useRoute';
+import { useToast } from '@/hooks/useToast';
+import { UserSettings } from '@/lib/types';
 
 export default function ProfilePage() {
-    const { user, updateUser } = useAuth();
-    const { mutate: updateProfile } = useUpdateProfile();
-    const { mutate: changePassword } = useChangePassword();
-    const { isOpen, onOpen, onClose } = useDisclosure();
+    const { user, updateSettings } = useAuth();
+    const { userRoutes, familyRoutes } = useRoute();
     const { showToast } = useToast();
-    const [isLoading, setIsLoading] = useState(false);
-    const [formData, setFormData] = useState({
-        username: user?.username || '',
-        email: user?.email || '',
-    });
-    const [passwordData, setPasswordData] = useState({
-        oldPassword: '',
-        newPassword: '',
-        confirmPassword: '',
+
+    const [settings, setSettings] = useState<UserSettings>({
+        privacy_mode: user?.privacy_mode || false,
+        default_route: user?.default_route || '/dashboard',
+        currentFamilyId: user?.currentFamilyId
     });
 
-    const handleProfileUpdate = async () => {
-        if (!formData.username || !formData.email) {
-            showToast('请填写完整信息', 'error');
-            return;
-        }
-
+    // 处理设置更新
+    const handleUpdate = async () => {
         try {
-            setIsLoading(true);
-            await updateProfile(formData);
-            updateUser({
-                ...user!,
-                ...formData,
-            });
-            showToast('更新成功', 'success');
+            await updateSettings(settings);
+            showToast('设置更新成功', 'success');
         } catch (error) {
-            showToast('更新失败', 'error');
-        } finally {
-            setIsLoading(false);
+            showToast('设置更新失败', 'error');
         }
     };
 
-    const handlePasswordChange = async () => {
-        if (
-            !passwordData.oldPassword ||
-            !passwordData.newPassword ||
-            !passwordData.confirmPassword
-        ) {
-            showToast('请填写完整信息', 'error');
-            return;
-        }
+    // 获取可用的路由选项
+    const getRouteOptions = () => {
+        const options = [
+            { key: '/dashboard', label: '仪表盘' }
+        ];
 
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
-            showToast('两次输入的密码不一致', 'error');
-            return;
-        }
+        // 添加个人路由
+        userRoutes?.forEach(route => {
+            if (route.is_active) {
+                options.push({
+                    key: route.path,
+                    label: `个人 - ${route.name}`
+                });
+            }
+        });
 
-        try {
-            setIsLoading(true);
-            await changePassword({
-                old_password: passwordData.oldPassword,
-                new_password: passwordData.newPassword,
-            });
-            showToast('密码修改成功', 'success');
-            onClose();
-            setPasswordData({
-                oldPassword: '',
-                newPassword: '',
-                confirmPassword: '',
-            });
-        } catch (error) {
-            showToast('密码修改失败', 'error');
-        } finally {
-            setIsLoading(false);
-        }
+        // 添加家庭路由
+        familyRoutes?.forEach(route => {
+            if (route.is_active) {
+                options.push({
+                    key: route.path,
+                    label: `家庭 - ${route.name}`
+                });
+            }
+        });
+
+        return options;
     };
 
     return (
         <div className="space-y-6">
             <Card>
+                <CardHeader>
+                    <h2 className="text-xl font-bold">个人设置</h2>
+                </CardHeader>
+                <Divider />
                 <CardBody className="space-y-6">
                     <div>
-                        <h2 className="text-xl font-semibold mb-4">个人资料</h2>
-                        <p className="text-default-500 text-sm">
-                            您可以在这里修改您的个人信息
-                        </p>
-                    </div>
-
-                    <Divider />
-
-                    <div className="space-y-4">
-                        <Input
-                            label="用户名"
-                            value={formData.username}
-                            onChange={(e) =>
-                                setFormData({ ...formData, username: e.target.value })
-                            }
-                        />
-                        <Input
-                            label="邮箱"
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) =>
-                                setFormData({ ...formData, email: e.target.value })
-                            }
-                        />
-                        <Button
-                            color="primary"
-                            onPress={handleProfileUpdate}
-                            isLoading={isLoading}
-                        >
-                            保存修改
-                        </Button>
-                    </div>
-                </CardBody>
-            </Card>
-
-            <Card>
-                <CardBody className="space-y-6">
-                    <div>
-                        <h2 className="text-xl font-semibold mb-4">安全设置</h2>
-                        <p className="text-default-500 text-sm">
-                            修改您的登录密码
-                        </p>
-                    </div>
-
-                    <Divider />
-
-                    <div>
-                        <Button
-                            color="primary"
-                            variant="flat"
-                            onPress={onOpen}
-                            isDisabled={isLoading}
-                        >
-                            修改密码
-                        </Button>
-                    </div>
-                </CardBody>
-            </Card>
-
-            <Modal isOpen={isOpen} onClose={onClose}>
-                <ModalContent>
-                    <ModalHeader>修改密码</ModalHeader>
-                    <ModalBody>
+                        <h3 className="text-lg font-semibold mb-4">基本信息</h3>
                         <div className="space-y-4">
                             <Input
-                                type="password"
-                                label="当前密码"
-                                value={passwordData.oldPassword}
-                                onChange={(e) =>
-                                    setPasswordData({
-                                        ...passwordData,
-                                        oldPassword: e.target.value,
-                                    })
-                                }
+                                label="用户名"
+                                value={user?.username || ''}
+                                isReadOnly
                             />
                             <Input
-                                type="password"
-                                label="新密码"
-                                value={passwordData.newPassword}
-                                onChange={(e) =>
-                                    setPasswordData({
-                                        ...passwordData,
-                                        newPassword: e.target.value,
-                                    })
-                                }
-                            />
-                            <Input
-                                type="password"
-                                label="确认新密码"
-                                value={passwordData.confirmPassword}
-                                onChange={(e) =>
-                                    setPasswordData({
-                                        ...passwordData,
-                                        confirmPassword: e.target.value,
-                                    })
-                                }
+                                label="邮箱"
+                                value={user?.email || ''}
+                                isReadOnly
                             />
                         </div>
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button variant="bordered" onPress={onClose}>
-                            取消
-                        </Button>
+                    </div>
+
+                    <Divider />
+
+                    <div>
+                        <h3 className="text-lg font-semibold mb-4">偏好设置</h3>
+                        <div className="space-y-4">
+                            <Select
+                                label="默认路由"
+                                placeholder="选择默认路由"
+                                selectedKeys={[settings.default_route]}
+                                onChange={(e) => setSettings({
+                                    ...settings,
+                                    default_route: e.target.value
+                                })}
+                            >
+                                {getRouteOptions().map((option) => (
+                                    <SelectItem key={option.key} value={option.key}>
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="privacy_mode"
+                                    checked={settings.privacy_mode}
+                                    onChange={(e) => setSettings({
+                                        ...settings,
+                                        privacy_mode: e.target.checked
+                                    })}
+                                    className="w-4 h-4"
+                                />
+                                <label htmlFor="privacy_mode">隐私模式</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end">
                         <Button
                             color="primary"
-                            onPress={handlePasswordChange}
-                            isLoading={isLoading}
+                            onPress={handleUpdate}
                         >
-                            确认修改
+                            保存设置
                         </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </div>
+                </CardBody>
+            </Card>
         </div>
     );
 } 

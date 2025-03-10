@@ -109,7 +109,7 @@ export default function CategoryStats({
     }, [stats, type, sortBy, sortOrder]);
 
     // 准备图表数据
-    const chartData: ChartData<'pie' | 'doughnut'> = useMemo(() => {
+    const getChartData = (type: 'pie' | 'doughnut') => {
         if (!filteredStats || filteredStats.length === 0) {
             return {
                 labels: ['暂无数据'],
@@ -129,7 +129,7 @@ export default function CategoryStats({
                 hoverOffset: 8,
             }]
         };
-    }, [filteredStats, isGuest]);
+    };
 
     // 计算总额
     const totalAmount = useMemo(() => {
@@ -138,7 +138,7 @@ export default function CategoryStats({
     }, [filteredStats]);
 
     if (isLoading) {
-        return <Skeleton type="categoryStats" />;
+        return <Skeleton type="statistics" />;
     }
 
     // 检查是否有统计数据
@@ -263,9 +263,9 @@ export default function CategoryStats({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="h-64 relative flex items-center justify-center">
                     {chartType === 'pie' ? (
-                        <Pie data={chartData} options={CHART_OPTIONS} />
+                        <Pie data={getChartData('pie')} options={CHART_OPTIONS} />
                     ) : (
-                        <Doughnut data={chartData} options={CHART_OPTIONS} />
+                        <Doughnut data={getChartData('doughnut')} options={CHART_OPTIONS} />
                     )}
                     {chartType === 'doughnut' && (
                         <div className="absolute inset-0 flex items-center justify-center flex-col">

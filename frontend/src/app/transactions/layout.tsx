@@ -1,8 +1,8 @@
 /*
  * @Author: Await
- * @Date: 2025-03-05 20:41:03
+ * @Date: 2025-03-10 19:44:17
  * @LastEditors: Await
- * @LastEditTime: 2025-03-10 19:48:45
+ * @LastEditTime: 2025-03-10 19:44:48
  * @Description: 请填写简介
  */
 'use client';
@@ -15,7 +15,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Suspense } from 'react';
 import { Spinner } from '@nextui-org/react';
 
-export default function SettingsLayout({
+export default function TransactionsLayout({
     children,
 }: {
     children: React.ReactNode;
@@ -25,9 +25,9 @@ export default function SettingsLayout({
 
     // 页面切换动画
     const pageTransition = {
-        initial: { opacity: 0, y: 20 },
-        animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -20 }
+        initial: { opacity: 0, x: 20 },
+        animate: { opacity: 1, x: 0 },
+        exit: { opacity: 0, x: -20 }
     };
 
     return (
@@ -42,7 +42,7 @@ export default function SettingsLayout({
                     animate="animate"
                     exit="exit"
                     variants={pageTransition}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    transition={{ duration: 0.3 }}
                 >
                     {children}
                 </motion.div>

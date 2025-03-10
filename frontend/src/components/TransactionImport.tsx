@@ -1,3 +1,10 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-05 21:38:09
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-10 21:04:49
+ * @Description: 请填写简介
+ */
 'use client';
 
 import { useState, useRef } from 'react';
@@ -22,7 +29,7 @@ interface TransactionImportProps {
 export default function TransactionImport({ isOpen, onClose }: TransactionImportProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const { mutate: importTransactions, isLoading } = useImportTransactions();
+    const { mutate: importTransactions, isPending } = useImportTransactions();
     const { showToast } = useToast();
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,7 +95,7 @@ export default function TransactionImport({ isOpen, onClose }: TransactionImport
                     <Button
                         color="primary"
                         onPress={handleImport}
-                        isLoading={isLoading}
+                        isLoading={isPending}
                         isDisabled={!selectedFile}
                     >
                         导入

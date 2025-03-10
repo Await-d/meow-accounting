@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 18:53:22
  * @LastEditors: Await
- * @LastEditTime: 2025-03-09 20:06:50
+ * @LastEditTime: 2025-03-10 19:37:17
  * @Description: 请填写简介
  */
 /*
@@ -27,13 +27,15 @@ import {
     Skeleton
 } from '@/components';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import type { TimeRange } from '@/lib/types';
+import type { TimeRange, User } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+    const router = useRouter();
     const { user } = useAuth();
     const [greeting, setGreeting] = useState('');
     const [showScrollTop, setShowScrollTop] = useState(false);
@@ -76,6 +78,18 @@ export default function Home() {
         }, 1000);
         return () => clearTimeout(timer);
     }, []);
+
+    useEffect(() => {
+        if (user) {
+            // 如果用户已登录，根据设置跳转到默认路由
+            if (user.default_route) {
+                router.push(user.default_route);
+            } else {
+                // 如果没有设置默认路由，跳转到仪表盘
+                router.push('/dashboard');
+            }
+        }
+    }, [user, router]);
 
     const scrollToTop = () => {
         window.scrollTo({
@@ -133,6 +147,11 @@ export default function Home() {
         }
     };
 
+    // 如果用户已登录，不显示介绍页面
+    if (user) {
+        return null;
+    }
+
     return (
         <main className="container mx-auto px-4 py-6 max-w-7xl">
             <motion.div
@@ -145,7 +164,7 @@ export default function Home() {
                         <h1 className="text-xl font-bold">喵呜记账</h1>
                         {user && (
                             <p className="text-sm text-default-500">
-                                {greeting}，{user.username}
+                                {greeting}，{(user as User)?.username || ''}
                             </p>
                         )}
                     </div>

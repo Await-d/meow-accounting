@@ -34,8 +34,7 @@ export default function TransactionFilter({ onFilter }: TransactionFilterProps) 
     const [categoryId, setCategoryId] = useState<string>();
     const [minAmount, setMinAmount] = useState('');
     const [maxAmount, setMaxAmount] = useState('');
-
-    const { data: categories = [] } = useCategories();
+    const { categories = [] } = useCategories();
     const filteredCategories = type ? categories.filter(cat => cat.type === type) : categories;
 
     const handleFilter = () => {

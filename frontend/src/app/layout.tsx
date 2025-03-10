@@ -11,6 +11,8 @@ import './globals.css';
 import { Providers } from '@/providers';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ToastProvider } from '@/components/Toast';
+import { RouteProvider } from '@/hooks/useRoute';
+import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -59,7 +61,10 @@ export default function RootLayout({
                 <ToastProvider>
                     <Providers>
                         <AuthProvider>
-                            {children}
+                            <RouteProvider>
+                                {children}
+                                <Toaster richColors position="top-right" />
+                            </RouteProvider>
                         </AuthProvider>
                     </Providers>
                 </ToastProvider>

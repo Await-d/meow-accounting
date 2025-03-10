@@ -46,6 +46,22 @@ export function useFamily() {
         [user, updateUser, showToast]
     );
 
+    const addMember = async (familyId: number, data: { userId: number; role: 'admin' | 'member' }) => {
+        // TODO: 实现添加成员的逻辑
+    };
+
+    const updateRole = async (familyId: number, userId: number, role: 'admin' | 'member') => {
+        // TODO: 实现更新角色的逻辑
+    };
+
+    const removeMember = async (familyId: number, userId: number) => {
+        // TODO: 实现移除成员的逻辑
+    };
+
+    const isAdmin = () => {
+        return currentFamily?.owner_id === user?.id || members?.some(m => m.user_id === user?.id && m.role === 'admin');
+    };
+
     return {
         families,
         members,
@@ -53,6 +69,10 @@ export function useFamily() {
         isLoading: isLoadingFamilies || isLoadingMembers,
         setCurrentFamily,
         userInvitations,
+        addMember,
+        updateRole,
+        removeMember,
+        isAdmin
     };
 }
 

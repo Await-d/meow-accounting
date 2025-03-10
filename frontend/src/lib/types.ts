@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 20:23:47
  * @LastEditors: Await
- * @LastEditTime: 2025-03-07 20:39:52
+ * @LastEditTime: 2025-03-10 20:15:29
  * @Description: 类型定义文件
  */
 
@@ -92,9 +92,23 @@ export interface User {
     id: number;
     username: string;
     email: string;
+    nickname?: string;
+    avatar?: string;
     role?: 'owner' | 'admin' | 'member';
     currentFamilyId?: number;
     privacy_mode?: boolean;
+    default_route?: string; // 用户默认路由
+    settings?: {
+        theme?: string;
+        language?: string;
+        routePreload?: boolean;
+        privacy?: {
+            showAmount?: boolean;
+            showCategory?: boolean;
+            dataRetention?: string;
+        };
+        [key: string]: any;
+    };
     created_at?: string;
     updated_at?: string;
 }
@@ -113,6 +127,13 @@ export interface RegisterData {
     username: string;
     email: string;
     password: string;
+}
+
+// 用户设置
+export interface UserSettings {
+    privacy_mode: boolean;
+    default_route: string;
+    currentFamilyId?: number;
 }
 
 // 家庭相关类型
@@ -147,6 +168,14 @@ export interface AddFamilyMemberData {
 }
 
 // 路由相关类型
+export enum RouteType {
+    DASHBOARD = 'dashboard',    // 仪表盘
+    TRANSACTIONS = 'transactions', // 交易记录
+    STATISTICS = 'statistics',  // 统计分析
+    SETTINGS = 'settings',      // 设置
+    CUSTOM = 'custom'          // 自定义页面
+}
+
 export enum RoutePermission {
     PUBLIC = 'public',     // 公开，任何人可访问
     PRIVATE = 'private',   // 私有，仅创建者可访问
@@ -156,20 +185,23 @@ export enum RoutePermission {
 
 export interface Route {
     id: number;
-    path: string;          // 路由路径
-    name: string;          // 路由名称
-    description: string;   // 路由描述
-    permission: RoutePermission; // 访问权限
-    user_id: number;       // 创建者ID
-    family_id: number | null; // 家庭ID，如果是家庭路由
-    is_active: boolean;    // 是否激活
+    path: string;
+    name: string;
+    type: RouteType;
+    description: string;
+    permission: RoutePermission;
+    user_id: number;
+    family_id: number | null;
+    is_active: boolean;
     created_at: string;
     updated_at: string;
+    params?: RouteParams;
 }
 
 export interface CreateRouteData {
     path: string;
     name: string;
+    type: RouteType;
     description: string;
     permission: RoutePermission;
     family_id?: number | null;
@@ -182,5 +214,29 @@ export interface UpdateRouteData {
     permission?: RoutePermission;
     is_active?: boolean;
     path?: string;
+    type?: RouteType;
     family_id?: number | null;
+}
+
+// 路由参数类型
+export interface RouteParams {
+    id?: string | number;
+    type?: string;
+    view?: string;
+    filter?: string;
+    sort?: string;
+    page?: number;
+    limit?: number;
+    [key: string]: any;
+}
+
+// 路由配置类型
+export interface RouteConfig {
+    id?: number;
+    name: string;
+    path: string;
+    type: RouteType;
+    icon?: string;
+    params?: RouteParams;
+    validateParams?: (params: RouteParams) => boolean;
 } 

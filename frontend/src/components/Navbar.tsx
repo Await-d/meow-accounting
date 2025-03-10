@@ -130,43 +130,45 @@ export default function Navbar() {
                         </Button>
                     </DropdownTrigger>
                     <DropdownMenu aria-label="移动端菜单">
-                        {siteConfig.navItems.map((item) => (
-                            <DropdownItem key={item.href} as={NextLink} href={item.href}>
-                                {item.label}
-                            </DropdownItem>
-                        ))}
-                        <DropdownSection title="用户" showDivider>
-                            {user ? (
-                                <>
-                                    <DropdownItem key="profile" as={NextLink} href="/settings/profile">
-                                        个人设置
-                                    </DropdownItem>
-                                    <DropdownItem key="family" as={NextLink} href="/settings/family">
-                                        家庭管理
-                                    </DropdownItem>
-                                    <DropdownItem key="invitations" as={NextLink} href="/settings/invitations">
-                                        邀请管理
-                                        {hasPendingInvitations && (
-                                            <Chip size="sm" color="danger" variant="flat" className="ml-2">
-                                                {pendingInvitations.length}
-                                            </Chip>
-                                        )}
-                                    </DropdownItem>
-                                    <DropdownItem key="logout" color="danger" onClick={logout}>
-                                        退出登录
-                                    </DropdownItem>
-                                </>
-                            ) : (
-                                <>
-                                    <DropdownItem key="login" as={NextLink} href="/login">
-                                        登录
-                                    </DropdownItem>
-                                    <DropdownItem key="register" as={NextLink} href="/register">
-                                        注册
-                                    </DropdownItem>
-                                </>
-                            )}
-                        </DropdownSection>
+                        <>
+                            {siteConfig.navItems.map((item) => (
+                                <DropdownItem key={item.href} as={NextLink} href={item.href}>
+                                    {item.label}
+                                </DropdownItem>
+                            ))}
+                            <DropdownSection title="用户" showDivider>
+                                {user ? (
+                                    <>
+                                        <DropdownItem key="profile" as={NextLink} href="/settings/profile">
+                                            个人设置
+                                        </DropdownItem>
+                                        <DropdownItem key="family" as={NextLink} href="/settings/family">
+                                            家庭管理
+                                        </DropdownItem>
+                                        <DropdownItem key="invitations" as={NextLink} href="/settings/invitations">
+                                            邀请管理
+                                            {hasPendingInvitations && (
+                                                <Chip size="sm" color="danger" variant="flat" className="ml-2">
+                                                    {pendingInvitations.length}
+                                                </Chip>
+                                            )}
+                                        </DropdownItem>
+                                        <DropdownItem key="logout" color="danger" onClick={logout}>
+                                            退出登录
+                                        </DropdownItem>
+                                    </>
+                                ) : (
+                                    <>
+                                        <DropdownItem key="login" as={NextLink} href="/login">
+                                            登录
+                                        </DropdownItem>
+                                        <DropdownItem key="register" as={NextLink} href="/register">
+                                            注册
+                                        </DropdownItem>
+                                    </>
+                                )}
+                            </DropdownSection>
+                        </>
                     </DropdownMenu>
                 </Dropdown>
             </NavbarContent>

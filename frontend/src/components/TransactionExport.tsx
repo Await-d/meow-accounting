@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-08 21:12:42
  * @LastEditors: Await
- * @LastEditTime: 2025-03-08 21:13:15
+ * @LastEditTime: 2025-03-10 20:53:30
  * @Description: 请填写简介
  */
 'use client';
@@ -30,7 +30,7 @@ interface TransactionExportProps {
 export default function TransactionExport({ isOpen, onClose }: TransactionExportProps) {
     const [startDate, setStartDate] = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
     const [endDate, setEndDate] = useState(dayjs().format('YYYY-MM-DD'));
-    const { mutate: exportTransactions, isLoading } = useExportTransactions();
+    const { mutate: exportTransactions, isPending } = useExportTransactions();
     const { showToast } = useToast();
 
     const handleExport = async () => {
@@ -85,7 +85,7 @@ export default function TransactionExport({ isOpen, onClose }: TransactionExport
                         color="primary"
                         startContent={<ArrowDownTrayIcon className="h-4 w-4" />}
                         onPress={handleExport}
-                        isLoading={isLoading}
+                        isLoading={isPending}
                     >
                         导出
                     </Button>
