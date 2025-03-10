@@ -19,10 +19,11 @@ import familyRoutes from './routes/family.routes';
 import userRoutes from './routes/user.routes';
 import categoriesRoutes from './routes/categories';
 import transactionRoutes from './routes/transaction.routes';
-import {createUserTable} from './models/user';
-import {createFamilyTables} from './models/family';
-import {createCategoryTable} from './models/category';
-import {createTransactionTable} from './models/transaction';
+import cacheRoutes from './routes/cache';
+import { createUserTable } from './models/user';
+import { createFamilyTables } from './models/family';
+import { createCategoryTable } from './models/category';
+import { createTransactionTable } from './models/transaction';
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use('/api/families', familyRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/cache', cacheRoutes);
 
 // 初始化数据库表
 async function initDatabase() {
