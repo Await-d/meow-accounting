@@ -2,11 +2,15 @@ import db from './db';
 import bcrypt from 'bcryptjs';
 
 export interface User {
-    id: number;
+    id: string;
     username: string;
     email: string;
     password: string;
-    role: 'admin' | 'user';
+    role: string;
+    nickname?: string;
+    avatar?: string;
+    currentFamilyId?: string;
+    settings?: Record<string, any>;
     privacy_mode: boolean;
     guest_password: string | null;
     created_at: string;
@@ -22,6 +26,10 @@ export function createUserTable() {
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'user',
+            nickname TEXT,
+            avatar TEXT,
+            current_family_id TEXT,
+            settings TEXT DEFAULT '{}',
             privacy_mode BOOLEAN DEFAULT 0,
             guest_password TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -60,17 +68,27 @@ export async function createUser(username: string, email: string, password: stri
     const hashedPassword = await bcrypt.hash(password, 10);
     const hasUsers = await hasAnyUser();
     const role = hasUsers ? 'user' : 'admin';
+    const defaultSettings = JSON.stringify({});
 
     return new Promise<number>((resolve, reject) => {
-        const sql = 'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)';
+        const sql = `
+            INSERT INTO users (
+                username, email, password, role, 
+                nickname, settings
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        `;
 
-        db.run(sql, [username, email, hashedPassword, role], function (this: { lastID: number }, err: Error | null) {
-            if (err) {
-                reject(err);
-                return;
+        db.run(
+            sql,
+            [username, email, hashedPassword, role, username, defaultSettings],
+            function (this: { lastID: number }, err: Error | null) {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(this.lastID);
             }
-            resolve(this.lastID);
-        });
+        );
     });
 }
 
@@ -106,7 +124,7 @@ export async function findUserById(id: number): Promise<User | null> {
 
 // 更新用户信息
 export function updateUser(id: number, data: Partial<User>): Promise<void> {
-    const {username, email, password, privacy_mode, guest_password} = data;
+    const { username, email, password, privacy_mode, guest_password } = data;
     const updates: string[] = [];
     const values: any[] = [];
 
@@ -154,4 +172,19 @@ export function updateUser(id: number, data: Partial<User>): Promise<void> {
 // 验证密码
 export async function verifyPassword(user: User, password: string): Promise<boolean> {
     return bcrypt.compare(password, user.password);
+}
+
+// 删除并重建用户表
+export function rebuildUserTable() {
+    return new Promise<void>((resolve, reject) => {
+        db.run('DROP TABLE IF EXISTS users', (err) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            createUserTable()
+                .then(resolve)
+                .catch(reject);
+        });
+    });
 }

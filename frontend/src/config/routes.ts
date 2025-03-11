@@ -1,3 +1,10 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-10 19:37:08
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-11 21:07:43
+ * @Description: 请填写简介
+ */
 import { RouteType, RoutePermission } from '@/lib/types';
 import type { ComponentType } from 'react';
 

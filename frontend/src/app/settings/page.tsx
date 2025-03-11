@@ -1,45 +1,35 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-10 19:47:51
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-11 20:57:20
+ * @Description: 请填写简介
+ */
 'use client';
 
-import { useEffect } from 'react';
-import { Card, CardBody, CardHeader, Tabs, Tab } from '@nextui-org/react';
-import { useAuth } from '@/hooks/useAuth';
-import { useRoute } from '@/hooks/useRoute';
-import ProfileSettings from '@/components/ProfileSettings';
-import RouteSettings from '@/components/RouteSettings';
-import PrivacySettings from '@/components/PrivacySettings';
-import FamilySettings from '@/components/FamilySettings';
-import RouteAnalytics from '@/components/RouteAnalytics';
+import React from 'react';
+import { Card, CardBody } from '@nextui-org/react';
 
 export default function SettingsPage() {
-    const { user } = useAuth();
-    const { currentRoute } = useRoute();
-
     return (
-        <div className="container mx-auto px-4 py-8">
+        <div className="space-y-4">
+            <h2 className="text-xl font-semibold mb-4">欢迎使用系统设置</h2>
             <Card>
-                <CardHeader>
-                    <h1 className="text-2xl font-bold">
-                        {currentRoute?.name || '设置'}
-                    </h1>
-                </CardHeader>
                 <CardBody>
-                    <Tabs aria-label="设置选项">
-                        <Tab key="profile" title="个人资料">
-                            <ProfileSettings />
-                        </Tab>
-                        <Tab key="routes" title="路由管理">
-                            <div className="space-y-6">
-                                <RouteSettings />
-                                <RouteAnalytics />
-                            </div>
-                        </Tab>
-                        <Tab key="privacy" title="隐私设置">
-                            <PrivacySettings />
-                        </Tab>
-                        <Tab key="family" title="家庭管理">
-                            <FamilySettings />
-                        </Tab>
-                    </Tabs>
+                    <p className="text-gray-600">
+                        请从左侧菜单选择要管理的设置项：
+                    </p>
+                    <ul className="list-disc list-inside mt-4 space-y-2 text-gray-600">
+                        <li>个人资料 - 修改您的个人信息</li>
+                        <li>安全设置 - 管理账户安全选项</li>
+                        <li>隐私设置 - 控制数据访问权限</li>
+                        <li>分类管理 - 整理您的内容分类</li>
+                        <li>家庭管理 - 管理家庭成员</li>
+                        <li>邀请管理 - 处理邀请请求</li>
+                        <li>路由管理 - 配置系统路由</li>
+                        <li>缓存管理 - 清理系统缓存</li>
+                        <li>自定义设置 - 个性化您的使用体验</li>
+                    </ul>
                 </CardBody>
             </Card>
         </div>

@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 19:23:46
  * @LastEditors: Await
- * @LastEditTime: 2025-03-05 22:01:08
+ * @LastEditTime: 2025-03-11 21:38:29
  * @Description: 请填写简介
  */
 import { Request, Response } from 'express';
@@ -40,16 +40,28 @@ export async function register(req: Request, res: Response) {
             throw new Error('创建用户失败');
         }
 
-        const token = generateToken(user);
+        // 获取用户权限
+        const permissions = getUserPermissions(user.role);
+
+        // 返回用户信息和权限
+        const userData = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            nickname: user.nickname,
+            avatar: user.avatar,
+            role: user.role,
+            currentFamilyId: user.currentFamilyId,
+            settings: user.settings,
+            permissions
+        };
+
+        // 生成token
+        const token = generateToken(userData);
 
         res.status(201).json({
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                role: user.role
-            },
-            token
+            token,
+            user: userData
         });
     } catch (error) {
         console.error('注册失败:', error);
@@ -57,6 +69,47 @@ export async function register(req: Request, res: Response) {
     }
 }
 
+// 根据用户角色获取权限列表
+const getUserPermissions = (role: string): string[] => {
+    const basePermissions = [
+        'profile.view',
+        'security.view',
+        'privacy.view'
+    ];
+
+    const memberPermissions = [
+        ...basePermissions,
+        'category.view',
+        'family.view'
+    ];
+
+    const adminPermissions = [
+        ...memberPermissions,
+        'category.manage',
+        'family.manage',
+        'invitations.manage',
+        'routes.manage'
+    ];
+
+    const ownerPermissions = [
+        ...adminPermissions,
+        'cache.manage',
+        'settings.customize'
+    ];
+
+    switch (role) {
+        case 'owner':
+            return ownerPermissions;
+        case 'admin':
+            return adminPermissions;
+        case 'member':
+            return memberPermissions;
+        default:
+            return basePermissions;
+    }
+};
+
+// 登录处理
 export async function login(req: Request, res: Response) {
     try {
         const { email, password } = req.body;
@@ -78,17 +131,28 @@ export async function login(req: Request, res: Response) {
             return res.status(401).json({ error: '邮箱或密码错误' });
         }
 
+        // 获取用户权限
+        const permissions = getUserPermissions(user.role);
+
+        // 返回用户信息和权限
+        const userData = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            nickname: user.nickname,
+            avatar: user.avatar,
+            role: user.role,
+            currentFamilyId: user.currentFamilyId,
+            settings: user.settings,
+            permissions
+        };
+
         // 生成token
-        const token = generateToken(user);
+        const token = generateToken(userData);
 
         res.json({
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                role: user.role
-            },
-            token
+            token,
+            user: userData
         });
     } catch (error) {
         console.error('登录失败:', error);

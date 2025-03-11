@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 20:23:47
  * @LastEditors: Await
- * @LastEditTime: 2025-03-10 20:15:29
+ * @LastEditTime: 2025-03-11 21:15:54
  * @Description: 类型定义文件
  */
 
@@ -111,6 +111,7 @@ export interface User {
     };
     created_at?: string;
     updated_at?: string;
+    permissions: string[];
 }
 
 export interface AuthResponse {

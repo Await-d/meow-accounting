@@ -1,11 +1,18 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-10 22:00:31
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-11 20:51:03
+ * @Description: 请填写简介
+ */
 import { Router } from 'express';
 import { cache } from '../utils/cache';
-import { authenticate } from '../middlewares/auth';
+import { authenticate, isAdmin } from '../middlewares/auth';
 
 const router = Router();
 
 // 获取缓存统计信息
-router.get('/stats', authenticate, async (req, res) => {
+router.get('/stats', authenticate, isAdmin, async (req, res) => {
     try {
         const redisStats = await cache.getStats();
         const localStats = cache.getLocalCacheStats();
@@ -30,7 +37,7 @@ router.get('/stats', authenticate, async (req, res) => {
 });
 
 // 清除指定模式的缓存
-router.delete('/pattern/:pattern', authenticate, async (req, res) => {
+router.delete('/pattern/:pattern', authenticate, isAdmin, async (req, res) => {
     try {
         const { pattern } = req.params;
         const deletedCount = await cache.delByPattern(pattern);
@@ -44,7 +51,7 @@ router.delete('/pattern/:pattern', authenticate, async (req, res) => {
 });
 
 // 清除所有缓存
-router.delete('/all', authenticate, async (req, res) => {
+router.delete('/all', authenticate, isAdmin, async (req, res) => {
     try {
         await cache.clear();
         res.json({ message: '所有缓存已清除' });
@@ -57,7 +64,7 @@ router.delete('/all', authenticate, async (req, res) => {
 });
 
 // 预热指定的缓存键
-router.post('/warmup', authenticate, async (req, res) => {
+router.post('/warmup', authenticate, isAdmin, async (req, res) => {
     try {
         const { keys } = req.body;
         if (!Array.isArray(keys)) {
@@ -75,7 +82,7 @@ router.post('/warmup', authenticate, async (req, res) => {
 });
 
 // 监控内存使用
-router.get('/memory', authenticate, async (req, res) => {
+router.get('/memory', authenticate, isAdmin, async (req, res) => {
     try {
         const threshold = parseFloat(req.query.threshold as string) || 0.8;
         await cache.monitorMemory(threshold);
