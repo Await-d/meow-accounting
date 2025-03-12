@@ -17,7 +17,11 @@ import {
     AddFamilyMemberData,
     APIError,
     User,
-    UserSettings
+    UserSettings,
+    Route,
+    CreateRouteData,
+    UpdateRouteData,
+    RouteStats
 } from './types';
 import { getToken, removeToken } from '@/utils/auth';
 import { useAuth } from '@/hooks/useAuth';
@@ -736,18 +740,43 @@ export async function updateUserSettings(settings: UserSettings): Promise<User> 
     return response.json();
 }
 
-// 获取所有路由（管理员）
-export const getAllRoutes = async () => {
-    const response = await fetch('/api/routes/all', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
-        }
+// 路由管理API
+export async function getAllRoutes() {
+    const response = await fetchAPI<{ personalRoutes: Route[]; familyRoutes: Route[] }>('/routes/all');
+    return response;
+}
+
+export async function createRoute(data: CreateRouteData) {
+    const response = await fetchAPI<Route>('/routes', {
+        method: 'POST',
+        body: JSON.stringify(data)
     });
+    return response;
+}
 
-    if (!response.ok) {
-        throw new Error('获取路由列表失败');
-    }
+export async function updateRoute({ id, data }: { id: number; data: UpdateRouteData }) {
+    const response = await fetchAPI<Route>(`/routes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+    return response;
+}
 
-    return response.json();
-};
+export async function deleteRoute(id: number) {
+    const response = await fetchAPI<void>(`/routes/${id}`, {
+        method: 'DELETE'
+    });
+    return response;
+}
+
+export async function toggleRouteActive(id: number) {
+    const response = await fetchAPI<Route>(`/routes/${id}/toggle`, {
+        method: 'PUT'
+    });
+    return response;
+}
+
+export async function getRouteStats(id: number) {
+    const response = await fetchAPI<RouteStats>(`/routes/stats/report/${id}`);
+    return response;
+}

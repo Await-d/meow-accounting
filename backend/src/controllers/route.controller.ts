@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-09 20:45:00
  * @LastEditors: Await
- * @LastEditTime: 2025-03-12 20:18:39
+ * @LastEditTime: 2025-03-12 21:47:07
  * @Description: 路由控制器
  */
 import { Request, Response } from 'express';
@@ -214,5 +214,75 @@ export async function checkAccess(req: Request, res: Response) {
     } catch (error) {
         console.error('检查路由访问权限失败:', error);
         res.status(500).json({ error: '检查路由访问权限失败' });
+    }
+}
+
+// 切换路由状态
+export async function toggleRouteActive(req: Request, res: Response) {
+    try {
+        const routeId = parseInt(req.params.id);
+        const userId = req.user?.id;
+
+        if (!userId) {
+            throw new APIError(401, '未登录');
+        }
+
+        // 获取路由信息
+        const route = await routeModel.getRouteById(routeId);
+        if (!route) {
+            throw new APIError(404, '路由不存在');
+        }
+
+        // 检查是否有权限更新
+        const canAccess = await routeModel.canAccessRoute(routeId, userId, req.user?.currentFamilyId ?? null);
+        if (!canAccess) {
+            throw new APIError(403, '无权更新此路由');
+        }
+
+        // 切换状态
+        await routeModel.updateRoute(routeId, {
+            is_active: !route.is_active
+        });
+
+        res.json({ message: '状态更新成功' });
+    } catch (error) {
+        if (error instanceof APIError) {
+            throw error;
+        }
+        throw new APIError(500, '更新路由状态失败');
+    }
+}
+
+// 获取路由性能统计
+export async function getRouteStats(req: Request, res: Response) {
+    try {
+        const routeId = parseInt(req.params.id);
+        const userId = req.user?.id;
+
+        if (!userId) {
+            throw new APIError(401, '未登录');
+        }
+
+        // 获取路由信息
+        const route = await routeModel.getRouteById(routeId);
+        if (!route) {
+            throw new APIError(404, '路由不存在');
+        }
+
+        // 检查是否有权限查看
+        const canAccess = await routeModel.canAccessRoute(routeId, userId, req.user?.currentFamilyId ?? null);
+        if (!canAccess) {
+            throw new APIError(403, '无权查看此路由');
+        }
+
+        // 获取性能统计数据
+        const stats = await routeModel.getRouteStats(routeId);
+
+        res.json(stats);
+    } catch (error) {
+        if (error instanceof APIError) {
+            throw error;
+        }
+        throw new APIError(500, '获取路由统计失败');
     }
 }

@@ -2,27 +2,31 @@
  * @Author: Await
  * @Date: 2025-03-10 21:06:18
  * @LastEditors: Await
- * @LastEditTime: 2025-03-10 21:17:22
+ * @LastEditTime: 2025-03-12 21:36:02
  * @Description: 请填写简介
  */
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { RouteParams } from '@/lib/types';
 
 // 本地存储键
 const STORAGE_KEY = 'route_params';
 
 export function useRouteParams() {
-    const [params, setParams] = useState<Record<string, RouteParams>>(() => {
+    const [params, setParams] = useState<Record<string, RouteParams>>({});
+
+    // 从localStorage加载数据
+    useEffect(() => {
         try {
             const stored = localStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : {};
+            if (stored) {
+                setParams(JSON.parse(stored));
+            }
         } catch (error) {
             console.error('Failed to load route params:', error);
-            return {};
         }
-    });
+    }, []);
 
     // 保存到本地存储
     const saveToStorage = useCallback((newParams: Record<string, RouteParams>) => {
