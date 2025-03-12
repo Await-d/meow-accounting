@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 18:46:50
  * @LastEditors: Await
- * @LastEditTime: 2025-03-10 21:35:16
+ * @LastEditTime: 2025-03-12 19:52:37
  * @Description: 请填写简介
  */
 export interface Category {
@@ -30,25 +30,28 @@ export enum RouteType {
     DASHBOARD = 'DASHBOARD'
 }
 
+
+// 路由权限枚举
 export enum RoutePermission {
-    PUBLIC = 'PUBLIC',
-    PRIVATE = 'PRIVATE',
-    FAMILY = 'FAMILY',
-    ADMIN = 'ADMIN'
+    PUBLIC = 'public',     // 公开，任何人可访问
+    PRIVATE = 'private',   // 私有，仅创建者可访问
+    FAMILY = 'family',     // 家庭，仅家庭成员可访问
+    ADMIN = 'admin'        // 管理员，仅家庭管理员可访问
 }
 
+// 路由接口
 export interface Route {
     id: number;
-    path: string;
-    name: string;
-    type: RouteType;
-    description?: string;
-    permission: RoutePermission;
-    user_id?: number;
-    family_id?: number;
-    is_active: boolean;
+    path: string;          // 路由路径
+    name: string;          // 路由名称
+    description: string;   // 路由描述
+    permission: RoutePermission; // 访问权限
+    user_id: number;       // 创建者ID
+    family_id: number | null; // 家庭ID，如果是家庭路由
+    is_active: boolean;    // 是否激活
     created_at: string;
     updated_at: string;
+    type: RouteType;
 }
 
 export interface RouteStats {
@@ -146,4 +149,4 @@ export interface ApiResponse<T = any> {
     code: number;
     data?: T;
     message: string;
-} 
+}

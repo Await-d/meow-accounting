@@ -6,13 +6,6 @@
  * @Description: 类型定义文件
  */
 
-// 通用类型
-export class APIError extends Error {
-    constructor(public status: number, message: string) {
-        super(message);
-        this.name = 'APIError';
-    }
-}
 
 // 交易相关类型
 export interface Transaction {
@@ -24,6 +17,14 @@ export interface Transaction {
     category_icon: string;
     description: string;
     date: string;
+}
+
+// 通用类型
+export class APIError extends Error {
+    constructor(public status: number, message: string) {
+        super(message);
+        this.name = 'APIError';
+    }
 }
 
 export type CreateTransactionData = Omit<Transaction, 'id'>;
@@ -228,6 +229,7 @@ export interface RouteParams {
     sort?: string;
     page?: number;
     limit?: number;
+
     [key: string]: any;
 }
 
@@ -240,4 +242,4 @@ export interface RouteConfig {
     icon?: string;
     params?: RouteParams;
     validateParams?: (params: RouteParams) => boolean;
-} 
+}

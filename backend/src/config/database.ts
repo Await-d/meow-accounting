@@ -1,9 +1,17 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 
-class DB {
+export class DatabaseError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'DatabaseError';
+    }
+}
+
+export class DB {
     private static instance: DB;
     private db: Database | null = null;
+    private isTransaction: boolean = false;
 
     private constructor() { }
 
@@ -20,12 +28,73 @@ class DB {
                 filename: process.env.DB_PATH || ':memory:',
                 driver: sqlite3.Database
             });
-
-            // 启用外键约束
             await this.db.run('PRAGMA foreign_keys = ON');
-
-            // 创建表
             await this.createTables();
+        }
+    }
+
+    // 事务支持
+    public async beginTransaction(): Promise<void> {
+        if (!this.db) throw new DatabaseError('Database not connected');
+        if (this.isTransaction) throw new DatabaseError('Transaction already started');
+
+        await this.db.run('BEGIN TRANSACTION');
+        this.isTransaction = true;
+    }
+
+    public async commit(): Promise<void> {
+        if (!this.db) throw new DatabaseError('Database not connected');
+        if (!this.isTransaction) throw new DatabaseError('No transaction to commit');
+
+        await this.db.run('COMMIT');
+        this.isTransaction = false;
+    }
+
+    public async rollback(): Promise<void> {
+        if (!this.db) throw new DatabaseError('Database not connected');
+        if (!this.isTransaction) throw new DatabaseError('No transaction to rollback');
+
+        await this.db.run('ROLLBACK');
+        this.isTransaction = false;
+    }
+
+    // 通用CRUD操作
+    public async findOne<T>(sql: string, params: any[] = []): Promise<T | null> {
+        if (!this.db) throw new DatabaseError('Database not connected');
+        try {
+            const result = await this.db.get(sql, params);
+            return result as T || null;
+        } catch (error: any) {
+            throw new DatabaseError(`Query failed: ${error.message}`);
+        }
+    }
+
+    public async findMany<T>(sql: string, params: any[] = []): Promise<T[]> {
+        if (!this.db) throw new DatabaseError('Database not connected');
+        try {
+            const results = await this.db.all(sql, params);
+            return results as T[];
+        } catch (error: any) {
+            throw new DatabaseError(`Query failed: ${error.message}`);
+        }
+    }
+
+    public async execute(sql: string, params: any[] = []): Promise<void> {
+        if (!this.db) throw new DatabaseError('Database not connected');
+        try {
+            await this.db.run(sql, params);
+        } catch (error: any) {
+            throw new DatabaseError(`Execute failed: ${error.message}`);
+        }
+    }
+
+    public async insert(sql: string, params: any[] = []): Promise<number> {
+        if (!this.db) throw new DatabaseError('Database not connected');
+        try {
+            const result = await this.db.run(sql, params);
+            return result?.lastID ?? -1; // 如果插入失败返回-1
+        } catch (error: any) {
+            throw new DatabaseError(`Insert failed: ${error.message}`);
         }
     }
 
@@ -133,33 +202,16 @@ class DB {
         `);
     }
 
-    public async get<T>(sql: string, params: any[] = []): Promise<T | undefined> {
-        if (!this.db) {
-            throw new Error('Database not connected');
-        }
-        return this.db.get(sql, params);
-    }
-
-    public async all<T>(sql: string, params: any[] = []): Promise<T> {
-        if (!this.db) {
-            throw new Error('Database not connected');
-        }
-        return this.db.all(sql, params);
-    }
-
-    public async run(sql: string, params: any[] = []): Promise<void> {
-        if (!this.db) {
-            throw new Error('Database not connected');
-        }
-        await this.db.run(sql, params);
-    }
-
     public async close(): Promise<void> {
         if (this.db) {
+            if (this.isTransaction) {
+                await this.rollback();
+            }
             await this.db.close();
             this.db = null;
         }
     }
 }
 
+// 导出单例实例
 export const db = DB.getInstance(); 

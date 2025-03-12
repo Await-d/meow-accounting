@@ -735,3 +735,19 @@ export async function updateUserSettings(settings: UserSettings): Promise<User> 
 
     return response.json();
 }
+
+// 获取所有路由（管理员）
+export const getAllRoutes = async () => {
+    const response = await fetch('/api/routes/all', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error('获取路由列表失败');
+    }
+
+    return response.json();
+};

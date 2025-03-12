@@ -1,4 +1,4 @@
-import {db} from './db';
+import db from './db';
 
 // 分类类型定义
 export interface Category {
@@ -32,73 +32,58 @@ export async function createCategoryTable() {
     // 默认分类数据
     const defaultCategories: Array<Omit<Category, 'id' | 'created_at'>> = [
         // 支出分类
-        {name: '餐饮', icon: '🍚', type: 'expense', family_id: null, is_default: true},
-        {name: '交通', icon: '🚗', type: 'expense', family_id: null, is_default: true},
-        {name: '购物', icon: '🛒', type: 'expense', family_id: null, is_default: true},
-        {name: '娱乐', icon: '🎮', type: 'expense', family_id: null, is_default: true},
-        {name: '居住', icon: '🏠', type: 'expense', family_id: null, is_default: true},
-        {name: '医疗', icon: '💊', type: 'expense', family_id: null, is_default: true},
-        {name: '教育', icon: '📚', type: 'expense', family_id: null, is_default: true},
-        {name: '通讯', icon: '📱', type: 'expense', family_id: null, is_default: true},
-        {name: '服饰', icon: '👔', type: 'expense', family_id: null, is_default: true},
-        {name: '其他支出', icon: '💰', type: 'expense', family_id: null, is_default: true},
+        { name: '餐饮', icon: '🍚', type: 'expense', family_id: null, is_default: true },
+        { name: '交通', icon: '🚗', type: 'expense', family_id: null, is_default: true },
+        { name: '购物', icon: '🛒', type: 'expense', family_id: null, is_default: true },
+        { name: '娱乐', icon: '🎮', type: 'expense', family_id: null, is_default: true },
+        { name: '居住', icon: '🏠', type: 'expense', family_id: null, is_default: true },
+        { name: '医疗', icon: '💊', type: 'expense', family_id: null, is_default: true },
+        { name: '教育', icon: '📚', type: 'expense', family_id: null, is_default: true },
+        { name: '通讯', icon: '📱', type: 'expense', family_id: null, is_default: true },
+        { name: '服饰', icon: '👔', type: 'expense', family_id: null, is_default: true },
+        { name: '其他支出', icon: '💰', type: 'expense', family_id: null, is_default: true },
         // 收入分类
-        {name: '工资', icon: '💵', type: 'income', family_id: null, is_default: true},
-        {name: '奖金', icon: '🎁', type: 'income', family_id: null, is_default: true},
-        {name: '投资', icon: '📈', type: 'income', family_id: null, is_default: true},
-        {name: '兼职', icon: '💼', type: 'income', family_id: null, is_default: true},
-        {name: '其他收入', icon: '💰', type: 'income', family_id: null, is_default: true},
+        { name: '工资', icon: '💵', type: 'income', family_id: null, is_default: true },
+        { name: '奖金', icon: '🎁', type: 'income', family_id: null, is_default: true },
+        { name: '投资', icon: '📈', type: 'income', family_id: null, is_default: true },
+        { name: '兼职', icon: '💼', type: 'income', family_id: null, is_default: true },
+        { name: '其他收入', icon: '💰', type: 'income', family_id: null, is_default: true },
     ];
 
-    return new Promise<void>((resolve, reject) => {
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
+    try {
+        await db.beginTransaction();
 
-            try {
-                // 删除旧表
-                db.run(dropTableSql, (err: Error | null) => {
-                    if (err) throw err;
-                    console.log('旧分类表删除成功');
-                });
+        // 删除旧表
+        await db.execute(dropTableSql);
+        console.log('旧分类表删除成功');
 
-                // 创建新表
-                db.run(createTableSql, (err: Error | null) => {
-                    if (err) throw err;
-                    console.log('分类表创建成功');
-                });
+        // 创建新表
+        await db.execute(createTableSql);
+        console.log('分类表创建成功');
 
-                // 插入默认分类
-                const insertSql = `
-                    INSERT INTO categories (name, icon, type, family_id, is_default)
-                    VALUES (?, ?, ?, ?, ?)
-                `;
+        // 插入默认分类
+        const insertSql = `
+            INSERT INTO categories (name, icon, type, family_id, is_default)
+            VALUES (?, ?, ?, ?, ?)
+        `;
 
-                for (const category of defaultCategories) {
-                    db.run(insertSql, [
-                        category.name,
-                        category.icon,
-                        category.type,
-                        category.family_id,
-                        category.is_default
-                    ], (err: Error | null) => {
-                        if (err) throw err;
-                    });
-                }
+        for (const category of defaultCategories) {
+            await db.execute(insertSql, [
+                category.name,
+                category.icon,
+                category.type,
+                category.family_id,
+                category.is_default
+            ]);
+        }
 
-                db.run('COMMIT', (err: Error | null) => {
-                    if (err) {
-                        throw err;
-                    }
-                    console.log('默认分类创建成功');
-                    resolve();
-                });
-            } catch (error) {
-                db.run('ROLLBACK');
-                console.error('创建分类表失败:', error);
-                reject(error);
-            }
-        });
-    });
+        await db.commit();
+        console.log('默认分类创建成功');
+    } catch (error) {
+        await db.rollback();
+        console.error('创建分类表失败:', error);
+        throw error;
+    }
 }
 
 // 创建分类
@@ -109,16 +94,16 @@ export async function createCategory(data: Omit<Category, 'id' | 'created_at'>):
     `;
 
     try {
-        const result = await db.run(sql, [
+        const id = await db.insert(sql, [
             data.name,
             data.icon,
             data.type,
             data.family_id,
             data.is_default || false
-        ]) as { lastID: number };
+        ]);
 
         return {
-            id: result.lastID,
+            id,
             ...data,
             created_at: new Date().toISOString()
         };
@@ -130,17 +115,7 @@ export async function createCategory(data: Omit<Category, 'id' | 'created_at'>):
 
 // 获取默认分类
 export async function getDefaultCategories(): Promise<Category[]> {
-    const sql = 'SELECT * FROM categories WHERE is_default = 1';
-
-    return new Promise((resolve, reject) => {
-        db.all(sql, [], (err, rows) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(rows as Category[]);
-        });
-    });
+    return await db.findMany<Category>('SELECT * FROM categories WHERE is_default = 1');
 }
 
 // 获取家庭的所有分类（包括默认分类和自定义分类）
@@ -152,21 +127,13 @@ export async function getFamilyCategories(familyId: number): Promise<Category[]>
         ORDER BY is_default DESC, created_at ASC
     `;
 
-    return new Promise((resolve, reject) => {
-        db.all(sql, [familyId], (err, rows) => {
-            if (err) {
-                console.error(`getFamilyCategories查询失败:`, err);
-                reject(err);
-                return;
-            }
-            console.log(`getFamilyCategories查询结果:`, rows);
-            resolve(rows as Category[]);
-        });
-    });
+    const results = await db.findMany<Category>(sql, [familyId]);
+    console.log(`getFamilyCategories查询结果:`, results);
+    return results;
 }
 
 // 获取家庭的所有分类
-export async function getCategoriesByFamilyId(family_id: number) {
+export async function getCategoriesByFamilyId(family_id: number): Promise<Category[]> {
     const sql = `
         SELECT * FROM categories
         WHERE family_id = ?
@@ -174,7 +141,7 @@ export async function getCategoriesByFamilyId(family_id: number) {
     `;
 
     try {
-        return await db.all(sql, [family_id]);
+        return await db.findMany<Category>(sql, [family_id]);
     } catch (error) {
         console.error('获取分类列表失败:', error);
         throw error;
@@ -214,7 +181,7 @@ export async function updateCategory(id: number, data: Partial<Pick<Category, 'n
     values.push(id);
 
     try {
-        await db.run(sql, values);
+        await db.execute(sql, values);
         return getCategoryById(id);
     } catch (error) {
         console.error('更新分类失败:', error);
@@ -229,7 +196,7 @@ export async function deleteCategory(id: number, isAdmin: boolean = false): Prom
     const sql = `DELETE FROM categories WHERE ${whereClause}`;
 
     try {
-        await db.run(sql, [id]);
+        await db.execute(sql, [id]);
     } catch (error) {
         console.error('删除分类失败:', error);
         throw error;
@@ -238,28 +205,13 @@ export async function deleteCategory(id: number, isAdmin: boolean = false): Prom
 
 // 获取单个分类
 export async function getCategoryById(id: number): Promise<Category | null> {
-    return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM categories WHERE id = ?', [id], (err, row) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row as Category | null);
-        });
-    });
+    return await db.findOne<Category>('SELECT * FROM categories WHERE id = ?', [id]);
 }
 
 // 检查分类是否存在
 export async function categoryExists(id: number): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        db.get('SELECT 1 FROM categories WHERE id = ?', [id], (err, row) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(!!row);
-        });
-    });
+    const result = await db.findOne<{ id: number }>('SELECT id FROM categories WHERE id = ?', [id]);
+    return !!result;
 }
 
 // 检查分类是否属于指定家庭
@@ -270,15 +222,8 @@ export async function isCategoryInFamily(category_id: number, family_id: number)
         WHERE id = ? AND family_id = ?
     `;
 
-    return new Promise((resolve, reject) => {
-        db.get(sql, [category_id, family_id], (err, row: { count: number }) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row.count > 0);
-        });
-    });
+    const result = await db.findOne<{ count: number }>(sql, [category_id, family_id]);
+    return (result?.count ?? 0) > 0;
 }
 
 // 检查用户是否有权限操作分类
@@ -290,15 +235,8 @@ export async function canUserModifyCategory(category_id: number, user_id: number
         WHERE c.id = ? AND fm.user_id = ?
     `;
 
-    return new Promise((resolve, reject) => {
-        db.get(sql, [category_id, user_id], (err, row: { count: number }) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row.count > 0);
-        });
-    });
+    const result = await db.findOne<{ count: number }>(sql, [category_id, user_id]);
+    return (result?.count ?? 0) > 0;
 }
 
 // 检查用户是否是某个家庭的成员
@@ -309,13 +247,6 @@ export async function isUserInFamily(user_id: number, family_id: number): Promis
         WHERE user_id = ? AND family_id = ?
     `;
 
-    return new Promise((resolve, reject) => {
-        db.get(sql, [user_id, family_id], (err, row: { count: number }) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row.count > 0);
-        });
-    });
+    const result = await db.findOne<{ count: number }>(sql, [user_id, family_id]);
+    return (result?.count ?? 0) > 0;
 }

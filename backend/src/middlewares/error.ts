@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import {Request, Response, NextFunction} from 'express';
 
 // 自定义错误类
 export class AppError extends Error {
@@ -9,6 +9,14 @@ export class AppError extends Error {
     ) {
         super(message);
         Object.setPrototypeOf(this, AppError.prototype);
+    }
+}
+
+// 通用类型
+export class APIError extends Error {
+    constructor(public status: number, message: string) {
+        super(message);
+        this.name = 'APIError';
     }
 }
 
@@ -57,4 +65,4 @@ export const catchAsync = (fn: Function) => {
     return (req: Request, res: Response, next: NextFunction) => {
         fn(req, res, next).catch(next);
     };
-}; 
+};

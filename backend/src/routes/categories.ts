@@ -5,7 +5,7 @@
  * @LastEditTime: 2025-03-09 12:54:26
  * @Description: 请填写简介
  */
-import express from 'express';
+import express, {Request} from 'express';
 import * as categoryModel from '../models/category';
 import {authMiddleware} from '../middleware/auth';
 import {familyMemberMiddleware} from '../middleware/family';
@@ -106,7 +106,7 @@ router.post('/',
     validateRequest(createCategorySchema.extend({
         family_id: z.number({required_error: '家庭ID不能为空'})
     })),
-    async (req, res) => {
+    async (req: Request, res) => {
         const {name, icon, type, isDefault = false, family_id} = req.body;
         console.log('验证后的请求体:', {name, icon, type, isDefault, family_id});
 
@@ -188,7 +188,7 @@ router.post('/:familyId',
 );
 
 // 更新分类
-router.put('/:familyId/:id', authMiddleware, familyMemberMiddleware, async (req, res) => {
+router.put('/:familyId/:id', authMiddleware, familyMemberMiddleware, async (req: Request, res) => {
     const id = parseInt(req.params.id);
     const familyId = parseInt(req.params.familyId);
     const {name, icon, type} = req.body;
@@ -242,7 +242,7 @@ router.put('/:familyId/:id', authMiddleware, familyMemberMiddleware, async (req,
 });
 
 // 删除分类
-router.delete('/:familyId/:id', authMiddleware, familyMemberMiddleware, async (req, res) => {
+router.delete('/:familyId/:id', authMiddleware, familyMemberMiddleware, async (req: Request, res) => {
     const id = parseInt(req.params.id);
     const familyId = parseInt(req.params.familyId);
 
@@ -292,7 +292,7 @@ router.delete('/:familyId/:id', authMiddleware, familyMemberMiddleware, async (r
 
 // 保留原来的路由，以便兼容旧的请求
 // 更新分类
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, async (req: Request, res) => {
     const id = parseInt(req.params.id);
     const {name, icon, type} = req.body;
 
@@ -342,7 +342,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 // 删除分类
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, async (req: Request, res) => {
     const id = parseInt(req.params.id);
 
     try {

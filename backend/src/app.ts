@@ -24,6 +24,7 @@ import { createUserTable } from './models/user';
 import { createFamilyTables } from './models/family';
 import { createCategoryTable } from './models/category';
 import { createTransactionTable } from './models/transaction';
+import { db } from './config/database';
 
 const app = express();
 
@@ -50,18 +51,21 @@ app.use('/api/cache', cacheRoutes);
 // 初始化数据库表
 async function initDatabase() {
     try {
+        // 确保数据库已连接
+        await db.connect();
+        console.log('数据库连接成功');
+
+        // 初始化表
         await createUserTable();
         await createFamilyTables();
         await createCategoryTable();
         await createTransactionTable();
         console.log('数据库表初始化成功');
     } catch (error) {
-        console.error('数据库表初始化失败:', error);
+        console.error('数据库初始化失败:', error);
         process.exit(1);
     }
 }
-
-// initDatabase();
 
 // 启动服务器
 const PORT = process.env.PORT || 3001;

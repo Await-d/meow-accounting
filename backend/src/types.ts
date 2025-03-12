@@ -54,4 +54,13 @@ export interface FamilyMember {
     user_id: number;
     role: 'owner' | 'admin' | 'member';
     created_at: string;
+}
+
+export interface Transaction {
+    id: number;
+    amount: number;
+    type: 'income' | 'expense';
+    category_id: number;
+    description?: string;
+    date: string;
 } 

@@ -1,4 +1,4 @@
-import {db} from './db';
+import db from './db';
 
 // 创建事务表
 export async function createTransactionTable() {
@@ -20,7 +20,7 @@ export async function createTransactionTable() {
     `;
 
     try {
-        await db.run(sql);
+        await db.execute(sql);
         console.log('事务表创建成功');
     } catch (error) {
         console.error('创建事务表失败:', error);
@@ -38,7 +38,7 @@ export async function createTransaction(data: {
     user_id: number;
     family_id: number;
 }) {
-    const {amount, type, category_id, description = '', date, user_id, family_id} = data;
+    const { amount, type, category_id, description = '', date, user_id, family_id } = data;
 
     const sql = `
         INSERT INTO transactions (amount, type, category_id, description, date, user_id, family_id)
@@ -46,10 +46,10 @@ export async function createTransaction(data: {
     `;
 
     try {
-        const result = await db.run(sql, [amount, type, category_id, description, date, user_id, family_id]) as any;
+        const id = await db.insert(sql, [amount, type, category_id, description, date, user_id, family_id]);
 
         return {
-            id: result.lastID,
+            id,
             ...data
         };
     } catch (error) {
@@ -103,7 +103,7 @@ export async function getTransactions(params: {
     values.push(pageSize, (page - 1) * pageSize);
 
     try {
-        const transactions = await db.all(sql, values);
+        const transactions = await db.findMany(sql, values);
 
         // 获取总数
         const countSql = `
@@ -111,11 +111,11 @@ export async function getTransactions(params: {
             FROM transactions
             WHERE ${conditions.join(' AND ')}
         `;
-        const {total} = await db.get(countSql, values.slice(0, -2));
+        const total = await db.findOne<{ total: number }>(countSql, values.slice(0, -2));
 
         return {
             data: transactions,
-            total,
+            total: total?.total ?? 0,
             page,
             pageSize
         };
@@ -136,7 +136,7 @@ export async function getTransactionById(id: number) {
     `;
 
     try {
-        return await db.get(sql, [id]);
+        return await db.findOne(sql, [id]);
     } catch (error) {
         console.error('获取事务详情失败:', error);
         throw error;
@@ -185,8 +185,8 @@ export async function updateTransaction(id: number, data: {
     values.push(id);
 
     try {
-        await db.run(sql, values);
-        return {id, ...data};
+        await db.execute(sql, values);
+        return { id, ...data };
     } catch (error) {
         console.error('更新事务失败:', error);
         throw error;
@@ -198,7 +198,7 @@ export async function deleteTransaction(id: number) {
     const sql = 'DELETE FROM transactions WHERE id = ?';
 
     try {
-        await db.run(sql, [id]);
+        await db.execute(sql, [id]);
         return true;
     } catch (error) {
         console.error('删除事务失败:', error);
@@ -245,7 +245,7 @@ export async function getCategoryStats(params: {
     `;
 
     try {
-        return await db.all(sql, values);
+        return await db.findMany(sql, values);
     } catch (error) {
         console.error('获取分类统计失败:', error);
         throw error;
@@ -253,43 +253,26 @@ export async function getCategoryStats(params: {
 }
 
 // 获取统计数据
-export async function getStatistics({familyId, startDate, endDate}: {
+export async function getStatistics({ familyId, startDate, endDate }: {
     familyId: number;
     startDate: string;
     endDate: string;
 }) {
+    const sql = `
+        SELECT 
+            type,
+            COUNT(*) as count,
+            SUM(amount) as total,
+            AVG(amount) as average,
+            MIN(amount) as min,
+            MAX(amount) as max
+        FROM transactions
+        WHERE family_id = ? AND date BETWEEN ? AND ?
+        GROUP BY type
+    `;
+
     try {
-        // 获取总收入和支出
-        const summary = await db.get(`
-            SELECT 
-                SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as totalIncome,
-                SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as totalExpense
-            FROM transactions 
-            WHERE family_id = ? AND date BETWEEN ? AND ?
-        `, [familyId, startDate, endDate]) as unknown as { totalIncome: number, totalExpense: number };
-
-        // 获取分类明细
-        const details = await db.all(`
-            SELECT 
-                t.type,
-                c.name as category_name,
-                c.icon as category_icon,
-                SUM(t.amount) as total_amount,
-                COUNT(*) as transaction_count
-            FROM transactions t
-            JOIN categories c ON t.category_id = c.id
-            WHERE t.family_id = ? AND t.date BETWEEN ? AND ?
-            GROUP BY t.type, t.category_id
-            ORDER BY total_amount DESC
-        `, [familyId, startDate, endDate]);
-
-        return {
-            summary: {
-                totalIncome: summary.totalIncome || 0,
-                totalExpense: summary.totalExpense || 0
-            },
-            details
-        };
+        return await db.findMany(sql, [familyId, startDate, endDate]);
     } catch (error) {
         console.error('获取统计数据失败:', error);
         throw error;

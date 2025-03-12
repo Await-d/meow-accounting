@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { RouteType, RoutePermission } from '../types';
+import {z} from 'zod';
+import {RouteType, RoutePermission} from '../types/index';
 
 // 创建路由验证
 export const createRouteSchema = z.object({
@@ -32,4 +32,4 @@ export const routeParamsSchema = z.record(z.any());
 export const performanceReportQuerySchema = z.object({
     start_date: z.string().optional(),
     end_date: z.string().optional()
-}); 
+});

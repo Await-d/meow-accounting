@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 19:38:42
  * @LastEditors: Await
- * @LastEditTime: 2025-03-04 19:41:39
+ * @LastEditTime: 2025-03-12 21:21:19
  * @Description: 请填写简介
  */
 import { Request, Response } from 'express';
@@ -94,45 +94,39 @@ export async function getCategoryStats(req: Request, res: Response) {
             ORDER BY t.date
         `;
 
-        db.get<TotalRow>(totalQuery, [startDate, endDate], (err, totalRow) => {
-            if (err) {
-                return res.status(500).json({ error: '获取总支出失败' });
-            }
-
+        try {
+            // 获取总支出金额
+            const totalRow = await db.findOne<TotalRow>(totalQuery, [startDate, endDate]);
             const total = totalRow?.total || 0;
 
-            db.all<CategoryRow>(categoryQuery, [startDate, endDate], (err, categories) => {
-                if (err) {
-                    return res.status(500).json({ error: '获取分类统计失败' });
+            // 获取分类统计
+            const categories = await db.findMany<CategoryRow>(categoryQuery, [startDate, endDate]);
+
+            // 获取趋势数据
+            const trends = await db.findMany<TrendRow>(trendQuery, [startDate, endDate]);
+
+            // 处理趋势数据
+            const categoryTrends: CategoryTrends = {};
+            trends.forEach(trend => {
+                if (!categoryTrends[trend.category_id]) {
+                    categoryTrends[trend.category_id] = [];
                 }
-
-                db.all<TrendRow>(trendQuery, [startDate, endDate], (err, trends) => {
-                    if (err) {
-                        return res.status(500).json({ error: '获取趋势数据失败' });
-                    }
-
-                    // 处理趋势数据
-                    const categoryTrends: CategoryTrends = {};
-                    trends.forEach(trend => {
-                        if (!categoryTrends[trend.category_id]) {
-                            categoryTrends[trend.category_id] = [];
-                        }
-                        categoryTrends[trend.category_id].push(trend.daily_amount);
-                    });
-
-                    // 组合最终数据
-                    const result = categories.map(category => ({
-                        name: category.name,
-                        category_icon: category.category_icon,
-                        amount: category.amount,
-                        trend: categoryTrends[category.id] || Array(7).fill(0),
-                        percentage: total > 0 ? (category.amount / total * 100) : 0
-                    }));
-
-                    res.json(result);
-                });
+                categoryTrends[trend.category_id].push(trend.daily_amount);
             });
-        });
+
+            // 组合最终数据
+            const result = categories.map(category => ({
+                name: category.name,
+                category_icon: category.category_icon,
+                amount: category.amount,
+                trend: categoryTrends[category.id] || Array(7).fill(0),
+                percentage: total > 0 ? (category.amount / total * 100) : 0
+            }));
+
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: '获取统计数据失败' });
+        }
     } catch (error) {
         res.status(500).json({ error: '获取分类统计失败' });
     }

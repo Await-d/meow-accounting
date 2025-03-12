@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 19:26:06
  * @LastEditors: Await
- * @LastEditTime: 2025-03-11 21:30:57
+ * @LastEditTime: 2025-03-12 19:20:33
  * @Description: 请填写简介
  */
 'use client';
@@ -69,7 +69,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 email: decoded.email,
                 role: decoded.role,
                 privacy_mode: decoded.privacy_mode,
-                default_route: decoded.default_route
+                default_route: decoded.default_route,
+                permissions: decoded.permissions
             };
         } catch (error) {
             console.error('解析 token 失败:', error);

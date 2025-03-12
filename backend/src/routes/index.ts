@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 18:48:07
  * @LastEditors: Await
- * @LastEditTime: 2025-03-09 19:58:47
+ * @LastEditTime: 2025-03-12 19:31:33
  * @Description: 请填写简介
  */
 import { Router } from 'express';
@@ -18,7 +18,8 @@ import * as routeController from '../controllers/route.controller';
 import * as routeStatsController from '../controllers/route-stats.controller';
 import * as routeParamsController from '../controllers/route-params.controller';
 import * as settingsController from '../controllers/settings.controller';
-import { authMiddleware } from '../middlewares/auth';
+import { authMiddleware } from '../middleware/auth';
+
 
 const router = Router();
 

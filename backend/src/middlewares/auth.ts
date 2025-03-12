@@ -1,3 +1,10 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-12 19:24:31
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-12 19:56:49
+ * @Description: 请填写简介
+ */
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
@@ -5,9 +12,12 @@ interface AuthRequest extends Request {
     user?: {
         id: number;
         username: string;
+        email: string;
         role: string;
+        permissions?: string[];
     };
 }
+
 
 export const authenticate = async (
     req: AuthRequest,
@@ -27,7 +37,9 @@ export const authenticate = async (
         ) as {
             id: number;
             username: string;
+            email: string;
             role: string;
+            permissions?: string[];
         };
 
         req.user = decoded;
@@ -47,4 +59,4 @@ export const isAdmin = (
         return res.status(403).json({ error: '需要管理员权限' });
     }
     next();
-}; 
+};

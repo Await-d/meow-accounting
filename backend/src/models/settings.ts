@@ -1,5 +1,5 @@
 import { db } from '../config/database';
-import { UserSettings } from '../types';
+import { UserSettings } from '../types/index';
 
 // 默认设置
 const DEFAULT_SETTINGS: Omit<UserSettings, 'id' | 'user_id' | 'created_at' | 'updated_at'> = {
@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: Omit<UserSettings, 'id' | 'user_id' | 'created_at' | 'up
 
 // 获取用户设置
 export async function getSettings(userId: number): Promise<UserSettings | null> {
-    const settings = await db.get<UserSettings>(
+    const settings = await db.findOne<UserSettings>(
         'SELECT * FROM user_settings WHERE user_id = ?',
         [userId]
     );
@@ -56,11 +56,10 @@ export async function updateSettings(
             ...settings
         };
 
-        await db.run(
-            `INSERT INTO user_settings (
-                user_id, theme, language, appearance,
-                performance, notifications
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
+        await db.execute(
+            `INSERT INTO user_settings (user_id, theme, language, appearance,
+                                        performance, notifications)
+             VALUES (?, ?, ?, ?, ?, ?)`,
             [
                 userId,
                 newSettings.theme,
@@ -89,15 +88,15 @@ export async function updateSettings(
             }
         };
 
-        await db.run(
-            `UPDATE user_settings 
-            SET theme = ?,
-                language = ?,
-                appearance = ?,
-                performance = ?,
-                notifications = ?,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE user_id = ?`,
+        await db.execute(
+            `UPDATE user_settings
+             SET theme         = ?,
+                 language      = ?,
+                 appearance    = ?,
+                 performance   = ?,
+                 notifications = ?,
+                 updated_at    = CURRENT_TIMESTAMP
+             WHERE user_id = ?`,
             [
                 updatedSettings.theme,
                 updatedSettings.language,
@@ -112,15 +111,15 @@ export async function updateSettings(
 
 // 重置用户设置
 export async function resetSettings(userId: number): Promise<void> {
-    await db.run(
-        `UPDATE user_settings 
-        SET theme = ?,
-            language = ?,
-            appearance = ?,
-            performance = ?,
-            notifications = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE user_id = ?`,
+    await db.execute(
+        `UPDATE user_settings
+         SET theme         = ?,
+             language      = ?,
+             appearance    = ?,
+             performance   = ?,
+             notifications = ?,
+             updated_at    = CURRENT_TIMESTAMP
+         WHERE user_id = ?`,
         [
             DEFAULT_SETTINGS.theme,
             DEFAULT_SETTINGS.language,
@@ -175,15 +174,14 @@ export async function getSettingsHistory(
     settings: UserSettings;
     created_at: string;
 }>> {
-    const results = await db.all<Array<{
+    const results = await db.findMany<{
         settings: string;
         created_at: string;
-    }>>(
-        `SELECT settings, created_at 
-        FROM user_settings_history
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        LIMIT ?`,
+    }>(
+        `SELECT settings, created_at
+         FROM user_settings_history
+         WHERE user_id = ?
+         ORDER BY created_at DESC LIMIT ?`,
         [userId, limit]
     );
 
@@ -191,4 +189,4 @@ export async function getSettingsHistory(
         settings: JSON.parse(result.settings),
         created_at: result.created_at
     }));
-} 
+}

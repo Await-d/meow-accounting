@@ -2,12 +2,12 @@
  * @Author: Await
  * @Date: 2025-03-10 21:33:48
  * @LastEditors: Await
- * @LastEditTime: 2025-03-10 21:45:54
+ * @LastEditTime: 2025-03-12 20:53:38
  * @Description: 请填写简介
  */
 import { Request, Response } from 'express';
-import * as routeStatsModel from '../models/route-stats';
-import { RecordRouteAccessData, PerformanceReport } from '../types';
+import { routeStatsModel } from '../models/route-stats';
+import { RecordRouteAccessData, PerformanceReport } from '../types/index';
 
 // 记录路由访问
 export async function recordAccess(req: Request, res: Response) {
@@ -36,11 +36,7 @@ export async function getPerformanceReport(req: Request, res: Response) {
         }
 
         const { start_date, end_date } = req.query;
-        const report = await routeStatsModel.getPerformanceReport(
-            userId,
-            start_date as string,
-            end_date as string
-        );
+        const report = await routeStatsModel.getPerformanceReport(userId);
 
         res.json(report);
     } catch (error) {
@@ -99,4 +95,4 @@ export async function getPreheatStatus(req: Request, res: Response) {
         console.error('获取预热状态失败:', error);
         res.status(500).json({ error: '获取预热状态失败' });
     }
-} 
+}

@@ -1,5 +1,5 @@
 import db from './db';
-import {createCategory} from './category';
+import { createCategory } from './category';
 
 export interface Family {
     id: number;
@@ -33,7 +33,7 @@ export interface FamilyInvitation {
 }
 
 // 创建家庭表
-export function createFamilyTables() {
+export async function createFamilyTables(): Promise<void> {
     const familyTableSql = `
         CREATE TABLE IF NOT EXISTS families (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,241 +77,166 @@ export function createFamilyTables() {
         )
     `;
 
-    return new Promise<void>((resolve, reject) => {
-        db.serialize(() => {
-            db.run(familyTableSql, (err: Error | null) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
+    try {
+        await db.beginTransaction();
 
-                db.run(memberTableSql, (err: Error | null) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
+        // 创建家庭表
+        await db.execute(familyTableSql);
 
-                    db.run(invitationTableSql, (err: Error | null) => {
-                        if (err) {
-                            reject(err);
-                            return;
-                        }
-                        resolve();
-                    });
-                });
-            });
-        });
-    });
+        // 创建家庭成员表
+        await db.execute(memberTableSql);
+
+        // 创建邀请表
+        await db.execute(invitationTableSql);
+
+        await db.commit();
+    } catch (error) {
+        await db.rollback();
+        throw error;
+    }
 }
 
 // 默认分类列表
 const defaultCategories = [
     // 支出分类
-    {name: '餐饮', icon: '🍚', type: 'expense'},
-    {name: '交通', icon: '🚗', type: 'expense'},
-    {name: '购物', icon: '🛒', type: 'expense'},
-    {name: '娱乐', icon: '🎮', type: 'expense'},
-    {name: '居住', icon: '🏠', type: 'expense'},
-    {name: '医疗', icon: '💊', type: 'expense'},
-    {name: '教育', icon: '📚', type: 'expense'},
-    {name: '通讯', icon: '📱', type: 'expense'},
-    {name: '服饰', icon: '👔', type: 'expense'},
-    {name: '其他支出', icon: '💰', type: 'expense'},
+    { name: '餐饮', icon: '🍚', type: 'expense' },
+    { name: '交通', icon: '🚗', type: 'expense' },
+    { name: '购物', icon: '🛒', type: 'expense' },
+    { name: '娱乐', icon: '🎮', type: 'expense' },
+    { name: '居住', icon: '🏠', type: 'expense' },
+    { name: '医疗', icon: '💊', type: 'expense' },
+    { name: '教育', icon: '📚', type: 'expense' },
+    { name: '通讯', icon: '📱', type: 'expense' },
+    { name: '服饰', icon: '👔', type: 'expense' },
+    { name: '其他支出', icon: '💰', type: 'expense' },
     // 收入分类
-    {name: '工资', icon: '💵', type: 'income'},
-    {name: '奖金', icon: '🎁', type: 'income'},
-    {name: '投资', icon: '📈', type: 'income'},
-    {name: '兼职', icon: '💼', type: 'income'},
-    {name: '其他收入', icon: '💰', type: 'income'},
+    { name: '工资', icon: '💵', type: 'income' },
+    { name: '奖金', icon: '🎁', type: 'income' },
+    { name: '投资', icon: '📈', type: 'income' },
+    { name: '兼职', icon: '💼', type: 'income' },
+    { name: '其他收入', icon: '💰', type: 'income' },
 ] as const;
 
 // 创建家庭
-export function createFamily(name: string, description: string, ownerId: number): Promise<number> {
-    return new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
+export async function createFamily(name: string, description: string, ownerId: number): Promise<number> {
+    try {
+        await db.beginTransaction();
 
-            db.run(
-                'INSERT INTO families (name, description, owner_id) VALUES (?, ?, ?)',
-                [name, description, ownerId],
-                async function (this: { lastID: number }, err: Error | null) {
-                    if (err) {
-                        db.run('ROLLBACK');
-                        reject(err);
-                        return;
-                    }
+        // 创建家庭
+        const result = await db.insert(
+            'INSERT INTO families (name, description, owner_id) VALUES (?, ?, ?)',
+            [name, description, ownerId]
+        );
 
-                    const familyId = this.lastID;
+        const familyId = result;
 
-                    try {
-                        // 添加创建者作为家庭成员（owner角色）
-                        await new Promise<void>((resolve, reject) => {
-                            db.run(
-                                'INSERT INTO family_members (family_id, user_id, role) VALUES (?, ?, ?)',
-                                [familyId, ownerId, 'owner'],
-                                (err: Error | null) => {
-                                    if (err) reject(err);
-                                    else resolve();
-                                }
-                            );
-                        });
+        // 添加创建者作为家庭成员（owner角色）
+        await db.execute(
+            'INSERT INTO family_members (family_id, user_id, role) VALUES (?, ?, ?)',
+            [familyId, ownerId, 'owner']
+        );
 
-                        db.run('COMMIT');
-                        resolve(familyId);
-                    } catch (error) {
-                        db.run('ROLLBACK');
-                        reject(error);
-                    }
-                }
-            );
-        });
-    });
+        await db.commit();
+        return familyId;
+    } catch (error) {
+        await db.rollback();
+        throw error;
+    }
 }
 
 // 获取家庭信息
-export function getFamilyById(id: number): Promise<Family | undefined> {
-    return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM families WHERE id = ?', [id], (err, row) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row as Family);
-        });
-    });
+export async function getFamilyById(id: number): Promise<Family | undefined> {
+    const result = await db.findOne<Family>('SELECT * FROM families WHERE id = ?', [id]);
+    return result || undefined;
 }
 
 // 获取用户的所有家庭
-export function getUserFamilies(userId: number): Promise<Family[]> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT f.* 
-            FROM families f
-            JOIN family_members fm ON f.id = fm.family_id
-            WHERE fm.user_id = ?
-        `;
-
-        db.all(sql, [userId], (err, rows) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(rows as Family[]);
-        });
-    });
+export async function getUserFamilies(userId: number): Promise<Family[]> {
+    const sql = `
+        SELECT f.* 
+        FROM families f
+        JOIN family_members fm ON f.id = fm.family_id
+        WHERE fm.user_id = ?
+    `;
+    return await db.findMany<Family>(sql, [userId]);
 }
 
 // 获取家庭成员
-export function getFamilyMembers(familyId: number): Promise<FamilyMember[]> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT fm.*, u.username, u.email
-            FROM family_members fm
-            JOIN users u ON fm.user_id = u.id
-            WHERE fm.family_id = ?
-        `;
-
-        db.all(sql, [familyId], (err, rows) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(rows as FamilyMember[]);
-        });
-    });
+export async function getFamilyMembers(familyId: number): Promise<FamilyMember[]> {
+    const sql = `
+        SELECT fm.*, u.username, u.email
+        FROM family_members fm
+        JOIN users u ON fm.user_id = u.id
+        WHERE fm.family_id = ?
+    `;
+    return await db.findMany<FamilyMember>(sql, [familyId]);
 }
 
 // 添加家庭成员
-export function addFamilyMember(familyId: number, userId: number, role: 'admin' | 'member' = 'member'): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const sql = 'INSERT INTO family_members (family_id, user_id, role) VALUES (?, ?, ?)';
-
-        db.run(sql, [familyId, userId, role], (err) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve();
-        });
-    });
+export async function addFamilyMember(familyId: number, userId: number, role: 'admin' | 'member' = 'member'): Promise<void> {
+    await db.execute(
+        'INSERT INTO family_members (family_id, user_id, role) VALUES (?, ?, ?)',
+        [familyId, userId, role]
+    );
 }
 
 // 更新成员角色
-export function updateMemberRole(familyId: number, userId: number, role: 'admin' | 'member'): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            UPDATE family_members 
-            SET role = ?
-            WHERE family_id = ? AND user_id = ? AND role != 'owner'
-        `;
-
-        db.run(sql, [role, familyId, userId], (err) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve();
-        });
-    });
+export async function updateMemberRole(familyId: number, userId: number, role: 'admin' | 'member'): Promise<void> {
+    await db.execute(
+        `UPDATE family_members 
+         SET role = ?
+         WHERE family_id = ? AND user_id = ? AND role != 'owner'`,
+        [role, familyId, userId]
+    );
 }
 
 // 移除家庭成员
-export function removeFamilyMember(familyId: number, userId: number, currentUserId?: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-        // 如果是自己退出家庭，或者是管理员移除成员
-        const sql = currentUserId === userId
-            ? `DELETE FROM family_members WHERE family_id = ? AND user_id = ? AND role != 'owner'`
-            : `DELETE FROM family_members WHERE family_id = ? AND user_id = ? AND role != 'owner'`;
+export async function removeFamilyMember(familyId: number, userId: number, currentUserId?: number): Promise<void> {
+    // 如果指定了当前用户ID，需要检查权限
+    if (currentUserId) {
+        const currentUserRole = await db.findOne<{ role: string }>(
+            'SELECT role FROM family_members WHERE family_id = ? AND user_id = ?',
+            [familyId, currentUserId]
+        );
 
-        db.run(sql, [familyId, userId], function (this: { changes: number }, err) {
-            if (err) {
-                reject(err);
-                return;
-            }
+        // 只有管理员或所有者可以移除成员
+        if (!currentUserRole || (currentUserRole.role !== 'admin' && currentUserRole.role !== 'owner')) {
+            throw new Error('没有权限执行此操作');
+        }
 
-            // 检查是否有记录被删除
-            if (this.changes === 0) {
-                console.log(`没有记录被删除: familyId=${familyId}, userId=${userId}`);
-            } else {
-                console.log(`成功删除记录: familyId=${familyId}, userId=${userId}, 影响行数: ${this.changes}`);
-            }
+        // 不能移除所有者
+        const targetRole = await db.findOne<{ role: string }>(
+            'SELECT role FROM family_members WHERE family_id = ? AND user_id = ?',
+            [familyId, userId]
+        );
 
-            resolve();
-        });
-    });
+        if (targetRole?.role === 'owner') {
+            throw new Error('不能移除家庭所有者');
+        }
+    }
+
+    await db.execute(
+        'DELETE FROM family_members WHERE family_id = ? AND user_id = ? AND role != "owner"',
+        [familyId, userId]
+    );
 }
 
-// 检查用户是否是家庭成员
-export function isFamilyMember(familyId: number, userId: number): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        const sql = 'SELECT 1 FROM family_members WHERE family_id = ? AND user_id = ?';
-
-        db.get(sql, [familyId, userId], (err, row) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(!!row);
-        });
-    });
+// 检查是否是家庭成员
+export async function isFamilyMember(familyId: number, userId: number): Promise<boolean> {
+    const member = await db.findOne<{ id: number }>(
+        'SELECT id FROM family_members WHERE family_id = ? AND user_id = ?',
+        [familyId, userId]
+    );
+    return !!member;
 }
 
-// 检查用户是否是家庭管理员
-export function isFamilyAdmin(familyId: number, userId: number): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT 1 FROM family_members 
-            WHERE family_id = ? AND user_id = ? AND role IN ('owner', 'admin')
-        `;
-
-        db.get(sql, [familyId, userId], (err, row) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(!!row);
-        });
-    });
+// 检查是否是家庭管理员
+export async function isFamilyAdmin(familyId: number, userId: number): Promise<boolean> {
+    const member = await db.findOne<{ role: string }>(
+        'SELECT role FROM family_members WHERE family_id = ? AND user_id = ?',
+        [familyId, userId]
+    );
+    return member?.role === 'admin' || member?.role === 'owner';
 }
 
 // 生成随机令牌
@@ -325,7 +250,7 @@ function generateToken(length = 32): string {
 }
 
 // 创建家庭邀请
-export function createFamilyInvitation(
+export async function createFamilyInvitation(
     familyId: number,
     email: string | null,
     role: 'admin' | 'member',
@@ -333,363 +258,169 @@ export function createFamilyInvitation(
     expiresInHours = 48,
     maxUses = 1
 ): Promise<{ id: number; token: string }> {
-    return new Promise((resolve, reject) => {
-        // 生成过期时间（当前时间 + expiresInHours小时）
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+    const token = generateToken();
+    const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
 
-        // 生成唯一令牌
-        const token = generateToken();
+    const id = await db.insert(
+        `INSERT INTO family_invitations (
+            family_id, email, role, token, expires_at, created_by, max_uses
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [familyId, email, role, token, expiresAt, createdBy, maxUses]
+    );
 
-        const sql = `
-            INSERT INTO family_invitations 
-            (family_id, email, role, token, expires_at, created_by, max_uses, current_uses) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
-        db.run(
-            sql,
-            [familyId, email, role, token, expiresAt.toISOString(), createdBy, maxUses, 0],
-            function (this: { lastID: number }, err: Error | null) {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve({id: this.lastID, token});
-            }
-        );
-    });
+    return { id, token };
 }
 
-// 获取邀请信息
-export function getInvitationByToken(token: string): Promise<FamilyInvitation | undefined> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT i.*, f.name as family_name
-            FROM family_invitations i
-            JOIN families f ON i.family_id = f.id
-            WHERE i.token = ?
-        `;
-
-        db.get(sql, [token], (err, row) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row as FamilyInvitation | undefined);
-        });
-    });
+// 通过令牌获取邀请
+export async function getInvitationByToken(token: string): Promise<FamilyInvitation | undefined> {
+    const invitation = await db.findOne<FamilyInvitation>(
+        'SELECT * FROM family_invitations WHERE token = ?',
+        [token]
+    );
+    return invitation || undefined;
 }
 
-// 获取用户的所有待处理邀请
-export function getPendingInvitationsByEmail(email: string): Promise<FamilyInvitation[]> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT i.*, f.name as family_name, u.username as creator_name, u.email as creator_email
-            FROM family_invitations i
-            JOIN families f ON i.family_id = f.id
-            JOIN users u ON i.created_by = u.id
-            WHERE (i.email = ? OR i.email IS NULL) 
-            AND i.status = 'pending' 
-            AND i.expires_at > datetime('now')
-            ORDER BY i.created_at DESC
-        `;
-
-        db.all(sql, [email], (err, rows) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(rows as FamilyInvitation[]);
-        });
-    });
+// 获取用户的待处理邀请
+export async function getPendingInvitationsByEmail(email: string): Promise<FamilyInvitation[]> {
+    const sql = `
+        SELECT i.*, f.name as family_name, u.username as inviter_name
+        FROM family_invitations i
+        JOIN families f ON i.family_id = f.id
+        JOIN users u ON i.created_by = u.id
+        WHERE i.email = ? AND i.status = 'pending' AND i.expires_at > CURRENT_TIMESTAMP
+    `;
+    return await db.findMany<FamilyInvitation>(sql, [email]);
 }
 
 // 接受邀请
-export function acceptInvitation(token: string, userId: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
+export async function acceptInvitation(token: string, userId: number): Promise<void> {
+    try {
+        await db.beginTransaction();
 
-            // 获取邀请信息
-            db.get(
-                'SELECT * FROM family_invitations WHERE token = ? AND status = "pending" AND expires_at > datetime("now")',
-                [token],
-                (err, invitation: FamilyInvitation) => {
-                    if (err) {
-                        db.run('ROLLBACK');
-                        reject(err);
-                        return;
-                    }
+        // 获取邀请信息
+        const invitation = await db.findOne<FamilyInvitation>(
+            'SELECT * FROM family_invitations WHERE token = ? AND status = "pending"',
+            [token]
+        );
 
-                    if (!invitation) {
-                        db.run('ROLLBACK');
-                        reject(new Error('邀请不存在或已过期'));
-                        return;
-                    }
+        if (!invitation) {
+            throw new Error('邀请不存在或已过期');
+        }
 
-                    // 如果邀请指定了邮箱，检查邮箱是否匹配
-                    if (invitation.email) {
-                        db.get('SELECT email FROM users WHERE id = ?', [userId], (err, user: { email: string }) => {
-                            if (err) {
-                                db.run('ROLLBACK');
-                                reject(err);
-                                return;
-                            }
+        if (invitation.expires_at < new Date().toISOString()) {
+            throw new Error('邀请已过期');
+        }
 
-                            if (!user || user.email !== invitation.email) {
-                                db.run('ROLLBACK');
-                                reject(new Error('此邀请不是发送给您的'));
-                                return;
-                            }
+        if (invitation.current_uses >= invitation.max_uses) {
+            throw new Error('邀请已达到最大使用次数');
+        }
 
-                            // 继续处理邀请
-                            processInvitation(invitation);
-                        });
-                    } else {
-                        // 通用邀请，无需检查邮箱
-                        processInvitation(invitation);
-                    }
+        // 检查用户是否已经是家庭成员
+        const existingMember = await db.findOne<{ id: number }>(
+            'SELECT id FROM family_members WHERE family_id = ? AND user_id = ?',
+            [invitation.family_id, userId]
+        );
 
-                    function processInvitation(invitation: FamilyInvitation) {
-                        // 检查用户是否已经是家庭成员
-                        db.get(
-                            'SELECT * FROM family_members WHERE family_id = ? AND user_id = ?',
-                            [invitation.family_id, userId],
-                            (err, member) => {
-                                if (err) {
-                                    db.run('ROLLBACK');
-                                    reject(err);
-                                    return;
-                                }
+        if (existingMember) {
+            throw new Error('用户已经是该家庭的成员');
+        }
 
-                                if (member) {
-                                    // 用户已经是家庭成员，更新邀请状态
-                                    updateInvitationStatus();
-                                    return;
-                                }
+        // 添加用户为家庭成员
+        await db.execute(
+            'INSERT INTO family_members (family_id, user_id, role) VALUES (?, ?, ?)',
+            [invitation.family_id, userId, invitation.role]
+        );
 
-                                // 添加用户为家庭成员
-                                db.run(
-                                    'INSERT INTO family_members (family_id, user_id, role) VALUES (?, ?, ?)',
-                                    [invitation.family_id, userId, invitation.role],
-                                    (err) => {
-                                        if (err) {
-                                            db.run('ROLLBACK');
-                                            reject(err);
-                                            return;
-                                        }
+        // 更新邀请使用次数
+        await db.execute(
+            'UPDATE family_invitations SET current_uses = current_uses + 1 WHERE id = ?',
+            [invitation.id]
+        );
 
-                                        // 更新邀请状态
-                                        updateInvitationStatus();
-                                    }
-                                );
-                            }
-                        );
-
-                        function updateInvitationStatus() {
-                            // 对于多次使用的邀请，增加使用次数而不是标记为已接受
-                            if (invitation.max_uses > 1) {
-                                const newCurrentUses = (invitation.current_uses || 0) + 1;
-                                const newStatus = newCurrentUses >= invitation.max_uses ? 'accepted' : 'pending';
-
-                                db.run(
-                                    'UPDATE family_invitations SET current_uses = ?, status = ? WHERE token = ?',
-                                    [newCurrentUses, newStatus, token],
-                                    (err) => {
-                                        if (err) {
-                                            db.run('ROLLBACK');
-                                            reject(err);
-                                            return;
-                                        }
-                                        db.run('COMMIT');
-                                        resolve();
-                                    }
-                                );
-                            } else {
-                                // 单次使用的邀请，直接标记为已接受
-                                db.run(
-                                    'UPDATE family_invitations SET status = "accepted", current_uses = 1 WHERE token = ?',
-                                    [token],
-                                    (err) => {
-                                        if (err) {
-                                            db.run('ROLLBACK');
-                                            reject(err);
-                                            return;
-                                        }
-                                        db.run('COMMIT');
-                                        resolve();
-                                    }
-                                );
-                            }
-                        }
-                    }
-                }
+        // 如果达到最大使用次数，将状态更新为已完成
+        if (invitation.current_uses + 1 >= invitation.max_uses) {
+            await db.execute(
+                'UPDATE family_invitations SET status = "accepted" WHERE id = ?',
+                [invitation.id]
             );
-        });
-    });
+        }
+
+        await db.commit();
+    } catch (error) {
+        await db.rollback();
+        throw error;
+    }
 }
 
 // 拒绝邀请
-export function rejectInvitation(token: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            UPDATE family_invitations 
-            SET status = "rejected" 
-            WHERE token = ? AND status = "pending"
-        `;
-
-        db.run(sql, [token], (err) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve();
-        });
-    });
+export async function rejectInvitation(token: string): Promise<void> {
+    await db.execute(
+        'UPDATE family_invitations SET status = "rejected" WHERE token = ? AND status = "pending"',
+        [token]
+    );
 }
 
 // 清理过期邀请
-export function cleanupExpiredInvitations(): Promise<number> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            UPDATE family_invitations 
-            SET status = "expired" 
-            WHERE status = "pending" AND expires_at < datetime('now')
-        `;
+export async function cleanupExpiredInvitations(): Promise<number> {
+    // 先获取需要更新的邀请数量
+    const expiredInvitations = await db.findMany<{ id: number }>(
+        'SELECT id FROM family_invitations WHERE status = "pending" AND expires_at <= CURRENT_TIMESTAMP'
+    );
 
-        db.run(sql, function (this: { changes: number }, err: Error | null) {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(this.changes);
-        });
-    });
+    if (expiredInvitations.length > 0) {
+        await db.execute(
+            'UPDATE family_invitations SET status = "expired" WHERE status = "pending" AND expires_at <= CURRENT_TIMESTAMP'
+        );
+    }
+
+    return expiredInvitations.length;
 }
 
 // 获取家庭的所有邀请
-export function getFamilyInvitations(familyId: number): Promise<FamilyInvitation[]> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            SELECT i.*, u.username as creator_name, u.email as creator_email
-            FROM family_invitations i
-            JOIN users u ON i.created_by = u.id
-            WHERE i.family_id = ?
-            ORDER BY i.created_at DESC
-        `;
-
-        db.all(sql, [familyId], (err, rows) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(rows as FamilyInvitation[]);
-        });
-    });
+export async function getFamilyInvitations(familyId: number): Promise<FamilyInvitation[]> {
+    const sql = `
+        SELECT i.*, u.username as creator_name
+        FROM family_invitations i
+        JOIN users u ON i.created_by = u.id
+        WHERE i.family_id = ?
+        ORDER BY i.created_at DESC
+    `;
+    return await db.findMany<FamilyInvitation>(sql, [familyId]);
 }
 
 // 删除邀请
-export function deleteInvitation(invitationId: number, familyId: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-        // 首先检查邀请是否存在
-        const checkSql = `
-            SELECT id, status FROM family_invitations 
-            WHERE id = ? AND family_id = ?
-        `;
-
-        db.get(checkSql, [invitationId, familyId], (err, invitation) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-
-            if (!invitation) {
-                console.log(`邀请不存在: invitationId=${invitationId}, familyId=${familyId}`);
-                reject(new Error('邀请不存在'));
-                return;
-            }
-
-            // 删除邀请，不限制状态
-            const deleteSql = `
-                DELETE FROM family_invitations 
-                WHERE id = ? AND family_id = ?
-            `;
-
-            db.run(deleteSql, [invitationId, familyId], function (this: { changes: number }, err) {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-
-                // 检查是否有记录被删除
-                if (this.changes === 0) {
-                    console.log(`没有邀请被删除: invitationId=${invitationId}, familyId=${familyId}`);
-                    reject(new Error('删除邀请失败'));
-                    return;
-                }
-
-                console.log(`成功删除邀请: invitationId=${invitationId}, familyId=${familyId}, 状态=${invitation.status}`);
-                resolve();
-            });
-        });
-    });
+export async function deleteInvitation(invitationId: number, familyId: number): Promise<void> {
+    await db.execute(
+        'DELETE FROM family_invitations WHERE id = ? AND family_id = ?',
+        [invitationId, familyId]
+    );
 }
 
 // 更新家庭信息
-export function updateFamily(id: number, name: string, description: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const sql = `
-            UPDATE families 
-            SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `;
-
-        db.run(sql, [name, description, id], (err) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve();
-        });
-    });
+export async function updateFamily(id: number, name: string, description: string): Promise<void> {
+    await db.execute(
+        'UPDATE families SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [name, description, id]
+    );
 }
 
 // 删除家庭
-export function deleteFamily(id: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
+export async function deleteFamily(id: number): Promise<void> {
+    try {
+        await db.beginTransaction();
 
-            // 删除家庭邀请
-            db.run('DELETE FROM family_invitations WHERE family_id = ?', [id], (err) => {
-                if (err) {
-                    db.run('ROLLBACK');
-                    reject(err);
-                    return;
-                }
+        // 删除家庭成员
+        await db.execute('DELETE FROM family_members WHERE family_id = ?', [id]);
 
-                // 删除家庭成员
-                db.run('DELETE FROM family_members WHERE family_id = ?', [id], (err) => {
-                    if (err) {
-                        db.run('ROLLBACK');
-                        reject(err);
-                        return;
-                    }
+        // 删除家庭邀请
+        await db.execute('DELETE FROM family_invitations WHERE family_id = ?', [id]);
 
-                    // 删除家庭
-                    db.run('DELETE FROM families WHERE id = ?', [id], (err) => {
-                        if (err) {
-                            db.run('ROLLBACK');
-                            reject(err);
-                            return;
-                        }
+        // 删除家庭
+        await db.execute('DELETE FROM families WHERE id = ?', [id]);
 
-                        db.run('COMMIT');
-                        resolve();
-                    });
-                });
-            });
-        });
-    });
+        await db.commit();
+    } catch (error) {
+        await db.rollback();
+        throw error;
+    }
 }

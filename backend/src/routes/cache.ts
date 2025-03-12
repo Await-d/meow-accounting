@@ -5,9 +5,9 @@
  * @LastEditTime: 2025-03-11 20:51:03
  * @Description: 请填写简介
  */
-import { Router } from 'express';
-import { cache } from '../utils/cache';
-import { authenticate, isAdmin } from '../middlewares/auth';
+import {Router} from 'express';
+import {cache} from '../utils/cache';
+import {authenticate, isAdmin} from '../middlewares/auth';
 
 const router = Router();
 
@@ -39,9 +39,9 @@ router.get('/stats', authenticate, isAdmin, async (req, res) => {
 // 清除指定模式的缓存
 router.delete('/pattern/:pattern', authenticate, isAdmin, async (req, res) => {
     try {
-        const { pattern } = req.params;
+        const {pattern} = req.params;
         const deletedCount = await cache.delByPattern(pattern);
-        res.json({ deletedCount });
+        res.json({deletedCount});
     } catch (error) {
         res.status(500).json({
             error: '清除缓存失败',
@@ -54,7 +54,7 @@ router.delete('/pattern/:pattern', authenticate, isAdmin, async (req, res) => {
 router.delete('/all', authenticate, isAdmin, async (req, res) => {
     try {
         await cache.clear();
-        res.json({ message: '所有缓存已清除' });
+        res.json({message: '所有缓存已清除'});
     } catch (error) {
         res.status(500).json({
             error: '清除所有缓存失败',
@@ -66,13 +66,13 @@ router.delete('/all', authenticate, isAdmin, async (req, res) => {
 // 预热指定的缓存键
 router.post('/warmup', authenticate, isAdmin, async (req, res) => {
     try {
-        const { keys } = req.body;
+        const {keys} = req.body;
         if (!Array.isArray(keys)) {
-            return res.status(400).json({ error: 'keys必须是字符串数组' });
+            return res.status(400).json({error: 'keys必须是字符串数组'});
         }
 
         await cache.warmup(keys);
-        res.json({ message: '缓存预热完成' });
+        res.json({message: '缓存预热完成'});
     } catch (error) {
         res.status(500).json({
             error: '缓存预热失败',
@@ -86,7 +86,7 @@ router.get('/memory', authenticate, isAdmin, async (req, res) => {
     try {
         const threshold = parseFloat(req.query.threshold as string) || 0.8;
         await cache.monitorMemory(threshold);
-        res.json({ message: '内存监控正常' });
+        res.json({message: '内存监控正常'});
     } catch (error) {
         res.status(500).json({
             error: '内存监控失败',
@@ -95,4 +95,4 @@ router.get('/memory', authenticate, isAdmin, async (req, res) => {
     }
 });
 
-export default router; 
+export default router;

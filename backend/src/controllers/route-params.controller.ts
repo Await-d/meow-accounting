@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import * as routeParamsModel from '../models/route-params';
-import * as routeModel from '../models/route';
+import { routeModel } from '../models/route';
 
 // 保存路由参数
 export async function saveParams(req: Request, res: Response) {
@@ -20,7 +20,7 @@ export async function saveParams(req: Request, res: Response) {
         }
 
         // 检查访问权限
-        const canAccess = await routeModel.canAccessRoute(routeId, userId, req.user?.currentFamilyId);
+        const canAccess = await routeModel.canAccessRoute(routeId, userId, req.user?.currentFamilyId ?? null);
         if (!canAccess) {
             return res.status(403).json({ error: '无权访问此路由' });
         }
@@ -50,7 +50,7 @@ export async function getParams(req: Request, res: Response) {
         }
 
         // 检查访问权限
-        const canAccess = await routeModel.canAccessRoute(routeId, userId, req.user?.currentFamilyId);
+        const canAccess = await routeModel.canAccessRoute(routeId, userId, req.user?.currentFamilyId ?? null);
         if (!canAccess) {
             return res.status(403).json({ error: '无权访问此路由' });
         }
@@ -80,7 +80,7 @@ export async function clearParams(req: Request, res: Response) {
         }
 
         // 检查访问权限
-        const canAccess = await routeModel.canAccessRoute(routeId, userId, req.user?.currentFamilyId);
+        const canAccess = await routeModel.canAccessRoute(routeId, userId, req.user?.currentFamilyId ?? null);
         if (!canAccess) {
             return res.status(403).json({ error: '无权访问此路由' });
         }
@@ -107,4 +107,4 @@ export async function getAllParams(req: Request, res: Response) {
         console.error('获取所有路由参数失败:', error);
         res.status(500).json({ error: '获取所有路由参数失败' });
     }
-} 
+}

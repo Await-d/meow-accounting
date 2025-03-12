@@ -2,14 +2,14 @@ import db from './db';
 import bcrypt from 'bcryptjs';
 
 export interface User {
-    id: string;
+    id: number;
     username: string;
     email: string;
     password: string;
     role: string;
     nickname?: string;
     avatar?: string;
-    currentFamilyId?: string;
+    currentFamilyId?: number;
     settings?: Record<string, any>;
     privacy_mode: boolean;
     guest_password: string | null;
@@ -18,49 +18,29 @@ export interface User {
 }
 
 // 创建用户表
-export function createUserTable() {
-    const sql = `
+export async function createUserTable(): Promise<void> {
+    await db.execute(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'user',
             nickname TEXT,
             avatar TEXT,
-            current_family_id TEXT,
-            settings TEXT DEFAULT '{}',
-            privacy_mode BOOLEAN DEFAULT 0,
-            guest_password TEXT,
+            role TEXT DEFAULT 'user',
+            current_family_id INTEGER,
+            settings JSON,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (current_family_id) REFERENCES families(id)
         )
-    `;
-
-    return new Promise<void>((resolve, reject) => {
-        db.run(sql, (err: Error | null) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve();
-        });
-    });
+    `);
 }
 
 // 检查是否存在用户
 export async function hasAnyUser(): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        const sql = 'SELECT COUNT(*) as count FROM users';
-
-        db.get(sql, (err: Error | null, row: { count: number }) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row.count > 0);
-        });
-    });
+    const result = await db.findOne<{ count: number }>('SELECT COUNT(*) as count FROM users');
+    return (result?.count ?? 0) > 0;
 }
 
 // 创建用户
@@ -70,60 +50,26 @@ export async function createUser(username: string, email: string, password: stri
     const role = hasUsers ? 'user' : 'admin';
     const defaultSettings = JSON.stringify({});
 
-    return new Promise<number>((resolve, reject) => {
-        const sql = `
-            INSERT INTO users (
-                username, email, password, role, 
-                nickname, settings
-            ) VALUES (?, ?, ?, ?, ?, ?)
-        `;
-
-        db.run(
-            sql,
-            [username, email, hashedPassword, role, username, defaultSettings],
-            function (this: { lastID: number }, err: Error | null) {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(this.lastID);
-            }
-        );
-    });
+    const id = await db.insert(
+        `INSERT INTO users (username, email, password, role, nickname, settings)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [username, email, hashedPassword, role, username, defaultSettings]
+    );
+    return id;
 }
 
 // 通过邮箱查找用户
 export async function findUserByEmail(email: string): Promise<User | null> {
-    return new Promise((resolve, reject) => {
-        const sql = 'SELECT * FROM users WHERE email = ?';
-
-        db.get(sql, [email], (err, row) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row || null);
-        });
-    });
+    return db.findOne<User>('SELECT * FROM users WHERE email = ?', [email]);
 }
 
 // 通过ID查找用户
-export async function findUserById(id: number): Promise<User | null> {
-    return new Promise((resolve, reject) => {
-        const sql = 'SELECT * FROM users WHERE id = ?';
-
-        db.get(sql, [id], (err, row) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(row || null);
-        });
-    });
+export async function findUserById(id: string | number): Promise<User | null> {
+    return db.findOne<User>('SELECT * FROM users WHERE id = ?', [id]);
 }
 
 // 更新用户信息
-export function updateUser(id: number, data: Partial<User>): Promise<void> {
+export async function updateUser(id: string | number, data: Partial<User>): Promise<void> {
     const { username, email, password, privacy_mode, guest_password } = data;
     const updates: string[] = [];
     const values: any[] = [];
@@ -152,21 +98,12 @@ export function updateUser(id: number, data: Partial<User>): Promise<void> {
     updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
 
-    return new Promise((resolve, reject) => {
-        const sql = `
-            UPDATE users 
-            SET ${updates.join(', ')}
-            WHERE id = ?
-        `;
-
-        db.run(sql, values, (err) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve();
-        });
-    });
+    await db.execute(
+        `UPDATE users
+         SET ${updates.join(', ')}
+         WHERE id = ?`,
+        values
+    );
 }
 
 // 验证密码
@@ -175,16 +112,7 @@ export async function verifyPassword(user: User, password: string): Promise<bool
 }
 
 // 删除并重建用户表
-export function rebuildUserTable() {
-    return new Promise<void>((resolve, reject) => {
-        db.run('DROP TABLE IF EXISTS users', (err) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            createUserTable()
-                .then(resolve)
-                .catch(reject);
-        });
-    });
+export async function rebuildUserTable(): Promise<void> {
+    await db.execute('DROP TABLE IF EXISTS users');
+    await createUserTable();
 }

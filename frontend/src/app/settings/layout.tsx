@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 20:41:03
  * @LastEditors: Await
- * @LastEditTime: 2025-03-11 21:26:43
+ * @LastEditTime: 2025-03-12 19:22:24
  * @Description: 请填写简介
  */
 'use client';
@@ -102,13 +102,15 @@ const SettingsLayout = ({ children }: { children: React.ReactNode }) => {
 
     // 检查用户是否有权限访问某个tab
     const hasPermission = (permission: string) => {
-        console.log(user);
         if (!user || !user.permissions) return false;
         return user.permissions.includes(permission);
     };
 
-    // 过滤掉无权限的tabs
-    const authorizedTabs = tabs.filter(tab => hasPermission(tab.permission));
+    // 使用 useMemo 缓存授权标签页，只在 user.permissions 变化时重新计算
+    const authorizedTabs = React.useMemo(() =>
+        tabs.filter(tab => hasPermission(tab.permission)),
+        [user?.permissions] // 只在权限变化时重新计算
+    );
 
     const currentTab = authorizedTabs.find(tab => pathname.startsWith(tab.path))?.id || 'profile';
 
