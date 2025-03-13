@@ -12,9 +12,10 @@ import { RouteForm } from './components/RouteForm';
 import { RouteStats } from './components/RouteStats';
 import { Route } from '@/lib/types';
 import { toast } from 'sonner';
+import { APIError } from '@/lib/types';
 
 export default function RoutesPage() {
-    const { user } = useAuth();
+    const { user, handleUnauthorized, isLoading: authLoading } = useAuth();
     const isAdmin = user?.role === 'admin';
     const queryClient = useQueryClient();
 
@@ -36,8 +37,20 @@ export default function RoutesPage() {
     // 获取路由数据
     const { data: routesData, isLoading } = useQuery({
         queryKey: ['routes', 'all'],
-        queryFn: getAllRoutes,
-        enabled: isAdmin
+        queryFn: async () => {
+            try {
+                return await getAllRoutes();
+            } catch (error: any) {
+                // 处理错误
+                if (error?.status === 401) {
+                    handleUnauthorized();
+                } else {
+                    toast.error(`获取路由失败: ${error?.message || '未知错误'}`);
+                }
+                throw error;
+            }
+        },
+        enabled: isAdmin,
     });
 
     // 创建路由

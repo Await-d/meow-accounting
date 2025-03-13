@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-11 20:51:31
  * @LastEditors: Await
- * @LastEditTime: 2025-03-11 20:54:22
+ * @LastEditTime: 2025-03-13 21:22:46
  * @Description: 请填写简介
  */
 'use client';
@@ -62,6 +62,27 @@ const CacheSettingsPage = () => {
         }
     ];
 
+    const clearAllCache = () => {
+        // 清除所有localStorage
+        localStorage.clear();
+
+        // 清除所有sessionStorage
+        sessionStorage.clear();
+
+        // 清除所有cookies
+        document.cookie.split(';').forEach(cookie => {
+            const [name] = cookie.trim().split('=');
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        });
+
+        toast.success('已清除所有缓存，包括登录状态');
+
+        // 延迟1秒后刷新页面
+        setTimeout(() => {
+            window.location.href = '/auth/login';
+        }, 1000);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -96,6 +117,15 @@ const CacheSettingsPage = () => {
                     </Card>
                 ))}
             </div>
+
+            <Button
+                color="danger"
+                variant="flat"
+                onClick={clearAllCache}
+                className="mt-4"
+            >
+                清除所有缓存（包括登录状态）
+            </Button>
         </div>
     );
 };

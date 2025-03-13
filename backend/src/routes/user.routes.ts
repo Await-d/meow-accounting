@@ -7,12 +7,15 @@
  */
 import express from 'express';
 import * as userController from '../controllers/user.controller';
-import {authMiddleware} from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
 
 const router = express.Router();
 
 // 所有路由都需要认证
 router.use(authMiddleware);
+
+// 获取所有用户（仅限管理员）
+router.get('/all', userController.getAllUsers);
 
 // 通过邮箱查找用户
 router.get('/search', userController.findUserByEmail);

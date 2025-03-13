@@ -116,3 +116,13 @@ export async function rebuildUserTable(): Promise<void> {
     await db.execute('DROP TABLE IF EXISTS users');
     await createUserTable();
 }
+
+// 获取所有用户
+export async function getAllUsers(): Promise<User[]> {
+    // 获取所有用户（不返回敏感信息如密码）
+    return db.findMany<User>(
+        `SELECT id, username, email, role, nickname, avatar, current_family_id as currentFamilyId, 
+         settings, created_at, updated_at
+         FROM users ORDER BY id DESC`
+    );
+}

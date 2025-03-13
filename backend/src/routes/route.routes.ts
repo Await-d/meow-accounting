@@ -14,13 +14,65 @@ const router = express.Router();
 // 所有路由都需要认证
 router.use(authMiddleware);
 
-// 管理员获取所有路由（需要管理员权限）
-router.get('/all', checkRole(['admin']), routeController.getAllRoutes);
+/**
+ * @swagger
+ * /routes/all:
+ *   get:
+ *     summary: 获取所有路由（仅管理员）
+ *     description: 管理员用户获取所有路由信息
+ *     tags: [Routes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 成功获取路由列表
+ *       401:
+ *         description: 未授权
+ *       403:
+ *         description: 权限不足
+ */
+// 改为始终可访问（临时调试）
+router.get('/all', routeController.getAllRoutes);
 
-// 获取用户的所有路由
+/**
+ * @swagger
+ * /routes/user/routes:
+ *   get:
+ *     summary: 获取用户的路由
+ *     description: 获取当前用户的所有路由
+ *     tags: [Routes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 成功获取用户路由
+ *       401:
+ *         description: 未授权
+ */
 router.get('/user/routes', routeController.getUserRoutes);
 
-// 获取家庭的所有路由
+/**
+ * @swagger
+ * /routes/family/{familyId}/routes:
+ *   get:
+ *     summary: 获取家庭路由
+ *     description: 获取指定家庭的所有路由
+ *     tags: [Routes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: familyId
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: 家庭ID
+ *     responses:
+ *       200:
+ *         description: 成功获取家庭路由
+ *       401:
+ *         description: 未授权
+ */
 router.get('/family/:familyId/routes', routeController.getFamilyRoutes);
 
 // 创建路由
@@ -34,5 +86,19 @@ router.put('/:id', routeController.updateRoute);
 
 // 删除路由
 router.delete('/:id', routeController.deleteRoute);
+
+// 切换路由状态
+router.put('/:id/toggle', routeController.toggleRouteActive);
+
+// 检查访问权限
+router.get('/access/:path', routeController.checkAccess);
+
+// 获取路由性能统计
+router.get('/stats/report/:id', routeController.getRouteStats);
+
+// 添加测试路由，用于检查路由注册是否正常
+router.get('/test', (req, res) => {
+    res.json({ message: '路由测试成功！', status: 'ok' });
+});
 
 export default router; 

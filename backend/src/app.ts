@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 19:24:44
  * @LastEditors: Await
- * @LastEditTime: 2025-03-11 20:46:56
+ * @LastEditTime: 2025-03-13 20:41:21
  * @Description: 请填写简介
  */
 /*
@@ -20,17 +20,27 @@ import userRoutes from './routes/user.routes';
 import categoriesRoutes from './routes/categories';
 import transactionRoutes from './routes/transaction.routes';
 import cacheRoutes from './routes/cache';
+import routeRoutes from './routes/route.routes';
 import { createUserTable } from './models/user';
 import { createFamilyTables } from './models/family';
 import { createCategoryTable } from './models/category';
 import { createTransactionTable } from './models/transaction';
 import { db } from './config/database';
+import { swaggerUi, specs } from './swagger';
+import dotenv from 'dotenv';
+
+// 加载环境变量
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3001;
 
 // 中间件
 app.use(cors());
 app.use(express.json());
+
+// Swagger文档
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // 添加请求体日志中间件
 app.use((req, res, next) => {
@@ -47,6 +57,13 @@ app.use('/api/users', userRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/cache', cacheRoutes);
+app.use('/api/routes', routeRoutes);
+
+// 错误处理中间件
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error(err.stack);
+    res.status(500).json({ error: '服务器内部错误' });
+});
 
 // 初始化数据库表
 async function initDatabase() {
@@ -68,9 +85,9 @@ async function initDatabase() {
 }
 
 // 启动服务器
-const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
     await initDatabase();
+    console.log(`API文档访问地址: http://localhost:${PORT}/api-docs`);
     console.log(`服务器运行在 http://localhost:${PORT}`);
 });
 

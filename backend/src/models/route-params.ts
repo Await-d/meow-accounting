@@ -76,9 +76,94 @@ export async function validateParams(
     routeId: number,
     params: Record<string, any>
 ): Promise<boolean> {
-    // TODO: 实现参数验证逻辑
-    // 可以从路由配置中获取验证规则
-    return true;
+    // 从数据库获取路由配置
+    const route = await db.findOne<{ validation_rules: string | null }>(
+        'SELECT validation_rules FROM routes WHERE id = ?',
+        [routeId]
+    );
+
+    if (!route || !route.validation_rules) {
+        // 如果没有验证规则，默认通过验证
+        return true;
+    }
+
+    try {
+        const validationRules = JSON.parse(route.validation_rules);
+
+        // 检查必填参数
+        if (validationRules.required && Array.isArray(validationRules.required)) {
+            for (const field of validationRules.required) {
+                if (params[field] === undefined || params[field] === null || params[field] === '') {
+                    return false;
+                }
+            }
+        }
+
+        // 检查类型
+        if (validationRules.types && typeof validationRules.types === 'object') {
+            for (const [field, type] of Object.entries(validationRules.types)) {
+                if (params[field] !== undefined) {
+                    if (type === 'number' && typeof params[field] !== 'number') {
+                        // 尝试转换字符串为数字
+                        if (typeof params[field] === 'string' && !isNaN(Number(params[field]))) {
+                            params[field] = Number(params[field]);
+                        } else {
+                            return false;
+                        }
+                    } else if (type === 'boolean' && typeof params[field] !== 'boolean') {
+                        // 尝试转换字符串为布尔值
+                        if (params[field] === 'true') {
+                            params[field] = true;
+                        } else if (params[field] === 'false') {
+                            params[field] = false;
+                        } else {
+                            return false;
+                        }
+                    } else if (type === 'string' && typeof params[field] !== 'string') {
+                        params[field] = String(params[field]);
+                    } else if (type === 'array' && !Array.isArray(params[field])) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // 检查范围
+        if (validationRules.ranges && typeof validationRules.ranges === 'object') {
+            for (const [field, range] of Object.entries(validationRules.ranges)) {
+                if (params[field] !== undefined && typeof range === 'object') {
+                    const value = Number(params[field]);
+                    if (isNaN(value)) {
+                        return false;
+                    }
+
+                    if (range.min !== undefined && value < range.min) {
+                        return false;
+                    }
+
+                    if (range.max !== undefined && value > range.max) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // 检查枚举值
+        if (validationRules.enums && typeof validationRules.enums === 'object') {
+            for (const [field, values] of Object.entries(validationRules.enums)) {
+                if (params[field] !== undefined && Array.isArray(values)) {
+                    if (!values.includes(params[field])) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    } catch (error) {
+        console.error('参数验证失败:', error);
+        return false;
+    }
 }
 
 // 批量保存参数

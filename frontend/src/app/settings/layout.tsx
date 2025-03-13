@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 20:41:03
  * @LastEditors: Await
- * @LastEditTime: 2025-03-12 19:22:24
+ * @LastEditTime: 2025-03-13 20:29:34
  * @Description: 请填写简介
  */
 'use client';
@@ -19,7 +19,8 @@ import {
     Mail,
     Route,
     Database,
-    Settings
+    Settings,
+    UserCog
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoute } from '@/hooks/useRoute';
@@ -29,7 +30,7 @@ import { Suspense } from 'react';
 import { Spinner } from '@nextui-org/react';
 
 const SettingsLayout = ({ children }: { children: React.ReactNode }) => {
-    const { user } = useAuth();
+    const { user, isLoading } = useAuth();
     const { currentRoute } = useRoute();
     const pathname = usePathname();
     const router = useRouter();
@@ -85,6 +86,13 @@ const SettingsLayout = ({ children }: { children: React.ReactNode }) => {
             permission: 'routes.manage'
         },
         {
+            id: 'users',
+            label: '用户管理',
+            path: '/settings/users',
+            icon: UserCog,
+            permission: 'users.manage'
+        },
+        {
             id: 'cache',
             label: '缓存管理',
             path: '/settings/cache',
@@ -114,15 +122,17 @@ const SettingsLayout = ({ children }: { children: React.ReactNode }) => {
 
     const currentTab = authorizedTabs.find(tab => pathname.startsWith(tab.path))?.id || 'profile';
 
-    // 如果当前路径不在授权的tabs中，重定向到第一个有权限的页面
+    // 修改权限检查逻辑，避免在加载状态时跳转
     React.useEffect(() => {
+        if (isLoading) return; // 正在加载时不进行跳转
+
         const currentPath = pathname;
         const isAuthorizedPath = authorizedTabs.some(tab => currentPath.startsWith(tab.path));
 
         if (!isAuthorizedPath && authorizedTabs.length > 0) {
             router.push(authorizedTabs[0].path);
         }
-    }, [pathname, authorizedTabs, router]);
+    }, [pathname, authorizedTabs, router, isLoading]);
 
     // 页面切换动画
     const pageTransition = {

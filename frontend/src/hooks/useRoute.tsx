@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-09 21:15:00
  * @LastEditors: Await
- * @LastEditTime: 2025-03-10 21:09:16
+ * @LastEditTime: 2025-03-13 20:55:43
  * @Description: 路由管理Hook
  */
 'use client';
@@ -11,7 +11,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from './useAuth';
 import { Route, RouteType, RoutePermission, CreateRouteData, UpdateRouteData, RouteParams, RouteConfig } from '@/lib/types';
-import { fetchApi } from '@/lib/fetch';
+import { fetchAPI } from '@/lib/api';
 import { useToast } from '@/hooks/useToast';
 import { routeComponents, checkRoutePermission, getRouteComponent } from '@/config/routes';
 import { useRouteCache } from './useRouteCache';
@@ -196,60 +196,12 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         }
     }, [pathname, router, clearParams]);
 
-    // 加载用户路由
-    useEffect(() => {
-        if (user) {
-            // TODO: 从API加载用户路由
-            // 这里暂时使用模拟数据
-            const mockUserRoutes: Route[] = [
-                {
-                    id: 1,
-                    path: '/dashboard',
-                    name: '我的仪表盘',
-                    type: RouteType.DASHBOARD,
-                    description: '个人仪表盘',
-                    permission: RoutePermission.PRIVATE,
-                    user_id: user.id,
-                    family_id: null,
-                    is_active: true,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                }
-            ];
-            setUserRoutes(mockUserRoutes);
-        }
-    }, [user]);
-
-    // 加载家庭路由
-    useEffect(() => {
-        if (user?.currentFamilyId) {
-            // TODO: 从API加载家庭路由
-            // 这里暂时使用模拟数据
-            const mockFamilyRoutes: Route[] = [
-                {
-                    id: 2,
-                    path: '/family-dashboard',
-                    name: '家庭仪表盘',
-                    type: RouteType.DASHBOARD,
-                    description: '家庭仪表盘',
-                    permission: RoutePermission.FAMILY,
-                    user_id: user.id,
-                    family_id: user.currentFamilyId,
-                    is_active: true,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                }
-            ];
-            setFamilyRoutes(mockFamilyRoutes);
-        }
-    }, [user?.currentFamilyId]);
-
     // 获取用户的所有路由
     const fetchUserRoutes = useCallback(async () => {
         if (!user) return;
         setIsLoadingUserRoutes(true);
         try {
-            const routes = await fetchApi<Route[]>('/api/routes/user/routes');
+            const routes = await fetchAPI<Route[]>('/routes/user/routes');
             setUserRoutes(routes);
         } catch (error) {
             console.error('获取用户路由失败:', error);
@@ -263,7 +215,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         if (!user) return;
         setIsLoadingFamilyRoutes(true);
         try {
-            const routes = await fetchApi<Route[]>(`/api/routes/family/${familyId}/routes`);
+            const routes = await fetchAPI<Route[]>(`/routes/family/${familyId}/routes`);
             setFamilyRoutes(routes);
         } catch (error) {
             console.error('获取家庭路由失败:', error);
@@ -272,11 +224,25 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         }
     }, [user]);
 
+    // 加载用户路由
+    useEffect(() => {
+        if (user) {
+            fetchUserRoutes();
+        }
+    }, [user, fetchUserRoutes]);
+
+    // 加载家庭路由
+    useEffect(() => {
+        if (user?.currentFamilyId) {
+            fetchFamilyRoutes(user.currentFamilyId);
+        }
+    }, [user?.currentFamilyId, fetchFamilyRoutes]);
+
     // 创建路由
     const createRoute = useCallback(async (data: CreateRouteData) => {
         if (!user) return;
         try {
-            const response = await fetchApi<{ id: number }>('/api/routes', {
+            const response = await fetchAPI<{ id: number }>('/api/routes', {
                 method: 'POST',
                 body: JSON.stringify(data)
             });
@@ -296,7 +262,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
     const updateRoute = useCallback(async ({ id, data }: { id: number, data: UpdateRouteData }) => {
         if (!user) return;
         try {
-            await fetchApi(`/api/routes/${id}`, {
+            await fetchAPI(`/api/routes/${id}`, {
                 method: 'PUT',
                 body: JSON.stringify(data)
             });
@@ -314,7 +280,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
     const deleteRoute = useCallback(async (id: number) => {
         if (!user) return;
         try {
-            await fetchApi(`/api/routes/${id}`, {
+            await fetchAPI(`/api/routes/${id}`, {
                 method: 'DELETE'
             });
             fetchUserRoutes();
@@ -440,6 +406,21 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         return () => clearInterval(interval);
     }, [clearExpiredCache]);
 
+    // 获取性能报告
+    const getRoutePerformanceReport = useCallback(() => {
+        const report = getPerformanceReport();
+        // 添加缓存命中率和预热状态
+        const { preheated, preheating } = getPreheatStatus();
+        return {
+            ...report,
+            cacheHitRate: 0, // 这里可以计算实际的缓存命中率
+            preheatingStatus: {
+                total: preheating.length + preheated.length,
+                completed: preheated.length
+            }
+        };
+    }, [getPerformanceReport, getPreheatStatus]);
+
     const value = {
         currentRoute,
         params,
@@ -458,7 +439,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         handleGoBack,
         handleGoForward,
         getHistorySummary,
-        getPerformanceReport,
+        getPerformanceReport: getRoutePerformanceReport,
         getCacheStats: () => ({
             totalSize: 0, // This is a placeholder implementation
             itemCount: 0, // This is a placeholder implementation
@@ -485,4 +466,4 @@ export function useRoute() {
         throw new Error('useRoute must be used within a RouteProvider');
     }
     return context;
-} 
+}

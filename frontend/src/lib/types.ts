@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 20:23:47
  * @LastEditors: Await
- * @LastEditTime: 2025-03-11 21:15:54
+ * @LastEditTime: 2025-03-13 20:22:59
  * @Description: 类型定义文件
  */
 
@@ -95,10 +95,9 @@ export interface User {
     email: string;
     nickname?: string;
     avatar?: string;
-    role?: 'owner' | 'admin' | 'member';
-    currentFamilyId?: number;
-    privacy_mode?: boolean;
-    default_route?: string; // 用户默认路由
+    role: string;
+    privacy_mode: boolean;
+    default_route?: string;
     settings?: {
         theme?: string;
         language?: string;
@@ -110,6 +109,10 @@ export interface User {
         };
         [key: string]: any;
     };
+    currentFamilyId?: number;
+    maxFamilies?: number;  // 最大可创建家庭数
+    maxFamilyJoins?: number;  // 最大可加入家庭数
+    is_frozen?: boolean;  // 是否被冻结
     created_at?: string;
     updated_at?: string;
     permissions: string[];
@@ -242,4 +245,25 @@ export interface RouteConfig {
     icon?: string;
     params?: RouteParams;
     validateParams?: (params: RouteParams) => boolean;
+}
+
+export interface RouteStats {
+    totalAccesses: number;
+    averageLoadTime: number;
+    totalErrors: number;
+    cacheHits: number;
+    accessHistory: {
+        timestamp: string;
+        loadTime: number;
+        errorCount: number;
+    }[];
+}
+
+export interface Invitation {
+    id: number;
+    email: string;
+    role: 'admin' | 'member';
+    status: 'pending' | 'accepted' | 'rejected';
+    expires_at: string;
+    created_at: string;
 }

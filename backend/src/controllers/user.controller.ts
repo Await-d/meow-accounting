@@ -176,4 +176,41 @@ export async function verifyGuestPassword(req: Request, res: Response) {
         console.error('验证访客密码失败:', error);
         res.status(500).json({ error: '验证访客密码失败' });
     }
+}
+
+// 获取所有用户 (仅限管理员)
+export async function getAllUsers(req: Request, res: Response) {
+    try {
+        // 检查权限 - 只有管理员可以获取所有用户
+        const userRole = req.user?.role;
+        if (userRole !== 'admin' && userRole !== 'owner') {
+            return res.status(403).json({ error: '权限不足，只有管理员可以获取所有用户列表' });
+        }
+
+        const users = await userModel.getAllUsers();
+
+        // 转换用户数据，去除敏感信息
+        const safeUsers = users.map(user => ({
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            nickname: user.nickname || user.username,
+            avatar: user.avatar,
+            currentFamilyId: user.currentFamilyId ? Number(user.currentFamilyId) : null,
+            privacy_mode: false, // 默认设为false
+            has_guest_password: false, // 默认设为false
+            is_frozen: user.role === 'frozen', // 根据角色判断
+            // 添加默认的家庭创建和加入限制
+            maxFamilies: user.settings?.maxFamilies || 1,
+            maxFamilyJoins: user.settings?.maxFamilyJoins || 2,
+            created_at: user.created_at,
+            updated_at: user.updated_at
+        }));
+
+        res.json(safeUsers);
+    } catch (error) {
+        console.error('获取所有用户失败:', error);
+        res.status(500).json({ error: '获取所有用户失败' });
+    }
 } 

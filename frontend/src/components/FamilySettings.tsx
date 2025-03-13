@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { Card, CardBody, Button, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { useFamily } from '@/hooks/useFamily';
+import { getFamilyMembers, getFamilyInvitations, inviteMember, removeFamilyMember, updateMemberRole, cancelInvitation } from '@/lib/api';
 
 interface FamilyMember {
     id: number;
     username: string;
     email: string;
-    role: 'admin' | 'member';
+    role: 'admin' | 'member' | 'owner';
     joined_at: string;
 }
 
@@ -30,40 +32,50 @@ export default function FamilySettings() {
     const [newMemberEmail, setNewMemberEmail] = useState('');
     const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
     const [isLoading, setIsLoading] = useState(false);
+    const { currentFamily } = useFamily();
 
     // 加载家庭成员
     useEffect(() => {
-        // TODO: 从API加载家庭成员
-        const mockMembers: FamilyMember[] = [
-            {
-                id: 1,
-                username: '张三',
-                email: 'zhangsan@example.com',
-                role: 'admin',
-                joined_at: new Date().toISOString()
-            }
-        ];
-        setMembers(mockMembers);
-    }, []);
+        if (currentFamily?.id) {
+            const loadMembers = async () => {
+                try {
+                    const data = await getFamilyMembers(currentFamily.id);
+                    setMembers(data.map(member => ({
+                        ...member,
+                        joined_at: member.created_at || new Date().toISOString()
+                    })));
+                } catch (error) {
+                    toast.error('加载家庭成员失败');
+                    console.error('加载家庭成员失败:', error);
+                }
+            };
+            loadMembers();
+        }
+    }, [currentFamily?.id]);
 
     // 加载邀请记录
     useEffect(() => {
-        // TODO: 从API加载邀请记录
-        const mockInvitations: Invitation[] = [
-            {
-                id: 1,
-                email: 'lisi@example.com',
-                role: 'member',
-                status: 'pending',
-                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                created_at: new Date().toISOString()
-            }
-        ];
-        setInvitations(mockInvitations);
-    }, []);
+        if (currentFamily?.id) {
+            const loadInvitations = async () => {
+                try {
+                    const data = await getFamilyInvitations(currentFamily.id);
+                    setInvitations(data);
+                } catch (error) {
+                    toast.error('加载邀请记录失败');
+                    console.error('加载邀请记录失败:', error);
+                }
+            };
+            loadInvitations();
+        }
+    }, [currentFamily?.id]);
 
     // 邀请新成员
     const handleInvite = async () => {
+        if (!currentFamily?.id) {
+            toast.error('未选择家庭');
+            return;
+        }
+
         if (!newMemberEmail) {
             toast.error('请输入邮箱地址');
             return;
@@ -71,13 +83,20 @@ export default function FamilySettings() {
 
         setIsLoading(true);
         try {
-            // TODO: 调用API发送邀请
-            // await inviteMember({ email: newMemberEmail, role: newMemberRole });
+            await inviteMember(currentFamily.id, {
+                email: newMemberEmail,
+                role: newMemberRole
+            });
             toast.success('邀请已发送');
             setNewMemberEmail('');
             onClose();
+
+            // 重新加载邀请记录
+            const data = await getFamilyInvitations(currentFamily.id);
+            setInvitations(data);
         } catch (error) {
             toast.error('邀请发送失败');
+            console.error('邀请发送失败:', error);
         } finally {
             setIsLoading(false);
         }
@@ -85,39 +104,45 @@ export default function FamilySettings() {
 
     // 移除成员
     const handleRemoveMember = async (memberId: number) => {
+        if (!currentFamily?.id) return;
+
         try {
-            // TODO: 调用API移除成员
-            // await removeMember(memberId);
+            await removeFamilyMember(currentFamily.id, memberId);
             setMembers(members.filter(member => member.id !== memberId));
             toast.success('成员已移除');
         } catch (error) {
             toast.error('移除成员失败');
+            console.error('移除成员失败:', error);
         }
     };
 
     // 更新成员角色
     const handleUpdateRole = async (memberId: number, newRole: 'admin' | 'member') => {
+        if (!currentFamily?.id) return;
+
         try {
-            // TODO: 调用API更新角色
-            // await updateMemberRole(memberId, newRole);
+            await updateMemberRole(currentFamily.id, memberId, newRole);
             setMembers(members.map(member =>
                 member.id === memberId ? { ...member, role: newRole } : member
             ));
             toast.success('角色已更新');
         } catch (error) {
             toast.error('更新角色失败');
+            console.error('更新角色失败:', error);
         }
     };
 
     // 取消邀请
     const handleCancelInvitation = async (invitationId: number) => {
+        if (!currentFamily?.id) return;
+
         try {
-            // TODO: 调用API取消邀请
-            // await cancelInvitation(invitationId);
+            await cancelInvitation(currentFamily.id, invitationId);
             setInvitations(invitations.filter(inv => inv.id !== invitationId));
             toast.success('邀请已取消');
         } catch (error) {
             toast.error('取消邀请失败');
+            console.error('取消邀请失败:', error);
         }
     };
 

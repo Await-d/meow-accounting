@@ -1,3 +1,10 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-12 19:32:29
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-13 19:55:57
+ * @Description: 请填写简介
+ */
 import React from 'react';
 import {
     Table,
@@ -67,8 +74,8 @@ export function DataTable({
                 }
             >
                 <TableHeader>
-                    {columns.map((column) => (
-                        <TableColumn key={column.accessorKey}>
+                    {columns.map((column, index) => (
+                        <TableColumn key={column.accessorKey || `column-${index}`}>
                             {column.header}
                         </TableColumn>
                     ))}

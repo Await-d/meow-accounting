@@ -6,26 +6,38 @@ import { useAuth } from './useAuth';
 import { useToast } from '@/components/Toast';
 import { fetchAPI } from '@/lib/api';
 import type { Family, FamilyMember, User } from '@/lib/types';
+import {
+    getUserFamilies,
+    getFamilyById,
+    getFamilyMembers,
+    addFamilyMember as apiAddFamilyMember,
+    updateMemberRole as apiUpdateMemberRole,
+    removeFamilyMember as apiRemoveFamilyMember
+} from '@/lib/api';
 
 export function useFamily() {
     const { user, updateUser } = useAuth();
     const queryClient = useQueryClient();
     const { showToast } = useToast();
+    const [members, setMembers] = useState<FamilyMember[]>([]);
 
     // 获取家庭列表
     const { data: families, isLoading: isLoadingFamilies } = useQuery({
         queryKey: ['families'],
         queryFn: () => fetchAPI<Family[]>('/families/user'),
-        staleTime: 30 * 1000,
-        gcTime: 5 * 60 * 1000,
+        enabled: !!user,
+        staleTime: 5 * 60 * 1000, // 5分钟
     });
 
+    // 获取当前家庭
+    const currentFamily = families?.find((f: Family) => f.id === user?.currentFamilyId);
+
     // 获取当前家庭成员
-    const { data: members, isLoading: isLoadingMembers } = useQuery({
+    const { data: membersData, isLoading: isLoadingMembers } = useQuery({
         queryKey: ['familyMembers', user?.currentFamilyId],
         queryFn: () => fetchAPI<FamilyMember[]>(`/families/${user?.currentFamilyId}/members`),
         enabled: !!user?.currentFamilyId,
-        staleTime: 30 * 1000,
+        staleTime: 5 * 60 * 1000, // 5分钟
         gcTime: 5 * 60 * 1000,
     });
 
@@ -46,16 +58,55 @@ export function useFamily() {
         [user, updateUser, showToast]
     );
 
+    // 加载家庭成员
+    const loadFamilyMembers = useCallback(async (familyId: number) => {
+        try {
+            const familyMembers = await getFamilyMembers(familyId);
+            setMembers(familyMembers);
+            return familyMembers;
+        } catch (error) {
+            console.error('加载家庭成员失败:', error);
+            throw error;
+        }
+    }, []);
+
     const addMember = async (familyId: number, data: { userId: number; role: 'admin' | 'member' }) => {
-        // TODO: 实现添加成员的逻辑
+        try {
+            await apiAddFamilyMember(familyId, {
+                userId: data.userId,
+                role: data.role
+            });
+            // 重新加载家庭成员
+            await loadFamilyMembers(familyId);
+            return true;
+        } catch (error) {
+            console.error('添加成员失败:', error);
+            throw error;
+        }
     };
 
     const updateRole = async (familyId: number, userId: number, role: 'admin' | 'member') => {
-        // TODO: 实现更新角色的逻辑
+        try {
+            await apiUpdateMemberRole(familyId, userId, role);
+            // 重新加载家庭成员
+            await loadFamilyMembers(familyId);
+            return true;
+        } catch (error) {
+            console.error('更新角色失败:', error);
+            throw error;
+        }
     };
 
     const removeMember = async (familyId: number, userId: number) => {
-        // TODO: 实现移除成员的逻辑
+        try {
+            await apiRemoveFamilyMember(familyId, userId);
+            // 重新加载家庭成员
+            await loadFamilyMembers(familyId);
+            return true;
+        } catch (error) {
+            console.error('移除成员失败:', error);
+            throw error;
+        }
     };
 
     const isAdmin = () => {

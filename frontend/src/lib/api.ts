@@ -21,15 +21,109 @@ import {
     Route,
     CreateRouteData,
     UpdateRouteData,
-    RouteStats
+    RouteStats,
+    Invitation
 } from './types';
-import { getToken, removeToken } from '@/utils/auth';
+import { getToken, setToken, removeToken } from '@/utils/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useEffect, useMemo } from 'react';
 import { useFamily } from '@/hooks/useFamily';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+// 全局处理未授权错误
+let globalUnauthorizedHandler: (() => void) | null = null;
+
+// 全局Toast处理函数，用于显示错误消息
+let globalToastHandler: ((message: string, type: 'error' | 'warning' | 'success' | 'info') => void) | null = null;
+
+// 设置全局未授权处理函数
+export function setGlobalUnauthorizedHandler(handler: () => void) {
+    globalUnauthorizedHandler = handler;
+}
+
+// 设置全局Toast处理函数
+export function setGlobalToastHandler(handler: (message: string, type: 'error' | 'warning' | 'success' | 'info') => void) {
+    globalToastHandler = handler;
+}
+
+// 显示全局Toast
+function showGlobalToast(message: string, type: 'error' | 'warning' | 'success' | 'info' = 'error') {
+    if (globalToastHandler) {
+        globalToastHandler(message, type);
+    } else {
+        console[type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'log'](message);
+    }
+}
+
+// 状态码处理映射
+const statusHandlers: Record<number, (message: string) => void> = {
+    // 400: 请求参数错误
+    400: (message) => {
+        console.warn(`请求参数错误: ${message}`);
+        showGlobalToast(`请求参数错误: ${message}`, 'warning');
+    },
+    // 401: 未授权，需要重新登录
+    401: (_) => {
+        console.warn('用户未授权或会话已过期，需要重新登录');
+        // 清除 token
+        removeToken();
+        // 清除本地存储中的访客模式标记
+        localStorage.removeItem('isGuest');
+        // 清除其他可能的状态
+        localStorage.removeItem('currentFamilyId');
+
+        // 如果有设置全局处理函数，调用它
+        if (globalUnauthorizedHandler) {
+            globalUnauthorizedHandler();
+        } else {
+            // 如果没有全局处理函数，直接重定向到登录页
+            showGlobalToast('登录已过期，请重新登录', 'error');
+            window.location.href = '/auth/login';
+        }
+    },
+    // 403: 禁止访问
+    403: (message) => {
+        console.warn(`无权访问: ${message}`);
+        showGlobalToast(`无权访问: ${message}`, 'error');
+    },
+    // 404: 资源不存在
+    404: (message) => {
+        console.warn(`资源不存在: ${message}`);
+        showGlobalToast(`资源不存在: ${message}`, 'warning');
+    },
+    // 422: 数据验证失败
+    422: (message) => {
+        console.warn(`数据验证失败: ${message}`);
+        showGlobalToast(`数据验证失败: ${message}`, 'warning');
+    },
+    // 429: 请求过多
+    429: (message) => {
+        console.warn(`请求过多，请稍后再试: ${message}`);
+        showGlobalToast('请求过多，请稍后再试', 'warning');
+    },
+    // 500: 服务器错误
+    500: (message) => {
+        console.error(`服务器错误: ${message}`);
+        showGlobalToast(`服务器内部错误，请稍后再试: ${message}`, 'error');
+    },
+    // 502: 网关错误
+    502: (message) => {
+        console.error(`网关错误: ${message}`);
+        showGlobalToast('服务器网关错误，请稍后再试', 'error');
+    },
+    // 503: 服务不可用
+    503: (message) => {
+        console.error(`服务不可用: ${message}`);
+        showGlobalToast('服务暂时不可用，请稍后再试', 'error');
+    },
+    // 504: 网关超时
+    504: (message) => {
+        console.error(`网关超时: ${message}`);
+        showGlobalToast('请求超时，请检查网络连接后重试', 'error');
+    }
+};
 
 // 通用请求函数
 export async function fetchAPI<T>(
@@ -48,9 +142,18 @@ export async function fetchAPI<T>(
         ...options.headers as Record<string, string>,
     };
 
-    const token = localStorage.getItem('token');
+    // 尝试多次获取token，解决token加载时机问题
+    let token = getToken();
+    if (!token) {
+        console.log('Token未找到，等待100ms后重试');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        token = getToken();
+    }
+
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+    } else {
+        console.warn('无法获取认证Token');
     }
 
     try {
@@ -63,13 +166,22 @@ export async function fetchAPI<T>(
 
         if (!response.ok) {
             let errorMessage = `请求失败: ${response.status} ${response.statusText}`;
+            let errorData: any = null;
+
             try {
-                const errorData = await response.json();
+                errorData = await response.json();
                 errorMessage = errorData.error || errorMessage;
                 console.error('API错误详情:', errorData);
             } catch (e) {
                 // 无法解析JSON错误
             }
+
+            // 处理特定状态码
+            const statusHandler = statusHandlers[response.status];
+            if (statusHandler) {
+                statusHandler(errorMessage);
+            }
+
             throw new APIError(response.status, errorMessage);
         }
 
@@ -92,10 +204,35 @@ export async function fetchAPI<T>(
 
 export type { Transaction, TransactionFilter };
 
+// 在 React Query 中通用的错误处理
+export const handleQueryError = (error: any, fallbackMessage = '请求失败') => {
+    if (error instanceof APIError) {
+        // 状态码已在 fetchAPI 中被处理，这里主要处理界面提示
+        switch (error.status) {
+            case 400:
+                return `请求参数错误: ${error.message}`;
+            case 403:
+                return `无权访问: ${error.message}`;
+            case 404:
+                return `资源不存在: ${error.message}`;
+            case 429:
+                return '请求过于频繁，请稍后再试';
+            case 500:
+            case 502:
+            case 503:
+                return `服务器错误: ${error.message}`;
+            default:
+                return error.message || fallbackMessage;
+        }
+    }
+    return error?.message || fallbackMessage;
+};
+
 // 交易记录相关API
 export function useTransactions(filter: TransactionFilter = {}, page: number = 1, limit: number = 20) {
     const { user } = useAuth();
     const familyId = user?.currentFamilyId;
+    const { showToast } = useToast();
 
     const queryString = new URLSearchParams({
         page: page.toString(),
@@ -109,10 +246,16 @@ export function useTransactions(filter: TransactionFilter = {}, page: number = 1
         ...(filter.maxAmount && { maxAmount: filter.maxAmount.toString() }),
     }).toString();
 
-    return useInfiniteQuery({
+    const query = useInfiniteQuery({
         queryKey: ['transactions', JSON.stringify(filter), limit],
-        queryFn: ({ pageParam = page }) =>
-            fetchAPI<TransactionsResponse>(`/transactions?${queryString}`),
+        queryFn: async ({ pageParam = page }) => {
+            try {
+                return await fetchAPI<TransactionsResponse>(`/transactions?${queryString}`);
+            } catch (error: any) {
+                showToast(handleQueryError(error, '获取交易记录失败'), 'error');
+                throw error;
+            }
+        },
         getNextPageParam: (lastPage) =>
             lastPage.hasMore ? lastPage.page + 1 : undefined,
         initialPageParam: page,
@@ -122,6 +265,8 @@ export function useTransactions(filter: TransactionFilter = {}, page: number = 1
         retry: false, // 禁用自动重试
         enabled: !!familyId, // 只有在有familyId时才启用查询
     });
+
+    return query;
 }
 
 export function useCreateTransaction() {
@@ -779,4 +924,86 @@ export async function toggleRouteActive(id: number) {
 export async function getRouteStats(id: number) {
     const response = await fetchAPI<RouteStats>(`/routes/stats/report/${id}`);
     return response;
+}
+
+// 用户管理API
+export async function getAllUsers() {
+    try {
+        console.log('获取所有用户列表');
+        const response = await fetchAPI<User[]>('/users/all');
+        return response;
+    } catch (error) {
+        console.error('获取所有用户失败:', error);
+        throw error;
+    }
+}
+
+// 添加对应的React Query hook
+export function useAllUsers() {
+    const { showToast } = useToast();
+
+    return useQuery({
+        queryKey: ['allUsers'],
+        queryFn: async () => {
+            try {
+                return await getAllUsers();
+            } catch (error: any) {
+                showToast(handleQueryError(error, '获取用户列表失败'), 'error');
+                throw error;
+            }
+        },
+        staleTime: 30 * 1000, // 30秒内数据不过期
+        gcTime: 5 * 60 * 1000, // 5分钟后垃圾回收
+        refetchOnWindowFocus: false,
+        retry: 1, // 失败后重试一次
+    });
+}
+
+export async function updateUser({ id, data }: { id: number, data: Partial<User> }) {
+    const response = await fetchAPI<User>(`/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+    return response;
+}
+
+export async function deleteUser(id: number) {
+    const response = await fetchAPI<void>(`/users/${id}`, {
+        method: 'DELETE'
+    });
+    return response;
+}
+
+export async function freezeUser(id: number) {
+    const response = await fetchAPI<User>(`/users/${id}/freeze`, {
+        method: 'PUT'
+    });
+    return response;
+}
+
+export async function unfreezeUser(id: number) {
+    const response = await fetchAPI<User>(`/users/${id}/unfreeze`, {
+        method: 'PUT'
+    });
+    return response;
+}
+
+// 获取家庭邀请
+export async function getFamilyInvitations(familyId: number) {
+    return fetchAPI<Invitation[]>(`/families/${familyId}/invitations`);
+}
+
+// 邀请成员
+export async function inviteMember(familyId: number, data: { email: string; role: 'admin' | 'member' }) {
+    return fetchAPI<void>(`/families/${familyId}/invite`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+// 取消邀请
+export async function cancelInvitation(familyId: number, invitationId: number) {
+    return fetchAPI<void>(`/families/${familyId}/invitations/${invitationId}`, {
+        method: 'DELETE'
+    });
 }

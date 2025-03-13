@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 18:52:47
  * @LastEditors: Await
- * @LastEditTime: 2025-03-07 20:53:33
+ * @LastEditTime: 2025-03-13 20:46:32
  * @Description: 请填写简介
  */
 import type { Metadata, Viewport } from 'next';
@@ -13,6 +13,7 @@ import { AuthProvider } from '@/hooks/useAuth';
 import { ToastProvider } from '@/components/Toast';
 import { RouteProvider } from '@/hooks/useRoute';
 import { Toaster } from 'sonner';
+import { UnauthorizedHandler } from '@/components/UnauthorizedHandler';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -57,17 +58,18 @@ export default function RootLayout({
                 <meta name="msapplication-tap-highlight" content="no" />
                 <meta name="theme-color" content="#000000" />
             </head>
-            <body className={inter.className}>
-                <ToastProvider>
-                    <Providers>
+            <body className={inter.className} suppressHydrationWarning>
+                <Providers>
+                    <ToastProvider>
                         <AuthProvider>
                             <RouteProvider>
-                                {children}
+                                <UnauthorizedHandler />
                                 <Toaster richColors position="top-right" />
+                                {children}
                             </RouteProvider>
                         </AuthProvider>
-                    </Providers>
-                </ToastProvider>
+                    </ToastProvider>
+                </Providers>
             </body>
         </html>
     );

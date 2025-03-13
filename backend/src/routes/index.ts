@@ -42,15 +42,6 @@ router.use('/transactions', transactionRoutes);
 router.use('/statistics', statisticsRoutes);
 router.use('/routes', routeRoutes);
 
-// 路由管理
-router.get('/routes/user/routes', authMiddleware, routeController.getUserRoutes);
-router.get('/routes/family/:familyId/routes', authMiddleware, routeController.getFamilyRoutes);
-router.post('/routes', authMiddleware, routeController.createRoute);
-router.get('/routes/:id', authMiddleware, routeController.getRouteById);
-router.put('/routes/:id', authMiddleware, routeController.updateRoute);
-router.delete('/routes/:id', authMiddleware, routeController.deleteRoute);
-router.get('/routes/access/:path', authMiddleware, routeController.checkAccess);
-
 // 路由性能监控
 router.post('/routes/stats/access', authMiddleware, routeStatsController.recordAccess);
 router.get('/routes/stats/report', authMiddleware, routeStatsController.getPerformanceReport);

@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 19:26:06
  * @LastEditors: Await
- * @LastEditTime: 2025-03-12 19:20:33
+ * @LastEditTime: 2025-03-13 20:46:49
  * @Description: 请填写简介
  */
 'use client';
@@ -219,10 +219,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const handleUnauthorized = () => {
         removeToken();
         localStorage.removeItem('isGuest');
+        localStorage.removeItem('currentFamilyId'); // 清除当前家庭ID
         setUser(null);
         setIsGuest(false);
         showToast('登录已过期，请重新登录', 'error');
         router.push('/auth/login');
+        console.log('登录已过期，已重定向到登录页面');
     };
 
     // 更新用户设置

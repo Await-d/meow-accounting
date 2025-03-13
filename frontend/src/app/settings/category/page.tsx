@@ -58,6 +58,12 @@ export default function CategoryPage() {
         return user.role === 'admin' || user.role === 'owner';
     }, [user]);
 
+    // 只有管理员可以编辑默认分类
+    const canEditDefaultCategory = isAdmin;
+
+    // 用户可以编辑自己家庭的分类
+    const canEditCustomCategory = true;
+
     // 构建表头列
     const columns = useMemo(() => {
         const cols = [
@@ -289,6 +295,54 @@ export default function CategoryPage() {
             is_default: true
         });
         setIsFormOpen(true);
+    };
+
+    // 处理删除和编辑默认分类时的权限检查
+    const handleEditDefaultCategory = (category: Category) => {
+        if (!canEditDefaultCategory) {
+            showToast('您没有权限编辑默认分类', 'error');
+            return;
+        }
+        // 原有的编辑处理逻辑
+        // ...
+    };
+
+    const handleDeleteDefaultCategory = (category: Category) => {
+        if (!canEditDefaultCategory) {
+            showToast('您没有权限删除默认分类', 'error');
+            return;
+        }
+        // 原有的删除处理逻辑
+        // ...
+    };
+
+    // 渲染列中的操作按钮需要根据权限决定是否显示
+    const renderDefaultCategoryActions = (category: Category) => {
+        if (!canEditDefaultCategory) {
+            return null; // 无权限不显示编辑和删除按钮
+        }
+
+        return (
+            <div className="flex gap-2">
+                <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    onPress={() => handleEditDefaultCategory(category)}
+                >
+                    <PencilIcon className="w-4 h-4" />
+                </Button>
+                <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    color="danger"
+                    onPress={() => handleDeleteDefaultCategory(category)}
+                >
+                    <TrashIcon className="w-4 h-4" />
+                </Button>
+            </div>
+        );
     };
 
     if (isLoading) {
