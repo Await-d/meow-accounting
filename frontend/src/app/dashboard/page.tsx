@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-10 19:42:20
  * @LastEditors: Await
- * @LastEditTime: 2025-03-15 22:18:31
+ * @LastEditTime: 2025-03-15 22:21:46
  * @Description: 仪表盘页面
  */
 "use client";
@@ -110,7 +110,6 @@ export default function DashboardPage() {
     // 当模式切换时，刷新数据
     useEffect(() => {
         if (user) {
-            console.log('isPersonalMode', isPersonalMode, user?.id, currentFamily?.id);
             refreshAllData();
         }
     }, [isPersonalMode, currentFamily?.id]);

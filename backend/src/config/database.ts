@@ -181,10 +181,10 @@ export class DB {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR(100) NOT NULL,
                 description TEXT,
-                created_by INTEGER NOT NULL,
+                owner_id INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP,
-                FOREIGN KEY (created_by) REFERENCES users(id)
+                FOREIGN KEY (owner_id) REFERENCES users(id)
             )
         `);
 

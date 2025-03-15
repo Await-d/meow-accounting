@@ -192,9 +192,7 @@ export async function fetchAPI<T>(
         if (response.status === 204) {
             return null as T;
         }
-
         const data = await response.json();
-        console.log('API响应数据:', data);
         return data;
     } catch (error) {
         if (error instanceof APIError) {
