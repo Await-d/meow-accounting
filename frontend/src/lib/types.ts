@@ -74,7 +74,7 @@ export interface Member {
 
 // 用户接口
 export interface User {
-    id: number | string;
+    id: number;
     username: string;
     email: string;
     nickname?: string;

@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-15 15:15:10
  * @LastEditors: Await
- * @LastEditTime: 2025-03-15 15:15:10
+ * @LastEditTime: 2025-03-15 21:02:10
  * @Description: 认证控制器
  */
 import { Request, Response, NextFunction } from 'express';
@@ -36,17 +36,52 @@ export async function register(req: Request, res: Response) {
             return res.status(409).json({ error: '该邮箱已被注册' });
         }
 
+        // 检查是否是第一个用户（系统中还没有用户）
+        const isFirstUser = !(await userModel.hasAnyUser());
+
         // 创建新用户
         const hashedPassword = await bcrypt.hash(password, 10);
         const userData = {
             username,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            role: isFirstUser ? 'admin' : 'user' // 第一个用户默认为管理员
         };
 
         const userId = await userModel.createUser(userData);
 
-        res.status(201).json({ message: '注册成功', userId });
+        // 获取新创建的用户信息
+        const newUser = await userModel.getUserById(userId);
+
+        if (!newUser) {
+            return res.status(500).json({ error: '用户创建失败' });
+        }
+
+        // 生成JWT令牌
+        const token = jwt.sign(
+            {
+                id: newUser.id,
+                username: newUser.username,
+                email: newUser.email,
+                role: newUser.role
+            },
+            getSecretKey(),
+            { expiresIn: '24h' }
+        );
+
+        // 添加一条日志，显示用户角色
+        console.log(`用户注册成功 - 用户名: ${newUser.username}, 角色: ${newUser.role}${isFirstUser ? ' (第一个用户，自动设为管理员)' : ''}`);
+
+        res.status(201).json({
+            message: '注册成功',
+            token,
+            user: {
+                id: newUser.id,
+                username: newUser.username,
+                email: newUser.email,
+                role: newUser.role
+            }
+        });
     } catch (error) {
         console.error('注册失败:', error);
         res.status(500).json({ error: '注册失败' });
@@ -76,7 +111,6 @@ export async function login(req: Request, res: Response) {
         }
 
         // 生成JWT令牌
-        const secretKey = getSecretKey();
         const token = jwt.sign(
             {
                 id: user.id,
@@ -84,8 +118,8 @@ export async function login(req: Request, res: Response) {
                 email: user.email,
                 role: user.role
             },
-            secretKey,
-            { expiresIn: jwtConfig.expiresIn }
+            getSecretKey(),
+            { expiresIn: '24h' }
         );
 
         res.json({
@@ -126,7 +160,6 @@ export async function refreshToken(req: Request, res: Response) {
         }
 
         // 生成新的JWT令牌
-        const secretKey = getSecretKey();
         const token = jwt.sign(
             {
                 id: req.user.id,
@@ -134,8 +167,8 @@ export async function refreshToken(req: Request, res: Response) {
                 email: req.user.email,
                 role: req.user.role
             },
-            secretKey,
-            { expiresIn: jwtConfig.expiresIn }
+            getSecretKey(),
+            { expiresIn: '24h' }
         );
 
         res.json({ message: '令牌刷新成功', token });

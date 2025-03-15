@@ -2,20 +2,20 @@
  * @Author: Await
  * @Date: 2025-03-05 19:26:06
  * @LastEditors: Await
- * @LastEditTime: 2025-03-13 20:46:49
+ * @LastEditTime: 2025-03-15 20:30:39
  * @Description: 请填写简介
  */
 'use client';
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/Toast';
-import { login as apiLogin, register as apiRegister, verifyGuestPassword, updateUserSettings } from '@/lib/api';
-import { getToken, setToken, removeToken } from '@/utils/auth';
-import { jwtDecode } from 'jwt-decode';
-import type { User, UserSettings, RouteType } from '@/lib/types';
-import { RoutePermission } from '@/lib/types';
-import { checkRoutePermission, getRouteComponent } from '@/config/routes';
+import {createContext, useContext, useState, useEffect, type ReactNode} from 'react';
+import {useRouter} from 'next/navigation';
+import {useToast} from '@/components/Toast';
+import {login as apiLogin, register as apiRegister, verifyGuestPassword, updateUserSettings} from '@/lib/api';
+import {getToken, setToken, removeToken} from '@/utils/auth';
+import {jwtDecode} from 'jwt-decode';
+import type {User, UserSettings, RouteType} from '@/lib/types';
+import {RoutePermission} from '@/lib/types';
+import {checkRoutePermission, getRouteComponent} from '@/config/routes';
 
 interface AuthContextType {
     user: User | null;
@@ -38,12 +38,12 @@ interface AuthProviderProps {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({children}: AuthProviderProps) {
     const [user, setUser] = useState<User | null>(null);
     const [isGuest, setIsGuest] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-    const { showToast } = useToast();
+    const {showToast} = useToast();
 
     // 更新用户信息
     const updateUser = (updatedUser: User) => {
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // 登录
     const login = async (email: string, password: string) => {
         try {
-            const { token, user } = await apiLogin({ email, password });
+            const {token, user} = await apiLogin({email, password});
             setToken(token);
             setUser(user);
             setIsGuest(false);
@@ -169,7 +169,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // 注册
     const register = async (data: { username: string; email: string; password: string }) => {
         try {
-            const { token, user } = await apiRegister(data);
+            const {token, user} = await apiRegister(data);
             setToken(token);
             setUser(user);
             setIsGuest(false);
@@ -178,7 +178,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             handleRouteNavigation(user);
         } catch (error) {
             if (error instanceof Error) {
-                showToast(error.message, 'error');
+                // showToast(error.message, 'error');
             } else {
                 showToast('注册失败', 'error');
             }
@@ -222,9 +222,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.removeItem('currentFamilyId'); // 清除当前家庭ID
         setUser(null);
         setIsGuest(false);
-        showToast('登录已过期，请重新登录', 'error');
-        router.push('/auth/login');
-        console.log('登录已过期，已重定向到登录页面');
+        if (window.location.pathname !== '/auth/login') {
+            showToast('登录已过期，请重新登录', 'error');
+            router.push('/auth/login');
+        }
     };
 
     // 更新用户设置
@@ -271,4 +272,4 @@ export function useAuth(): AuthContextType {
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
-} 
+}

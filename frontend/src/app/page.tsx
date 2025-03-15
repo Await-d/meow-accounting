@@ -14,35 +14,26 @@
  */
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardBody, Button, Tooltip, CardHeader, Chip, Divider, Tabs, Tab, Input } from '@nextui-org/react';
-import { PlusIcon, Cog6ToothIcon, ArrowPathIcon, ChartBarIcon, CreditCardIcon, HomeIcon, ArrowUpIcon } from '@heroicons/react/24/solid';
+import {useState, useEffect} from 'react';
+import {Card, CardBody, Button} from '@nextui-org/react';
+import {ArrowUpIcon} from '@heroicons/react/24/solid';
 import {
-    TransactionForm,
-    Statistics,
     ThemeSwitch,
-    FamilySelector,
-    ErrorBoundary,
     Logo,
     LoadingScreen,
     BackgroundEffect,
     FeatureCard,
     AnimatedTitle
 } from '@/components';
-import CategoryStats from '@/components/CategoryStats';
-import TransactionList from '@/components/TransactionList';
-import Skeleton from '@/components/Skeleton';
-import type { TimeRange, User } from '@/lib/types';
-import { useAuth } from '@/hooks/useAuth';
+import {useAuth} from '@/hooks/useAuth';
 import Link from 'next/link';
-import { useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import { BarChart3, PieChart, LineChart, Users, Wallet, Sparkles, ArrowRight, ChevronRight, Star, Clock, Settings, Download } from 'lucide-react';
+import {motion} from 'framer-motion';
+import {useRouter} from 'next/navigation';
+import {BarChart3, PieChart, Users, Wallet, Sparkles, ArrowRight, Clock, Download} from 'lucide-react';
 
 export default function Home() {
     const router = useRouter();
-    const { user } = useAuth();
+    const {user} = useAuth();
     const [greeting, setGreeting] = useState('');
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -85,17 +76,20 @@ export default function Home() {
         return () => clearTimeout(timer);
     }, []);
 
-    useEffect(() => {
+    const enterSystem = () => {
+        // 如果用户已登录，根据设置跳转到默认路由
         if (user) {
-            // 如果用户已登录，根据设置跳转到默认路由
             if (user.default_route) {
                 router.push(user.default_route);
             } else {
                 // 如果没有设置默认路由，跳转到仪表盘
                 router.push('/dashboard');
             }
+            return;
         }
-    }, [user, router]);
+        //跳转登陆
+        router.push('/auth/login')
+    };
 
     const scrollToTop = () => {
         window.scrollTo({
@@ -106,51 +100,29 @@ export default function Home() {
 
     // 在 return 语句前添加加载状态的渲染
     if (isLoading) {
-        return <LoadingScreen />;
-    }
-
-    // 动画样式
-    const fadeIn = {
-        initial: { opacity: 0, y: 20 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.6 }
-    };
-
-    const staggerChildren = {
-        animate: {
-            transition: {
-                staggerChildren: 0.1
-            }
-        }
-    };
-
-    // 如果用户已登录，不显示介绍页面
-    if (user) {
-        return null;
+        return <LoadingScreen/>;
     }
 
     return (
         <main className="relative overflow-hidden">
             {/* 背景效果 */}
-            <BackgroundEffect />
+            <BackgroundEffect/>
 
             <div className="container mx-auto px-4 py-6 max-w-7xl">
                 {/* 顶部导航 */}
                 <motion.div
                     className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center mb-12 pt-4"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
+                    initial={{opacity: 0, y: -20}}
+                    animate={{opacity: 1, y: 0}}
+                    transition={{duration: 0.5}}
                 >
-                    <Logo variant="large" />
+                    <Logo variant="large"/>
                     <div className="flex items-center gap-3">
-                        <ThemeSwitch />
+                        <ThemeSwitch/>
                         {user ? (
-                            <Link href="/dashboard">
-                                <Button color="primary" size="lg" className="px-6">
-                                    进入应用
-                                </Button>
-                            </Link>
+                            <Button onPress={enterSystem} color="primary" size="lg" className="px-6">
+                                进入应用
+                            </Button>
                         ) : (
                             <div className="flex gap-2">
                                 <Link href="/auth/login">
@@ -173,9 +145,9 @@ export default function Home() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                         <motion.div
                             className="space-y-6"
-                            initial={{ opacity: 0, x: -30 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.6, delay: 0.2 }}
+                            initial={{opacity: 0, x: -30}}
+                            animate={{opacity: 1, x: 0}}
+                            transition={{duration: 0.6, delay: 0.2}}
                         >
                             <AnimatedTitle
                                 title="智能家庭记账"
@@ -194,7 +166,7 @@ export default function Home() {
                                         color="primary"
                                         size="lg"
                                         className="bg-gradient-to-r from-primary to-secondary border-0 px-8"
-                                        endContent={<ArrowRight size={16} />}
+                                        endContent={<ArrowRight size={16}/>}
                                     >
                                         立即开始
                                     </Button>
@@ -226,12 +198,12 @@ export default function Home() {
 
                         <motion.div
                             className="relative"
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.6, delay: 0.4 }}
+                            initial={{opacity: 0, scale: 0.9}}
+                            animate={{opacity: 1, scale: 1}}
+                            transition={{duration: 0.6, delay: 0.4}}
                         >
-                            <div className="absolute -top-10 -left-10 w-20 h-20 bg-primary/10 rounded-full blur-xl" />
-                            <div className="absolute -bottom-10 -right-10 w-20 h-20 bg-secondary/10 rounded-full blur-xl" />
+                            <div className="absolute -top-10 -left-10 w-20 h-20 bg-primary/10 rounded-full blur-xl"/>
+                            <div className="absolute -bottom-10 -right-10 w-20 h-20 bg-secondary/10 rounded-full blur-xl"/>
 
                             <Card className="overflow-hidden border border-default-100">
                                 <CardBody className="p-0">
@@ -248,13 +220,13 @@ export default function Home() {
 
                             <motion.div
                                 className="absolute -bottom-6 -right-6 bg-background p-3 rounded-xl shadow-lg border border-default-100"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5, delay: 0.8 }}
+                                initial={{opacity: 0, y: 20}}
+                                animate={{opacity: 1, y: 0}}
+                                transition={{duration: 0.5, delay: 0.8}}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                                        <Sparkles className="w-5 h-5 text-success" />
+                                        <Sparkles className="w-5 h-5 text-success"/>
                                     </div>
                                     <div>
                                         <p className="text-xs text-default-500">本月结余</p>
@@ -280,42 +252,42 @@ export default function Home() {
                         <FeatureCard
                             title="智能记账"
                             description="简单直观地记录日常收入和支出，支持多种分类和标签，让记账变得轻松愉快。"
-                            icon={<Wallet className="w-8 h-8" />}
+                            icon={<Wallet className="w-8 h-8"/>}
                             gradient="primary"
                         />
 
                         <FeatureCard
                             title="数据分析"
                             description="智能分析您的消费习惯，生成直观的图表和报告，帮助您了解资金流向。"
-                            icon={<BarChart3 className="w-8 h-8" />}
+                            icon={<BarChart3 className="w-8 h-8"/>}
                             gradient="success"
                         />
 
                         <FeatureCard
                             title="家庭共享"
                             description="邀请家人加入，共同管理家庭财务，设置不同权限，保护隐私的同时实现协作。"
-                            icon={<Users className="w-8 h-8" />}
+                            icon={<Users className="w-8 h-8"/>}
                             gradient="warning"
                         />
 
                         <FeatureCard
                             title="预算规划"
                             description="设置月度或年度预算目标，系统自动追踪支出情况，帮助您控制消费。"
-                            icon={<PieChart className="w-8 h-8" />}
+                            icon={<PieChart className="w-8 h-8"/>}
                             gradient="danger"
                         />
 
                         <FeatureCard
                             title="定期报告"
                             description="自动生成每周、每月财务报告，通过邮件发送，让您随时了解财务状况。"
-                            icon={<Clock className="w-8 h-8" />}
+                            icon={<Clock className="w-8 h-8"/>}
                             gradient="secondary"
                         />
 
                         <FeatureCard
                             title="数据导出"
                             description="支持多种格式导出数据，方便您进行备份或进一步分析。"
-                            icon={<Download className="w-8 h-8" />}
+                            icon={<Download className="w-8 h-8"/>}
                             gradient="primary"
                         />
                     </div>
@@ -324,10 +296,10 @@ export default function Home() {
                 {/* 行动召唤 */}
                 <motion.div
                     className="py-16 mb-16"
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
-                    viewport={{ once: true }}
+                    initial={{opacity: 0, y: 30}}
+                    whileInView={{opacity: 1, y: 0}}
+                    transition={{duration: 0.6}}
+                    viewport={{once: true}}
                 >
                     <Card className="overflow-hidden border-0 bg-gradient-to-r from-primary-900/40 to-secondary-900/40 backdrop-blur-sm">
                         <CardBody className="p-8 md:p-12">
@@ -370,9 +342,9 @@ export default function Home() {
                     color="primary"
                     variant="flat"
                     className="fixed bottom-6 right-6 z-50 rounded-full"
-                    onClick={scrollToTop}
+                    onPress={scrollToTop}
                 >
-                    <ArrowUpIcon className="w-5 h-5" />
+                    <ArrowUpIcon className="w-5 h-5"/>
                 </Button>
             )}
         </main>

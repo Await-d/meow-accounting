@@ -2,27 +2,43 @@
  * @Author: Await
  * @Date: 2025-03-10 19:42:20
  * @LastEditors: Await
- * @LastEditTime: 2025-03-15 14:29:04
+ * @LastEditTime: 2025-03-15 22:18:31
  * @Description: 仪表盘页面
  */
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Card, CardBody, CardHeader, Button, Spinner, Tabs, Tab, Chip, Divider, Tooltip as NextUITooltip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Switch, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Avatar, Badge } from '@nextui-org/react';
+import {
+    Card,
+    CardBody,
+    CardHeader,
+    Button,
+    Tabs,
+    Tab,
+    Tooltip as NextUITooltip,
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+    Switch,
+    Dropdown,
+    DropdownTrigger,
+    DropdownMenu,
+    DropdownItem,
+    Avatar
+} from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoute } from '@/hooks/useRoute';
-import { useStatistics, useCategoryStats, useRecentTransactions, useDeleteTransaction, getTransactions } from '@/lib/api';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, Clock, Plus, RefreshCw, Download, Eye, Users, User, ChevronDown } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useStatistics, useCategoryStats, useDeleteTransaction, getTransactions } from '@/lib/api';
+import { ArrowUpRight, ArrowDownRight, Plus, RefreshCw, Download, Users, ChevronDown } from 'lucide-react';
 import dayjs from 'dayjs';
 import { Transaction, TransactionType } from '@/lib/types';
-import TimeRangeSelector from '@/components/dashboard/TimeRangeSelector';
 import StatisticsCard from '@/components/dashboard/StatisticsCard';
 import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
 import CategoryPieChart from '@/components/dashboard/CategoryPieChart';
 import RecentTransactions from '@/components/dashboard/RecentTransactions';
 import dynamic from 'next/dynamic';
 import { WalletIcon, UsersIcon } from '@heroicons/react/24/outline';
-import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/useToast';
 import { useFamily } from '@/hooks/useFamily';
 import { Logo, LoadingScreen } from '@/components';
@@ -38,18 +54,14 @@ const DashboardBackground = dynamic(
     { ssr: false }
 );
 
-// 颜色配置
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function DashboardPage() {
     const { user } = useAuth();
     const { currentRoute } = useRoute();
-    const router = useRouter();
     const [timeRange, setTimeRange] = useState<'month' | 'quarter' | 'year'>('month');
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isPersonalMode, setIsPersonalMode] = useState(false);
-    const queryClient = useQueryClient();
     const { showToast } = useToast();
     const { families, currentFamily, setCurrentFamily } = useFamily();
     const [greeting, setGreeting] = useState('');
@@ -84,20 +96,13 @@ export default function DashboardPage() {
     // 获取分类统计 - 根据个人/家庭模式传递不同参数
     const { data: categoryStats, isLoading: categoryLoading, refetch: refetchCategoryStats } = useCategoryStats(
         timeRange,
-        isPersonalMode && typeof user?.id === 'number' ? user.id : undefined
+        isPersonalMode ? user?.id : undefined,
+        !isPersonalMode && currentFamily ? currentFamily.id : undefined
     );
-
-    // 获取最近交易 - 根据个人/家庭模式传递不同参数
-    const { data: recentTransactions, isLoading: transactionsLoading, refetch: refetchTransactions } = useRecentTransactions(
-        5,
-        isPersonalMode && typeof user?.id === 'number' ? user.id : undefined
-    );
-
     // 刷新所有数据
     const refreshAllData = () => {
         refetchStats();
         refetchCategoryStats();
-        refetchTransactions();
         fetchTransactions();
         showToast('数据已刷新', 'success');
     };
@@ -105,6 +110,7 @@ export default function DashboardPage() {
     // 当模式切换时，刷新数据
     useEffect(() => {
         if (user) {
+            console.log('isPersonalMode', isPersonalMode, user?.id, currentFamily?.id);
             refreshAllData();
         }
     }, [isPersonalMode, currentFamily?.id]);
@@ -130,12 +136,6 @@ export default function DashboardPage() {
         } finally {
             setIsLoading(false);
         }
-    };
-
-    // 处理交易详情查看
-    const handleViewTransaction = (transaction: Transaction) => {
-        setSelectedTransaction(transaction);
-        setIsModalOpen(true);
     };
 
     // 导出数据为CSV
@@ -491,7 +491,8 @@ export default function DashboardPage() {
                                         <div className="space-y-4">
                                             <div className="flex justify-between">
                                                 <span className="text-default-500">类型</span>
-                                                <span className={selectedTransaction.type === 'income' ? 'text-success' : selectedTransaction.type === 'expense' ? 'text-danger' : 'text-warning'}>
+                                                <span
+                                                    className={selectedTransaction.type === 'income' ? 'text-success' : selectedTransaction.type === 'expense' ? 'text-danger' : 'text-warning'}>
                                                     {selectedTransaction.type === 'income' ? '收入' : selectedTransaction.type === 'expense' ? '支出' : '转账'}
                                                 </span>
                                             </div>
@@ -550,4 +551,4 @@ export default function DashboardPage() {
             </div>
         </div>
     );
-} 
+}

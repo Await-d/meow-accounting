@@ -69,7 +69,7 @@ const statusHandlers: Record<number, (message: string) => void> = {
     },
     // 401: 未授权，需要重新登录
     401: (_) => {
-        console.warn('用户未授权或会话已过期，需要重新登录');
+        // console.warn('用户未授权或会话已过期，需要重新登录');
         // 清除 token
         removeToken();
         // 清除本地存储中的访客模式标记
@@ -82,8 +82,11 @@ const statusHandlers: Record<number, (message: string) => void> = {
             globalUnauthorizedHandler();
         } else {
             // 如果没有全局处理函数，直接重定向到登录页
-            showGlobalToast('登录已过期，请重新登录', 'error');
-            window.location.href = '/auth/login';
+            //判断是否时登陆页面
+            if (window.location.pathname !== '/auth/login') {
+                showGlobalToast('登录已过期，请重新登录' + window.location.pathname, 'error');
+                window.location.href = '/auth/login';
+            }
         }
     },
     // 403: 禁止访问
@@ -133,8 +136,7 @@ export async function fetchAPI<T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<T> {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    let url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    let url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
     // 如果URL中包含transactions相关请求，但不包含familyId，则从localStorage中获取
     if ((url.includes('/transactions') || url.includes('/statistics') || url.includes('/categories')) &&
@@ -159,8 +161,6 @@ export async function fetchAPI<T>(
         ...options,
         headers,
     };
-
-    console.log(`API请求: ${options.method || 'GET'} ${url}`);
 
     try {
         const response = await fetch(url, config);
@@ -494,11 +494,14 @@ export function useStatistics(timeRange: 'month' | 'quarter' | 'year' = 'month',
 }
 
 // 分类统计相关API
-export function useCategoryStats(timeRange: 'week' | 'month' | 'quarter' | 'year' = 'month', userId?: number) {
-    const { user } = useAuth();
-    const familyId = user?.currentFamilyId;
+export function useCategoryStats(
+    timeRange: 'week' | 'month' | 'quarter' | 'year' = 'month',
+    userId?: number,
+    familyId?: number
+) {
     const errorRef = useRef(false);
 
+    console.log('useCategoryStats', timeRange, userId, familyId);
     // 构建查询参数
     const queryParams = new URLSearchParams({
         range: timeRange
@@ -1176,58 +1179,6 @@ export async function cancelInvitation(familyId: number, invitationId: number) {
     });
 }
 
-// 仪表盘API - 获取最近交易
-export function useRecentTransactions(limit: number = 5, userId?: number) {
-    const { user } = useAuth();
-    const familyId = user?.currentFamilyId;
-    const { showToast } = useToast();
-    const errorRef = useRef(false);
-
-    // 构建查询参数
-    const queryParams = useMemo(() => {
-        const params = new URLSearchParams({
-            limit: limit.toString()
-        });
-
-        // 根据模式添加不同的参数
-        if (userId) {
-            // 个人模式
-            params.append('user_id', userId.toString());
-        } else if (familyId) {
-            // 家庭模式
-            params.append('family_id', familyId.toString());
-        }
-
-        return params.toString();
-    }, [limit, userId, familyId]);
-
-    // 提前计算queryKey避免每次重新计算
-    const queryKey = useMemo(() =>
-        ['recentTransactions', userId ? `user_${userId}` : `family_${familyId}`, limit],
-        [userId, familyId, limit]
-    );
-
-    return useQuery({
-        queryKey,
-        queryFn: async () => {
-            try {
-                const data = await fetchAPI<Transaction[]>(`/transactions/recent?${queryParams}`);
-                errorRef.current = false; // 重置错误状态
-                return data;
-            } catch (error: any) {
-                console.error('获取最近交易记录失败:', error);
-                errorRef.current = true; // 标记出现错误
-                showToast(handleQueryError(error, '获取最近交易记录失败'), 'error');
-                throw error;
-            }
-        },
-        staleTime: 30 * 1000, // 30秒内数据不过期
-        gcTime: 5 * 60 * 1000, // 5分钟后垃圾回收
-        refetchOnWindowFocus: false,
-        retry: errorRef.current ? 0 : 1, // 如果已经出错，则不再重试
-        enabled: !!(userId || familyId) // 只有在有userId或familyId时才启用查询
-    });
-}
 
 // 从transactionService.ts合并的简化交易API
 // 创建交易

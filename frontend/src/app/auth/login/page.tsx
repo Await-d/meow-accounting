@@ -41,7 +41,7 @@ export default function LoginPage() {
             }
             // 否则默认跳转到首页（由useAuth中的login函数处理）
         } catch (error) {
-            showToast(error instanceof Error ? error.message : '登录失败', 'error');
+            // showToast(error instanceof Error ? error.message : '登录失败', 'error');
         }
     };
 

@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-15 15:25:30
  * @LastEditors: Await
- * @LastEditTime: 2025-03-15 15:25:30
+ * @LastEditTime: 2025-03-15 21:05:49
  * @Description: 用户模型
  */
 import { db } from '../config/database';
@@ -291,3 +291,15 @@ export const verifyGuestPassword = async (familyId: number, password: string): P
         throw error;
     }
 };
+
+// 检查是否有任何用户存在
+export async function hasAnyUser(): Promise<boolean> {
+    try {
+        const query = 'SELECT COUNT(*) as count FROM users LIMIT 1';
+        const result = await db.findOne<{ count: number }>(query, []);
+        return result ? result.count > 0 : false;
+    } catch (error) {
+        console.error('检查用户存在性失败:', error);
+        throw error;
+    }
+}
