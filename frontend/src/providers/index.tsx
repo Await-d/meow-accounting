@@ -2,36 +2,35 @@
  * @Author: Await
  * @Date: 2025-03-07 20:53:24
  * @LastEditors: Await
- * @LastEditTime: 2025-03-07 20:55:03
+ * @LastEditTime: 2025-03-14 19:28:18
  * @Description: 请填写简介
  */
 'use client';
 
 import { NextUIProvider } from '@nextui-org/react';
-import { ThemeProvider as NextThemeProvider } from 'next-themes';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: {
-            refetchOnWindowFocus: false,
-            retry: false
-        }
-    }
-});
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { ThemeProvider } from 'next-themes';
+import React, { useState } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
+    const [queryClient] = useState(() => new QueryClient({
+        defaultOptions: {
+            queries: {
+                refetchOnWindowFocus: false,
+                retry: 1,
+            },
+        },
+    }));
+
     return (
         <QueryClientProvider client={queryClient}>
-            <NextUIProvider>
-                <NextThemeProvider
-                    attribute="class"
-                    defaultTheme="dark"
-                    themes={['light', 'dark']}
-                >
+            <ThemeProvider attribute="class" defaultTheme="dark">
+                <NextUIProvider>
                     {children}
-                </NextThemeProvider>
-            </NextUIProvider>
+                </NextUIProvider>
+            </ThemeProvider>
+            <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
     );
 } 

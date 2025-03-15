@@ -6,6 +6,9 @@
  * @Description: 工具函数
  */
 
+import { ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
 /**
  * 格式化日期
  * @param dateString 日期字符串
@@ -48,17 +51,7 @@ export function formatAmount(amount: number, decimals: number = 2, currency: str
     return `${currency}${amount.toFixed(decimals)}`;
 }
 
-/**
- * 截断文本
- * @param text 文本
- * @param maxLength 最大长度，默认为50
- * @returns 截断后的文本
- */
-export function truncateText(text: string, maxLength: number = 50): string {
-    if (!text) return '';
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-}
+
 
 /**
  * 生成随机ID
@@ -142,4 +135,60 @@ export function throttle<T extends (...args: any[]) => any>(
             }, limit);
         }
     };
+}
+
+/**
+ * 合并className，用于条件性应用样式
+ * 结合clsx和tailwind-merge，处理className冲突
+ */
+export function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs));
+}
+
+/**
+ * 格式化金额显示
+ * @param amount 金额数值
+ * @param currency 货币代码，默认为人民币
+ * @returns 格式化后的金额字符串
+ */
+export function formatCurrency(amount: number, currency: string = 'CNY'): string {
+    return new Intl.NumberFormat('zh-CN', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2
+    }).format(amount);
+}
+
+/**
+ * 安全地截断文本
+ * @param text 要截断的文本
+ * @param maxLength 最大长度
+ * @param suffix 截断后的后缀，默认为'...'
+ * @returns 截断后的文本
+ */
+export function truncateText(text: string, maxLength: number, suffix: string = '...'): string {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength) + suffix;
+}
+
+/**
+ * 获取随机颜色
+ * @param alpha 透明度，默认为1
+ * @returns 随机颜色的rgba字符串
+ */
+export function getRandomColor(alpha: number = 1): string {
+    const r = Math.floor(Math.random() * 256);
+    const g = Math.floor(Math.random() * 256);
+    const b = Math.floor(Math.random() * 256);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * 延迟函数
+ * @param ms 延迟毫秒数
+ * @returns Promise
+ */
+export function delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
 } 

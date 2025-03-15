@@ -97,7 +97,7 @@ export default function PrivacySettings() {
 
                 <Button
                     color="primary"
-                    onClick={handleSave}
+                    onPress={handleSave}
                 >
                     保存设置
                 </Button>

@@ -1,252 +1,328 @@
-import db from './db';
+/*
+ * @Author: Await
+ * @Date: 2025-03-15 17:15:45
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-15 16:40:25
+ * @Description: 分类模型
+ */
+import { db } from '../config/database';
 
-// 分类类型定义
+// 分类接口定义
 export interface Category {
     id: number;
     name: string;
-    icon?: string;
     type: 'income' | 'expense';
-    family_id: number | null;
+    icon: string;
+    color: string;
     is_default: boolean;
+    family_id?: number;
+    created_by?: number;
+    updated_by?: number;
     created_at: string;
+    updated_at?: string;
 }
 
-// 创建分类表
-export async function createCategoryTable() {
-    // 先删除旧表
-    const dropTableSql = `DROP TABLE IF EXISTS categories`;
+// 创建分类参数接口
+export interface CreateCategoryParams {
+    name: string;
+    type: 'income' | 'expense';
+    icon: string;
+    color: string;
+    is_default?: boolean;
+    family_id?: number;
+    created_by?: number;
+}
 
-    const createTableSql = `
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            icon TEXT,
-            type TEXT CHECK(type IN ('income', 'expense')) NOT NULL,
-            family_id INTEGER,
-            is_default BOOLEAN DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (family_id) REFERENCES families (id) ON DELETE CASCADE
-        )
-    `;
+// 更新分类参数接口
+export interface UpdateCategoryParams {
+    name?: string;
+    icon?: string;
+    color?: string;
+    updated_by: number;
+}
 
-    // 默认分类数据
-    const defaultCategories: Array<Omit<Category, 'id' | 'created_at'>> = [
-        // 支出分类
-        { name: '餐饮', icon: '🍚', type: 'expense', family_id: null, is_default: true },
-        { name: '交通', icon: '🚗', type: 'expense', family_id: null, is_default: true },
-        { name: '购物', icon: '🛒', type: 'expense', family_id: null, is_default: true },
-        { name: '娱乐', icon: '🎮', type: 'expense', family_id: null, is_default: true },
-        { name: '居住', icon: '🏠', type: 'expense', family_id: null, is_default: true },
-        { name: '医疗', icon: '💊', type: 'expense', family_id: null, is_default: true },
-        { name: '教育', icon: '📚', type: 'expense', family_id: null, is_default: true },
-        { name: '通讯', icon: '📱', type: 'expense', family_id: null, is_default: true },
-        { name: '服饰', icon: '👔', type: 'expense', family_id: null, is_default: true },
-        { name: '其他支出', icon: '💰', type: 'expense', family_id: null, is_default: true },
-        // 收入分类
-        { name: '工资', icon: '💵', type: 'income', family_id: null, is_default: true },
-        { name: '奖金', icon: '🎁', type: 'income', family_id: null, is_default: true },
-        { name: '投资', icon: '📈', type: 'income', family_id: null, is_default: true },
-        { name: '兼职', icon: '💼', type: 'income', family_id: null, is_default: true },
-        { name: '其他收入', icon: '💰', type: 'income', family_id: null, is_default: true },
-    ];
-
+// 检查用户是否属于家庭
+export const isUserInFamily = async (userId: number, familyId: number): Promise<boolean> => {
     try {
-        await db.beginTransaction();
-
-        // 删除旧表
-        await db.execute(dropTableSql);
-        console.log('旧分类表删除成功');
-
-        // 创建新表
-        await db.execute(createTableSql);
-        console.log('分类表创建成功');
-
-        // 插入默认分类
-        const insertSql = `
-            INSERT INTO categories (name, icon, type, family_id, is_default)
-            VALUES (?, ?, ?, ?, ?)
+        const query = `
+            SELECT COUNT(*) as count 
+            FROM family_members 
+            WHERE user_id = ? AND family_id = ?
         `;
 
-        for (const category of defaultCategories) {
-            await db.execute(insertSql, [
-                category.name,
-                category.icon,
-                category.type,
-                category.family_id,
-                category.is_default
-            ]);
-        }
-
-        await db.commit();
-        console.log('默认分类创建成功');
+        const result = await db.findOne<{ count: number }>(query, [userId, familyId]);
+        return result ? result.count > 0 : false;
     } catch (error) {
-        await db.rollback();
-        console.error('创建分类表失败:', error);
+        console.error('检查用户是否属于家庭失败:', error);
         throw error;
     }
-}
+};
+
+// 获取默认分类
+export const getDefaultCategories = async (type?: 'income' | 'expense'): Promise<Category[]> => {
+    try {
+        let query = 'SELECT * FROM categories WHERE is_default = 1';
+        const params: any[] = [];
+
+        if (type) {
+            query += ' AND type = ?';
+            params.push(type);
+        }
+
+        query += ' ORDER BY name';
+
+        const categories = await db.findMany<Category>(query, params);
+        return categories;
+    } catch (error) {
+        console.error('获取默认分类失败:', error);
+        throw error;
+    }
+};
+
+// 获取家庭自定义分类
+export const getCustomCategories = async (familyId: number, type?: 'income' | 'expense'): Promise<Category[]> => {
+    try {
+        let query = `
+            SELECT c.*, u1.username as creator_name, u2.username as updater_name
+            FROM categories c
+            LEFT JOIN users u1 ON c.created_by = u1.id
+            LEFT JOIN users u2 ON c.updated_by = u2.id
+            WHERE c.family_id = ? AND c.is_default = 0
+        `;
+
+        const params: any[] = [familyId];
+
+        if (type) {
+            query += ' AND c.type = ?';
+            params.push(type);
+        }
+
+        query += ' ORDER BY c.name';
+
+        const categories = await db.findMany<Category>(query, params);
+        return categories;
+    } catch (error) {
+        console.error('获取家庭自定义分类失败:', error);
+        throw error;
+    }
+};
+
+// 获取分类详情
+export const getCategoryById = async (id: number): Promise<Category | null> => {
+    try {
+        const query = `
+            SELECT c.*, u1.username as creator_name, u2.username as updater_name
+            FROM categories c
+            LEFT JOIN users u1 ON c.created_by = u1.id
+            LEFT JOIN users u2 ON c.updated_by = u2.id
+            WHERE c.id = ?
+        `;
+
+        const category = await db.findOne<Category>(query, [id]);
+        return category || null;
+    } catch (error) {
+        console.error('获取分类详情失败:', error);
+        throw error;
+    }
+};
 
 // 创建分类
-export async function createCategory(data: Omit<Category, 'id' | 'created_at'>): Promise<Category> {
-    const sql = `
-        INSERT INTO categories (name, icon, type, family_id, is_default)
-        VALUES (?, ?, ?, ?, ?)
-    `;
-
+export const createCategory = async (params: CreateCategoryParams): Promise<Category> => {
     try {
-        const id = await db.insert(sql, [
-            data.name,
-            data.icon,
-            data.type,
-            data.family_id,
-            data.is_default || false
-        ]);
+        const { name, type, icon, color, is_default = false, family_id, created_by } = params;
+        const created_at = new Date().toISOString();
+
+        const query = `
+            INSERT INTO categories (name, type, icon, color, is_default, family_id, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const result = await db.insert(
+            query,
+            [name, type, icon, color, is_default ? 1 : 0, family_id, created_by || null, created_at]
+        );
 
         return {
-            id,
-            ...data,
-            created_at: new Date().toISOString()
+            id: result,
+            name,
+            type,
+            icon,
+            color,
+            is_default: !!is_default,
+            family_id,
+            created_by,
+            created_at
         };
     } catch (error) {
         console.error('创建分类失败:', error);
         throw error;
     }
-}
-
-// 获取默认分类
-export async function getDefaultCategories(): Promise<Category[]> {
-    return await db.findMany<Category>('SELECT * FROM categories WHERE is_default = 1');
-}
-
-// 获取家庭的所有分类（包括默认分类和自定义分类）
-export async function getFamilyCategories(familyId: number): Promise<Category[]> {
-    console.log(`执行getFamilyCategories查询，familyId=${familyId}`);
-    const sql = `
-        SELECT * FROM categories 
-        WHERE is_default = 1 OR family_id = ?
-        ORDER BY is_default DESC, created_at ASC
-    `;
-
-    const results = await db.findMany<Category>(sql, [familyId]);
-    console.log(`getFamilyCategories查询结果:`, results);
-    return results;
-}
-
-// 获取家庭的所有分类
-export async function getCategoriesByFamilyId(family_id: number): Promise<Category[]> {
-    const sql = `
-        SELECT * FROM categories
-        WHERE family_id = ?
-        ORDER BY type, name
-    `;
-
-    try {
-        return await db.findMany<Category>(sql, [family_id]);
-    } catch (error) {
-        console.error('获取分类列表失败:', error);
-        throw error;
-    }
-}
+};
 
 // 更新分类
-export async function updateCategory(id: number, data: Partial<Pick<Category, 'name' | 'icon' | 'type'>>, isAdmin: boolean = false): Promise<Category | null> {
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.name !== undefined) {
-        updates.push('name = ?');
-        values.push(data.name);
-    }
-    if (data.icon !== undefined) {
-        updates.push('icon = ?');
-        values.push(data.icon);
-    }
-    if (data.type !== undefined) {
-        updates.push('type = ?');
-        values.push(data.type);
-    }
-
-    if (updates.length === 0) {
-        return null;
-    }
-
-    // 如果是管理员，允许修改默认分类
-    const whereClause = isAdmin ? 'id = ?' : 'id = ? AND is_default = 0';
-
-    const sql = `
-        UPDATE categories 
-        SET ${updates.join(', ')}
-        WHERE ${whereClause}
-    `;
-    values.push(id);
-
+export const updateCategory = async (id: number, params: UpdateCategoryParams): Promise<Category> => {
     try {
-        await db.execute(sql, values);
-        return getCategoryById(id);
+        const { name, icon, color, updated_by } = params;
+        const updated_at = new Date().toISOString();
+
+        // 构建更新语句
+        let updateFields = [];
+        let queryParams = [];
+
+        if (name !== undefined) {
+            updateFields.push('name = ?');
+            queryParams.push(name);
+        }
+
+        if (icon !== undefined) {
+            updateFields.push('icon = ?');
+            queryParams.push(icon);
+        }
+
+        if (color !== undefined) {
+            updateFields.push('color = ?');
+            queryParams.push(color);
+        }
+
+        updateFields.push('updated_by = ?');
+        queryParams.push(updated_by);
+
+        updateFields.push('updated_at = ?');
+        queryParams.push(updated_at);
+
+        // 添加ID作为WHERE条件的参数
+        queryParams.push(id);
+
+        const query = `
+            UPDATE categories
+            SET ${updateFields.join(', ')}
+            WHERE id = ?
+        `;
+
+        await db.execute(query, queryParams);
+
+        // 返回更新后的分类信息
+        return await getCategoryById(id) as Category;
     } catch (error) {
         console.error('更新分类失败:', error);
         throw error;
     }
-}
+};
 
 // 删除分类
-export async function deleteCategory(id: number, isAdmin: boolean = false): Promise<void> {
-    // 如果是管理员，允许删除默认分类
-    const whereClause = isAdmin ? 'id = ?' : 'id = ? AND is_default = 0';
-    const sql = `DELETE FROM categories WHERE ${whereClause}`;
-
+export const deleteCategory = async (id: number): Promise<void> => {
     try {
-        await db.execute(sql, [id]);
+        const query = 'DELETE FROM categories WHERE id = ?';
+        await db.execute(query, [id]);
     } catch (error) {
         console.error('删除分类失败:', error);
         throw error;
     }
-}
+};
 
-// 获取单个分类
-export async function getCategoryById(id: number): Promise<Category | null> {
-    return await db.findOne<Category>('SELECT * FROM categories WHERE id = ?', [id]);
-}
-
-// 检查分类是否存在
-export async function categoryExists(id: number): Promise<boolean> {
-    const result = await db.findOne<{ id: number }>('SELECT id FROM categories WHERE id = ?', [id]);
-    return !!result;
-}
+// 检查分类是否被使用
+export const isCategoryInUse = async (categoryId: number): Promise<boolean> => {
+    try {
+        const query = 'SELECT COUNT(*) as count FROM transactions WHERE category_id = ?';
+        const result = await db.findOne<{ count: number }>(query, [categoryId]);
+        return result ? result.count > 0 : false;
+    } catch (error) {
+        console.error('检查分类是否被使用失败:', error);
+        throw error;
+    }
+};
 
 // 检查分类是否属于指定家庭
-export async function isCategoryInFamily(category_id: number, family_id: number): Promise<boolean> {
-    const sql = `
-        SELECT COUNT(*) as count
-        FROM categories
-        WHERE id = ? AND family_id = ?
-    `;
+export const isCategoryInFamily = async (categoryId: number, familyId: number): Promise<boolean> => {
+    try {
+        const query = 'SELECT COUNT(*) as count FROM categories WHERE id = ? AND family_id = ?';
+        const result = await db.findOne<{ count: number }>(query, [categoryId, familyId]);
+        return result ? result.count > 0 : false;
+    } catch (error) {
+        console.error('检查分类是否属于家庭失败:', error);
+        throw error;
+    }
+};
 
-    const result = await db.findOne<{ count: number }>(sql, [category_id, family_id]);
-    return (result?.count ?? 0) > 0;
+// 创建分类表
+export async function createCategoryTable(): Promise<void> {
+    console.log('使用database.ts中的表创建功能，此方法已弃用');
+    // 不再创建表，避免表结构冲突
 }
 
-// 检查用户是否有权限操作分类
-export async function canUserModifyCategory(category_id: number, user_id: number): Promise<boolean> {
-    const sql = `
-        SELECT COUNT(*) as count
-        FROM categories c
-        JOIN family_members fm ON c.family_id = fm.family_id
-        WHERE c.id = ? AND fm.user_id = ?
-    `;
+// 初始化默认分类数据
+export async function initDefaultCategories(): Promise<void> {
+    try {
+        // 检查是否已经有默认分类
+        const existingCategories = await getDefaultCategories();
+        if (existingCategories.length > 0) {
+            console.log('默认分类已存在，跳过初始化');
+            return;
+        }
 
-    const result = await db.findOne<{ count: number }>(sql, [category_id, user_id]);
-    return (result?.count ?? 0) > 0;
-}
+        // 收入默认分类
+        const incomeCategories = [
+            { name: '工资', type: 'income', icon: 'money', color: '#4CAF50' },
+            { name: '奖金', type: 'income', icon: 'gift', color: '#2196F3' },
+            { name: '投资', type: 'income', icon: 'trending-up', color: '#9C27B0' },
+            { name: '其他收入', type: 'income', icon: 'plus-circle', color: '#607D8B' }
+        ];
 
-// 检查用户是否是某个家庭的成员
-export async function isUserInFamily(user_id: number, family_id: number): Promise<boolean> {
-    const sql = `
-        SELECT COUNT(*) as count
-        FROM family_members
-        WHERE user_id = ? AND family_id = ?
-    `;
+        // 支出默认分类
+        const expenseCategories = [
+            { name: '餐饮', type: 'expense', icon: 'restaurant', color: '#F44336' },
+            { name: '购物', type: 'expense', icon: 'shopping-cart', color: '#FF9800' },
+            { name: '交通', type: 'expense', icon: 'car', color: '#3F51B5' },
+            { name: '住房', type: 'expense', icon: 'home', color: '#795548' },
+            { name: '娱乐', type: 'expense', icon: 'music', color: '#E91E63' },
+            { name: '其他支出', type: 'expense', icon: 'minus-circle', color: '#9E9E9E' }
+        ];
 
-    const result = await db.findOne<{ count: number }>(sql, [user_id, family_id]);
-    return (result?.count ?? 0) > 0;
+        const defaultCategories = [...incomeCategories, ...expenseCategories];
+
+        // 尝试获取系统用户ID，但不再将其设为必须项
+        let systemUserId: number | undefined;
+
+        try {
+            // 查询是否存在系统用户(ID为1的用户)
+            const systemUserQuery = 'SELECT id FROM users WHERE id = 1 LIMIT 1';
+            const systemUser = await db.findOne<{ id: number }>(systemUserQuery, []);
+
+            if (systemUser) {
+                systemUserId = systemUser.id;
+                console.log(`使用用户ID ${systemUserId} 创建默认分类`);
+            } else {
+                // 如果没有系统用户，尝试查找第一个可用的用户
+                const firstUserQuery = 'SELECT id FROM users ORDER BY id LIMIT 1';
+                const firstUser = await db.findOne<{ id: number }>(firstUserQuery, []);
+
+                if (firstUser) {
+                    systemUserId = firstUser.id;
+                    console.log(`使用用户ID ${systemUserId} 创建默认分类`);
+                } else {
+                    console.log('未找到有效用户，将创建无关联用户的默认分类');
+                }
+            }
+        } catch (error) {
+            console.log('查询用户失败，将创建无关联用户的默认分类');
+        }
+
+        // 批量插入默认分类
+        for (const cat of defaultCategories) {
+            await createCategory({
+                name: cat.name,
+                type: cat.type as 'income' | 'expense',
+                icon: cat.icon,
+                color: cat.color,
+                is_default: true,
+                family_id: undefined, // 默认分类不属于特定家庭
+                created_by: systemUserId // 可能为undefined，由createCategory函数处理
+            });
+        }
+
+        console.log('默认分类初始化成功');
+    } catch (error) {
+        console.error('初始化默认分类失败:', error);
+        throw error;
+    }
 }

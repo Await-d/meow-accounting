@@ -1,8 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useRoute } from '@/hooks/useRoute';
 import { motion } from 'framer-motion';
 
 export default function DashboardLayout({
@@ -10,9 +7,6 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user } = useAuth();
-    const { currentRoute } = useRoute();
-
     // 页面切换动画
     const pageTransition = {
         initial: { opacity: 0, x: 20 },

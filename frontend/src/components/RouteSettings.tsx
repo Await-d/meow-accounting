@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-10 19:48:40
  * @LastEditors: Await
- * @LastEditTime: 2025-03-10 20:57:53
+ * @LastEditTime: 2025-03-15 13:17:05
  * @Description: 请填写简介
  */
 'use client';
@@ -82,7 +82,7 @@ export default function RouteSettings() {
 
                 <Button
                     color="primary"
-                    onClick={handleSave}
+                    onPress={handleSave}
                 >
                     保存设置
                 </Button>

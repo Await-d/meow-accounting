@@ -91,7 +91,7 @@ const CacheSettingsPage = () => {
                     color="primary"
                     variant="flat"
                     startContent={<RefreshCw size={18} />}
-                    onClick={() => handleClearCache('all')}
+                    onPress={() => handleClearCache('all')}
                 >
                     清除所有缓存
                 </Button>
@@ -109,7 +109,7 @@ const CacheSettingsPage = () => {
                                 color="danger"
                                 variant="light"
                                 startContent={<Trash2 size={18} />}
-                                onClick={() => handleClearCache(cache.type)}
+                                onPress={() => handleClearCache(cache.type)}
                             >
                                 清除缓存
                             </Button>
@@ -121,7 +121,7 @@ const CacheSettingsPage = () => {
             <Button
                 color="danger"
                 variant="flat"
-                onClick={clearAllCache}
+                onPress={clearAllCache}
                 className="mt-4"
             >
                 清除所有缓存（包括登录状态）

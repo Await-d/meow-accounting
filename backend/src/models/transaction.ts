@@ -1,4 +1,11 @@
-import db from './db';
+/*
+ * @Author: Await
+ * @Date: 2025-03-15 17:15:45
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-15 17:15:45
+ * @Description: 交易记录模型
+ */
+import { db } from '../config/database';
 
 // 创建事务表
 export async function createTransactionTable() {
@@ -13,15 +20,13 @@ export async function createTransactionTable() {
             user_id INTEGER NOT NULL,
             family_id INTEGER NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-            FOREIGN KEY (family_id) REFERENCES families (id) ON DELETE CASCADE
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `;
 
     try {
         await db.execute(sql);
-        console.log('事务表创建成功');
+        console.log('Transaction table created or already exists.');
     } catch (error) {
         console.error('创建事务表失败:', error);
         throw error;
@@ -275,6 +280,242 @@ export async function getStatistics({ familyId, startDate, endDate }: {
         return await db.findMany(sql, [familyId, startDate, endDate]);
     } catch (error) {
         console.error('获取统计数据失败:', error);
+        throw error;
+    }
+}
+
+// 获取最近的交易记录
+export async function getRecentTransactions(familyId: number, limit: number = 5) {
+    try {
+        const query = `
+            SELECT t.id, t.amount, t.type, t.category_id, t.description, t.date, 
+                   c.name as category_name, c.icon as category_icon
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.id
+            WHERE t.family_id = ?
+            ORDER BY t.date DESC, t.id DESC
+            LIMIT ?
+        `;
+
+        const transactions = await db.findMany(query, [familyId, limit]);
+
+        return transactions;
+    } catch (error) {
+        console.error('获取最近交易记录失败:', error);
+        throw error;
+    }
+}
+
+// 检查用户是否属于家庭
+export async function isUserInFamily(userId: number, familyId: number): Promise<boolean> {
+    try {
+        const query = `
+            SELECT COUNT(*) as count 
+            FROM family_members 
+            WHERE user_id = ? AND family_id = ?
+        `;
+
+        const result = await db.findOne<{ count: number }>(query, [userId, familyId]);
+        return result ? result.count > 0 : false;
+    } catch (error) {
+        console.error('检查用户是否属于家庭失败:', error);
+        throw error;
+    }
+}
+
+// 统计参数接口
+export interface TransactionStatsParams {
+    startDate: string;
+    endDate: string;
+    userId?: number;
+    familyId?: number;
+}
+
+// 统计结果接口
+export interface TransactionStats {
+    totalIncome: number;
+    totalExpense: number;
+    chartData: Array<{
+        date: string;
+        income: number;
+        expense: number;
+    }>;
+}
+
+// 获取交易统计数据
+export async function getTransactionStats(params: TransactionStatsParams): Promise<TransactionStats> {
+    const { startDate, endDate, userId, familyId } = params;
+
+    // 构建查询条件
+    const conditions = [];
+    const queryParams = [];
+
+    // 日期条件
+    if (startDate && endDate) {
+        conditions.push('date BETWEEN ? AND ?');
+        queryParams.push(startDate, endDate);
+    }
+
+    // 用户或家庭条件
+    if (userId) {
+        conditions.push('user_id = ?');
+        queryParams.push(userId);
+    } else if (familyId) {
+        conditions.push('family_id = ?');
+        queryParams.push(familyId);
+    }
+
+    // 构建完整的WHERE子句
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // 总收入和支出查询
+    const totalQuery = `
+        SELECT 
+            SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as totalIncome,
+            SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as totalExpense
+        FROM transactions
+        ${whereClause}
+    `;
+
+    // 按日期分组的查询
+    const chartQuery = `
+        SELECT 
+            date,
+            SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
+            SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
+        FROM transactions
+        ${whereClause}
+        GROUP BY date
+        ORDER BY date
+    `;
+
+    try {
+        // 获取总收入和支出
+        const totals = await db.findOne<{ totalIncome: number; totalExpense: number }>(totalQuery, queryParams);
+
+        // 获取图表数据
+        const chartData = await db.findMany<{ date: string; income: number; expense: number }>(chartQuery, queryParams);
+
+        return {
+            totalIncome: totals?.totalIncome || 0,
+            totalExpense: totals?.totalExpense || 0,
+            chartData: chartData || []
+        };
+    } catch (error) {
+        console.error('获取交易统计数据失败:', error);
+        throw error;
+    }
+}
+
+// 分类统计参数接口
+export interface CategoryStatsParams {
+    startDate: string;
+    endDate: string;
+    userId?: number;
+    familyId?: number;
+}
+
+// 获取分类统计数据
+export async function getTransactionCategoryStats(params: CategoryStatsParams): Promise<any[]> {
+    try {
+        const conditions = [];
+        const queryParams = [];
+
+        // 添加日期范围条件
+        if (params.startDate && params.endDate) {
+            conditions.push('t.date BETWEEN ? AND ?');
+            queryParams.push(params.startDate, params.endDate);
+        }
+
+        // 添加用户ID条件
+        if (params.userId) {
+            conditions.push('t.user_id = ?');
+            queryParams.push(params.userId);
+        }
+
+        // 添加家庭ID条件
+        if (params.familyId) {
+            conditions.push('t.family_id = ?');
+            queryParams.push(params.familyId);
+        }
+
+        // 构建WHERE子句
+        const whereClause = conditions.length > 0
+            ? `WHERE ${conditions.join(' AND ')}`
+            : '';
+
+        // 定义分类结果类型
+        interface CategoryResult {
+            id: number;
+            name: string;
+            icon: string;
+            color: string;
+            total_amount: number;
+            transaction_count: number;
+        }
+
+        // 查询收入分类统计
+        const incomeQuery = `
+            SELECT 
+                c.id, 
+                c.name, 
+                c.icon,
+                c.color,
+                SUM(t.amount) as total_amount,
+                COUNT(t.id) as transaction_count
+            FROM transactions t
+            JOIN categories c ON t.category_id = c.id
+            ${whereClause} AND t.type = 'income'
+            GROUP BY c.id
+            ORDER BY total_amount DESC
+        `;
+
+        // 查询支出分类统计
+        const expenseQuery = `
+            SELECT 
+                c.id, 
+                c.name, 
+                c.icon,
+                c.color,
+                SUM(t.amount) as total_amount,
+                COUNT(t.id) as transaction_count
+            FROM transactions t
+            JOIN categories c ON t.category_id = c.id
+            ${whereClause} AND t.type = 'expense'
+            GROUP BY c.id
+            ORDER BY total_amount DESC
+        `;
+
+        const incomeCategories = await db.findMany<CategoryResult>(incomeQuery, queryParams);
+        const expenseCategories = await db.findMany<CategoryResult>(expenseQuery, queryParams);
+
+        // 返回结果
+        return [
+            {
+                type: 'income',
+                categories: incomeCategories.map((category: CategoryResult) => ({
+                    id: category.id,
+                    name: category.name,
+                    icon: category.icon,
+                    color: category.color,
+                    amount: category.total_amount,
+                    count: category.transaction_count
+                }))
+            },
+            {
+                type: 'expense',
+                categories: expenseCategories.map((category: CategoryResult) => ({
+                    id: category.id,
+                    name: category.name,
+                    icon: category.icon,
+                    color: category.color,
+                    amount: category.total_amount,
+                    count: category.transaction_count
+                }))
+            }
+        ];
+    } catch (error) {
+        console.error('获取分类统计数据失败:', error);
         throw error;
     }
 }

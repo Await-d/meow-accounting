@@ -22,12 +22,15 @@ import {
     CreateRouteData,
     UpdateRouteData,
     RouteStats,
-    Invitation
+    Invitation,
+    Account,
+    Member,
+    Bill
 } from './types';
 import { getToken, setToken, removeToken } from '@/utils/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useFamily } from '@/hooks/useFamily';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -130,37 +133,37 @@ export async function fetchAPI<T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<T> {
-    const baseURL = API_BASE_URL;
-    const url = endpoint.startsWith('/')
-        ? `${baseURL}${endpoint}`
-        : `${baseURL}/${endpoint}`;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    let url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
+    // 如果URL中包含transactions相关请求，但不包含familyId，则从localStorage中获取
+    if ((url.includes('/transactions') || url.includes('/statistics') || url.includes('/categories')) &&
+        !url.includes('families/') && !options.body) {
+        const currentFamilyId = localStorage.getItem('currentFamilyId');
+        if (currentFamilyId) {
+            // 添加家庭ID到URL查询参数
+            const separator = url.includes('?') ? '&' : '?';
+            url += `${separator}familyId=${currentFamilyId}`;
+        }
+    }
+
+    const headers = new Headers(options.headers || {});
+    headers.set('Content-Type', 'application/json');
+
+    const token = getToken();
+    if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const config: RequestInit = {
+        ...options,
+        headers,
+    };
 
     console.log(`API请求: ${options.method || 'GET'} ${url}`);
 
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...options.headers as Record<string, string>,
-    };
-
-    // 尝试多次获取token，解决token加载时机问题
-    let token = getToken();
-    if (!token) {
-        console.log('Token未找到，等待100ms后重试');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        token = getToken();
-    }
-
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    } else {
-        console.warn('无法获取认证Token');
-    }
-
     try {
-        const response = await fetch(url, {
-            ...options,
-            headers,
-        });
+        const response = await fetch(url, config);
 
         console.log(`API响应状态: ${response.status} ${response.statusText}`);
 
@@ -228,49 +231,135 @@ export const handleQueryError = (error: any, fallbackMessage = '请求失败') =
     return error?.message || fallbackMessage;
 };
 
-// 交易记录相关API
-export function useTransactions(filter: TransactionFilter = {}, page: number = 1, limit: number = 20) {
-    const { user } = useAuth();
-    const familyId = user?.currentFamilyId;
+// 账单钩子
+export function useBills(familyId?: string | number) {
+    const [bills, setBills] = useState<Bill[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
     const { showToast } = useToast();
+    const requestAttempted = useRef(false);
+    const hasError = useRef(false);
 
-    const queryString = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        family_id: familyId?.toString() || '',
-        ...(filter.startDate && { startDate: filter.startDate }),
-        ...(filter.endDate && { endDate: filter.endDate }),
-        ...(filter.type && { type: filter.type }),
-        ...(filter.categoryId && { categoryId: filter.categoryId.toString() }),
-        ...(filter.minAmount && { minAmount: filter.minAmount.toString() }),
-        ...(filter.maxAmount && { maxAmount: filter.maxAmount.toString() }),
-    }).toString();
+    useEffect(() => {
+        // 当familyId变更时重置请求状态
+        if (familyId) {
+            requestAttempted.current = false;
+            hasError.current = false;
+        }
 
-    const query = useInfiniteQuery({
-        queryKey: ['transactions', JSON.stringify(filter), limit],
-        queryFn: async ({ pageParam = page }) => {
-            try {
-                return await fetchAPI<TransactionsResponse>(`/transactions?${queryString}`);
-            } catch (error: any) {
-                showToast(handleQueryError(error, '获取交易记录失败'), 'error');
-                throw error;
+        const fetchBills = async () => {
+            if (!familyId) {
+                setBills([]);
+                setIsLoading(false);
+                return;
             }
-        },
-        getNextPageParam: (lastPage) =>
-            lastPage.hasMore ? lastPage.page + 1 : undefined,
-        initialPageParam: page,
-        staleTime: 30 * 1000, // 30秒后过期
-        gcTime: 5 * 60 * 1000, // 5分钟后进行垃圾回收
-        refetchOnWindowFocus: false,
-        retry: false, // 禁用自动重试
-        enabled: !!familyId, // 只有在有familyId时才启用查询
-    });
 
-    return query;
+            // 如果已经请求过并失败，不再重复请求
+            if (requestAttempted.current && hasError.current) {
+                return;
+            }
+
+            try {
+                setIsLoading(true);
+                requestAttempted.current = true; // 标记已尝试，放在请求前避免重复请求
+
+                const url = `/families/${familyId}/bills`;
+                const data = await fetchAPI<Bill[]>(url);
+                setBills(data);
+                setError(null);
+                hasError.current = false;
+            } catch (err) {
+                console.error('获取账单失败', err);
+                showToast && showToast(handleQueryError(err as Error, '获取账单失败'), 'error');
+                setError(err as Error);
+                setBills([]);
+                hasError.current = true;
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        // 仅在未处于错误状态或familyId变更时执行请求
+        if (familyId && (!requestAttempted.current || !hasError.current)) {
+            fetchBills();
+        } else if (!familyId) {
+            setBills([]);
+            setIsLoading(false);
+        }
+    }, [familyId]); // 移除showToast依赖，避免不必要的重新渲染
+
+    return { bills, isLoading, error };
+}
+
+// 交易记录钩子
+export function useTransactions(familyId?: string | number) {
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+    const { showToast } = useToast();
+    const requestAttempted = useRef(false);
+    const hasError = useRef(false);
+
+    useEffect(() => {
+        // 当familyId变更时重置请求状态
+        if (familyId) {
+            requestAttempted.current = false;
+            hasError.current = false;
+        }
+
+        const fetchTransactions = async () => {
+            if (!familyId) {
+                setTransactions([]);
+                setIsLoading(false);
+                return;
+            }
+
+            // 如果已经请求过并失败，不再重复请求
+            if (requestAttempted.current && hasError.current) {
+                return;
+            }
+
+            try {
+                setIsLoading(true);
+                requestAttempted.current = true; // 在请求前标记，避免重复请求
+
+                const url = `/families/${familyId}/transactions`;
+                const data = await fetchAPI<Transaction[]>(url);
+                setTransactions(data);
+                setError(null);
+                hasError.current = false;
+            } catch (err) {
+                console.error('获取交易记录失败', err);
+                showToast && showToast(handleQueryError(err as Error, '获取交易记录失败'), 'error');
+                setError(err as Error);
+                setTransactions([]); // 设置空数组避免组件报错
+                hasError.current = true;
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        // 仅在未处于错误状态或familyId变更时执行请求
+        if (familyId && (!requestAttempted.current || !hasError.current)) {
+            fetchTransactions();
+        } else if (!familyId) {
+            setTransactions([]);
+            setIsLoading(false);
+        }
+    }, [familyId]); // 移除showToast，避免不必要的重新渲染
+
+    return { transactions, isLoading, error };
 }
 
 export function useCreateTransaction() {
     const queryClient = useQueryClient();
+    const { showToast } = useToast();
+    // 使用useRef防止更新处理函数在每次渲染时创建新实例
+    const successHandler = useRef(() => {
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['statistics'] });
+        showToast && showToast('创建成功', 'success');
+    }).current;
 
     return useMutation({
         mutationFn: (transaction: CreateTransactionData) =>
@@ -278,15 +367,23 @@ export function useCreateTransaction() {
                 method: 'POST',
                 body: JSON.stringify(transaction),
             }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['transactions'] });
-            queryClient.invalidateQueries({ queryKey: ['statistics'] });
-        },
+        onSuccess: successHandler,
+        onError: (error: any) => {
+            console.error('创建交易失败:', error);
+            showToast && showToast(handleQueryError(error, '创建交易失败'), 'error');
+        }
     });
 }
 
 export function useUpdateTransaction() {
     const queryClient = useQueryClient();
+    const { showToast } = useToast();
+    // 使用useRef防止更新处理函数在每次渲染时创建新实例
+    const successHandler = useRef(() => {
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['statistics'] });
+        showToast && showToast('更新成功', 'success');
+    }).current;
 
     return useMutation({
         mutationFn: (transaction: Transaction) =>
@@ -294,25 +391,24 @@ export function useUpdateTransaction() {
                 method: 'PUT',
                 body: JSON.stringify(transaction),
             }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['transactions'] });
-            queryClient.invalidateQueries({ queryKey: ['statistics'] });
-        },
+        onSuccess: successHandler,
+        onError: (error: any) => {
+            console.error('更新交易失败:', error);
+            showToast && showToast(handleQueryError(error, '更新交易失败'), 'error');
+        }
     });
 }
-
-export const deleteTransaction = async (id: number) => {
-    return await fetchAPI(`/api/transactions/${id}`, {
-        method: 'DELETE',
-    });
-};
 
 export const useDeleteTransaction = () => {
     const queryClient = useQueryClient();
     const { showToast } = useToast();
 
     return useMutation({
-        mutationFn: deleteTransaction,
+        mutationFn: async (id: number | string) => {
+            return await fetchAPI(`/transactions/${id}`, {
+                method: 'DELETE'
+            });
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
             queryClient.invalidateQueries({ queryKey: ['statistics'] });
@@ -330,51 +426,111 @@ export const useDeleteTransaction = () => {
 };
 
 // 统计相关API
-export function useStatistics(timeRange: 'month' | 'quarter' | 'year' = 'month') {
+export function useStatistics(timeRange: 'month' | 'quarter' | 'year' = 'month', userId?: number) {
     const { user } = useAuth();
     const familyId = user?.currentFamilyId;
-    const now = dayjs();
-    let startDate: string;
-    let endDate = now.format('YYYY-MM-DD');
+    const errorRef = useRef(false);
 
-    switch (timeRange) {
-        case 'quarter':
-            const quarterStart = Math.floor(now.month() / 3) * 3;
-            startDate = now.month(quarterStart).startOf('month').format('YYYY-MM-DD');
-            break;
-        case 'year':
-            startDate = now.startOf('year').format('YYYY-MM-DD');
-            break;
-        case 'month':
-        default:
-            startDate = now.startOf('month').format('YYYY-MM-DD');
-    }
+    // 使用useMemo计算日期范围和查询参数，避免每次渲染时重建
+    const { startDate, endDate, queryParams } = useMemo(() => {
+        const now = dayjs();
+        let start: string;
+        const end = now.format('YYYY-MM-DD');
+
+        switch (timeRange) {
+            case 'quarter':
+                const quarterStart = Math.floor(now.month() / 3) * 3;
+                start = now.month(quarterStart).startOf('month').format('YYYY-MM-DD');
+                break;
+            case 'year':
+                start = now.startOf('year').format('YYYY-MM-DD');
+                break;
+            case 'month':
+            default:
+                start = now.startOf('month').format('YYYY-MM-DD');
+        }
+
+        // 构建查询参数
+        const params = new URLSearchParams({
+            startDate: start,
+            endDate: end
+        });
+
+        // 根据模式添加不同的参数
+        if (userId) {
+            // 个人模式
+            params.append('user_id', userId.toString());
+        } else if (familyId) {
+            // 家庭模式
+            params.append('family_id', familyId.toString());
+        }
+
+        return {
+            startDate: start,
+            endDate: end,
+            queryParams: params.toString()
+        };
+    }, [timeRange, userId, familyId]);
 
     return useQuery({
-        queryKey: ['statistics', timeRange, familyId],
-        queryFn: () =>
-            fetchAPI<Statistics>(`/transactions/stats?startDate=${startDate}&endDate=${endDate}&family_id=${familyId}`),
+        queryKey: ['statistics', timeRange, userId ? `user_${userId}` : `family_${familyId}`],
+        queryFn: async () => {
+            try {
+                const data = await fetchAPI<Statistics>(`/transactions/stats?${queryParams}`);
+                errorRef.current = false;
+                return data;
+            } catch (error) {
+                console.error('获取统计数据失败', error);
+                errorRef.current = true;
+                throw error;
+            }
+        },
         staleTime: 5 * 60 * 1000,
         gcTime: 30 * 60 * 1000,
         refetchOnWindowFocus: false,
-        retry: false,
-        enabled: !!familyId,
+        retry: errorRef.current ? 0 : 1, // 如果已经出错，则不再重试
+        enabled: !!(userId || familyId), // 只有在有userId或familyId时才启用查询
     });
 }
 
 // 分类统计相关API
-export function useCategoryStats(timeRange: 'week' | 'month' | 'quarter' | 'year' = 'month') {
+export function useCategoryStats(timeRange: 'week' | 'month' | 'quarter' | 'year' = 'month', userId?: number) {
     const { user } = useAuth();
     const familyId = user?.currentFamilyId;
+    const errorRef = useRef(false);
+
+    // 构建查询参数
+    const queryParams = new URLSearchParams({
+        range: timeRange
+    });
+
+    // 根据模式添加不同的参数
+    if (userId) {
+        // 个人模式
+        queryParams.append('user_id', userId.toString());
+    } else if (familyId) {
+        // 家庭模式
+        queryParams.append('family_id', familyId.toString());
+    }
 
     return useQuery({
-        queryKey: ['categoryStats', timeRange, familyId],
-        queryFn: () => fetchAPI<CategoryStats[]>(`/transactions/stats/category?range=${timeRange}&family_id=${familyId}`),
+        queryKey: ['categoryStats', timeRange, userId ? `user_${userId}` : `family_${familyId}`],
+        queryFn: async () => {
+            try {
+                const data = await fetchAPI<CategoryStats[]>(`/transactions/stats/category?${queryParams.toString()}`);
+                errorRef.current = false; // 重置错误状态
+                return data;
+            } catch (error) {
+                console.error('获取分类统计失败:', error);
+                errorRef.current = true; // 标记出现错误
+                throw error;
+            }
+        },
         staleTime: 5 * 60 * 1000,
         gcTime: 30 * 60 * 1000,
         refetchOnWindowFocus: false,
-        retry: false,
-        enabled: !!familyId,
+        retry: errorRef.current ? 0 : 1, // 如果已经出错，则不再重试
+        enabled: !!(userId || familyId), // 只有在有userId或familyId时才启用查询
     });
 }
 
@@ -385,8 +541,8 @@ export function useCategories() {
     const familyId = currentFamily?.id;
     const { showToast } = useToast();
     const queryClient = useQueryClient();
-
-    console.log('useCategories hook called, familyId:', familyId, 'user:', user, 'currentFamily:', currentFamily);
+    const requestAttempted = useRef(false);
+    const hasError = useRef(false);
 
     // 获取默认分类
     const {
@@ -399,19 +555,18 @@ export function useCategories() {
         queryFn: async () => {
             try {
                 // 获取默认分类
-                console.log('获取默认分类列表');
                 const result = await fetchAPI<Category[]>(`/categories/default`);
-                console.log('获取默认分类结果:', result);
                 return result;
             } catch (error) {
                 console.error('获取默认分类失败:', error);
+                hasError.current = true;
                 throw error;
             }
         },
         staleTime: 30 * 60 * 1000,
         gcTime: 60 * 60 * 1000,
         refetchOnWindowFocus: false,
-        retry: 3,
+        retry: hasError.current ? 0 : 3, // 如果已有错误，不再重试
         enabled: !!user, // 只要用户已登录就启用查询
     });
 
@@ -426,26 +581,39 @@ export function useCategories() {
         queryFn: async () => {
             if (!familyId) {
                 // 如果没有选择家庭，返回空数组
-                console.log('没有选择家庭，返回空自定义分类数组');
                 return [];
             }
+
+            // 如果已请求过并且失败，则不再尝试请求
+            if (requestAttempted.current && hasError.current) {
+                return [];
+            }
+
             try {
                 // 获取自定义分类
-                console.log('获取家庭自定义分类列表:', `/categories/${familyId}/custom`);
                 const result = await fetchAPI<Category[]>(`/categories/${familyId}/custom`);
-                console.log('获取自定义分类结果:', result);
                 return result;
             } catch (error) {
                 console.error('获取自定义分类失败:', error);
+                requestAttempted.current = true;
+                hasError.current = true;
                 throw error;
             }
         },
         staleTime: 30 * 60 * 1000,
         gcTime: 60 * 60 * 1000,
         refetchOnWindowFocus: false,
-        retry: 3,
-        enabled: !!user, // 只要用户已登录就启用查询
+        retry: hasError.current ? 0 : 3, // 如果已有错误，不再重试
+        enabled: !!user && !!familyId, // 只有在用户已登录且选择了家庭时才启用查询
     });
+
+    // 在家庭变更时重置请求状态
+    useEffect(() => {
+        if (familyId) {
+            requestAttempted.current = false;
+            hasError.current = false;
+        }
+    }, [familyId]);
 
     // 合并默认分类和自定义分类
     const data = useMemo(() => {
@@ -1006,4 +1174,282 @@ export async function cancelInvitation(familyId: number, invitationId: number) {
     return fetchAPI<void>(`/families/${familyId}/invitations/${invitationId}`, {
         method: 'DELETE'
     });
+}
+
+// 仪表盘API - 获取最近交易
+export function useRecentTransactions(limit: number = 5, userId?: number) {
+    const { user } = useAuth();
+    const familyId = user?.currentFamilyId;
+    const { showToast } = useToast();
+    const errorRef = useRef(false);
+
+    // 构建查询参数
+    const queryParams = useMemo(() => {
+        const params = new URLSearchParams({
+            limit: limit.toString()
+        });
+
+        // 根据模式添加不同的参数
+        if (userId) {
+            // 个人模式
+            params.append('user_id', userId.toString());
+        } else if (familyId) {
+            // 家庭模式
+            params.append('family_id', familyId.toString());
+        }
+
+        return params.toString();
+    }, [limit, userId, familyId]);
+
+    // 提前计算queryKey避免每次重新计算
+    const queryKey = useMemo(() =>
+        ['recentTransactions', userId ? `user_${userId}` : `family_${familyId}`, limit],
+        [userId, familyId, limit]
+    );
+
+    return useQuery({
+        queryKey,
+        queryFn: async () => {
+            try {
+                const data = await fetchAPI<Transaction[]>(`/transactions/recent?${queryParams}`);
+                errorRef.current = false; // 重置错误状态
+                return data;
+            } catch (error: any) {
+                console.error('获取最近交易记录失败:', error);
+                errorRef.current = true; // 标记出现错误
+                showToast(handleQueryError(error, '获取最近交易记录失败'), 'error');
+                throw error;
+            }
+        },
+        staleTime: 30 * 1000, // 30秒内数据不过期
+        gcTime: 5 * 60 * 1000, // 5分钟后垃圾回收
+        refetchOnWindowFocus: false,
+        retry: errorRef.current ? 0 : 1, // 如果已经出错，则不再重试
+        enabled: !!(userId || familyId) // 只有在有userId或familyId时才启用查询
+    });
+}
+
+// 从transactionService.ts合并的简化交易API
+// 创建交易
+export async function createTransaction(data: Transaction) {
+    return await fetchAPI<Transaction>('/transactions', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+// 更新交易
+export async function updateTransaction(id: string | number, data: Transaction) {
+    return await fetchAPI<Transaction>(`/transactions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+}
+
+// 获取单个交易
+export async function getTransaction(id: string | number) {
+    return await fetchAPI<Transaction>(`/transactions/${id}`);
+}
+
+// 获取交易列表
+export async function getTransactions(params?: Record<string, string>) {
+    const queryString = params ? new URLSearchParams(params).toString() : '';
+    return await fetchAPI<Transaction[]>(`/transactions?${queryString}`);
+}
+
+// 获取单个交易记录
+export function useTransactionById(id: number, userId?: number) {
+    const { user } = useAuth();
+    const familyId = user?.currentFamilyId;
+    const { showToast } = useToast();
+    const errorRef = useRef(false);
+
+    // 构建查询参数
+    const queryParams = useMemo(() => {
+        const params = new URLSearchParams();
+
+        // 根据模式添加不同的参数
+        if (userId) {
+            params.append('user_id', userId.toString());
+        } else if (familyId) {
+            params.append('family_id', familyId.toString());
+        }
+
+        return params.toString();
+    }, [userId, familyId]);
+
+    return useQuery({
+        queryKey: ['transaction', id, userId ? `user_${userId}` : `family_${familyId}`],
+        queryFn: async () => {
+            try {
+                const data = await fetchAPI<Transaction>(`/transactions/${id}?${queryParams}`);
+                errorRef.current = false; // 重置错误状态
+                return data;
+            } catch (error: any) {
+                console.error('获取交易记录失败:', error);
+                errorRef.current = true; // 标记出现错误
+                showToast(handleQueryError(error, '获取交易记录失败'), 'error');
+                throw error;
+            }
+        },
+        staleTime: 30 * 1000, // 30秒内数据不过期
+        gcTime: 5 * 60 * 1000, // 5分钟后垃圾回收
+        refetchOnWindowFocus: false,
+        retry: errorRef.current ? 0 : 1, // 如果已经出错，不再重试
+        enabled: !!id && !!(userId || familyId) // 只有在有id和(userId或familyId)时才启用查询
+    });
+}
+
+// 账户相关钩子
+export function useAccounts() {
+    const { user } = useAuth();
+    const familyId = user?.currentFamilyId;
+    const { showToast } = useToast();
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+    const requestAttempted = useRef(false);
+    const hasNotFoundError = useRef(false); // 专门标记404错误
+    const toastShown = useRef(false); // 防止重复显示Toast
+
+    useEffect(() => {
+        // 当用户ID或家庭ID变更时重置请求状态
+        if (familyId || user?.id) {
+            // 仅当家庭ID或用户ID变更时重置请求状态，但保留404错误标记
+            requestAttempted.current = false;
+        }
+
+        const fetchAccounts = async () => {
+            // 如果没有用户，不执行请求
+            if (!user) {
+                setAccounts([]);
+                setIsLoading(false);
+                return;
+            }
+
+            // 如果已经请求过并失败，不再重复请求
+            // 特别是针对404错误，绝对不再重试
+            if (requestAttempted.current || hasNotFoundError.current) {
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                setIsLoading(true);
+                let url = '/accounts';
+
+                // 优先使用家庭ID，如果没有则使用用户ID
+                if (familyId) {
+                    url += `?family_id=${familyId}`;
+                } else if (user?.id) {
+                    url += `?user_id=${user.id}`;
+                }
+
+                requestAttempted.current = true; // 标记已尝试请求，放在请求前避免重复请求
+
+                const data = await fetchAPI<Account[]>(url);
+                setAccounts(data);
+                setError(null);
+                toastShown.current = false; // 成功获取数据后重置Toast标记
+            } catch (err) {
+                console.error('获取账户失败', err);
+
+                // 检查是否为404错误
+                const isNotFound = err instanceof APIError && err.status === 404;
+                if (isNotFound) {
+                    hasNotFoundError.current = true; // 标记为404错误
+
+                    // 只显示一次Toast
+                    if (!toastShown.current && showToast) {
+                        showToast('账户数据尚未配置，请前往设置添加账户', 'info');
+                        toastShown.current = true;
+                    }
+                } else if (!toastShown.current && showToast) {
+                    showToast(handleQueryError(err as Error, '获取账户失败'), 'error');
+                    toastShown.current = true;
+                }
+
+                setError(err as Error);
+                setAccounts([]); // 设置空数组避免组件报错
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        // 仅在未处于404错误状态时执行请求
+        if (user && !hasNotFoundError.current && !requestAttempted.current) {
+            fetchAccounts();
+        } else if (!user) {
+            setAccounts([]);
+            setIsLoading(false);
+        }
+
+        // 清理函数，在组件卸载时重置状态
+        return () => {
+            // 保留404错误状态，但重置其他状态
+            toastShown.current = false;
+        };
+    }, [user?.id, familyId]); // 移除showToast，避免不必要的重新渲染
+
+    return { accounts, isLoading, error };
+}
+
+// 家庭成员钩子
+export function useMembers(familyId?: string | number) {
+    const [members, setMembers] = useState<Member[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+    const { showToast } = useToast();
+    const requestAttempted = useRef(false);
+    const hasError = useRef(false);
+
+    useEffect(() => {
+        // 当familyId变更时重置请求状态
+        if (familyId) {
+            requestAttempted.current = false;
+            hasError.current = false;
+        }
+
+        const fetchMembers = async () => {
+            if (!familyId) {
+                setMembers([]);
+                setIsLoading(false);
+                return;
+            }
+
+            // 如果已经请求过并失败，不再重复请求
+            if (requestAttempted.current && hasError.current) {
+                return;
+            }
+
+            try {
+                setIsLoading(true);
+                requestAttempted.current = true; // 在请求前标记，避免重复请求
+
+                const url = `/families/${familyId}/members`;
+                const data = await fetchAPI<Member[]>(url);
+                setMembers(data);
+                setError(null);
+                hasError.current = false;
+            } catch (err) {
+                console.error('获取家庭成员失败', err);
+                showToast && showToast(handleQueryError(err as Error, '获取家庭成员失败'), 'error');
+                setError(err as Error);
+                setMembers([]); // 设置空数组避免组件报错
+                hasError.current = true;
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        // 仅在未处于错误状态或familyId变更时执行请求
+        if (familyId && (!requestAttempted.current || !hasError.current)) {
+            fetchMembers();
+        } else if (!familyId) {
+            setMembers([]);
+            setIsLoading(false);
+        }
+    }, [familyId]); // 移除showToast依赖，避免不必要的重新渲染
+
+    return { members, isLoading, error };
 }

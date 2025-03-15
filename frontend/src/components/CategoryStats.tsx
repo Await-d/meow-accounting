@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
     Card,
     CardBody,
@@ -26,7 +26,7 @@ import { useCategoryStats } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { CategoryStats as CategoryStatsType, TimeRange } from '@/lib/types';
 import Skeleton from './Skeleton';
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
+import { ArrowUpIcon, ArrowDownIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 // 注册 Chart.js 组件
 ChartJS.register(ArcElement, ChartTooltip, Legend);
@@ -83,13 +83,21 @@ export default function CategoryStats({
     timeRange,
     onTimeRangeChange
 }: CategoryStatsProps) {
-    const [type, setType] = useState<'income' | 'expense'>('expense');
+    const [type, setType] = useState<'expense' | 'income'>('expense');
     const [chartType, setChartType] = useState<'pie' | 'doughnut'>('doughnut');
     const [sortBy, setSortBy] = useState<'amount' | 'name'>('amount');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+    const { user } = useAuth();
+    const { data: stats, isLoading, error } = useCategoryStats(timeRange);
+    const errorDisplayed = useRef(false);
 
-    const { data: stats, isLoading } = useCategoryStats(timeRange);
-    const { isGuest } = useAuth();
+    // 当有错误时，避免重复渲染导致的无限循环
+    useEffect(() => {
+        if (error && !errorDisplayed.current) {
+            console.error('获取分类统计数据失败:', error);
+            errorDisplayed.current = true;
+        }
+    }, [error]);
 
     // 过滤并排序数据
     const filteredStats = useMemo(() => {
@@ -123,7 +131,7 @@ export default function CategoryStats({
         return {
             labels: filteredStats.map(item => item.name),
             datasets: [{
-                data: filteredStats.map(item => isGuest ? Math.random() * 100 : item.amount),
+                data: filteredStats.map(item => item.amount),
                 backgroundColor: filteredStats.map((_, index) => CHART_COLORS[index % CHART_COLORS.length]),
                 borderWidth: 1,
                 hoverOffset: 8,
@@ -139,6 +147,20 @@ export default function CategoryStats({
 
     if (isLoading) {
         return <Skeleton type="statistics" />;
+    }
+
+    if (error) {
+        return (
+            <Card className="w-full">
+                <CardBody className="flex flex-col items-center justify-center p-8 text-center">
+                    <ExclamationTriangleIcon className="w-12 h-12 text-warning mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">获取分类统计数据失败</h3>
+                    <p className="text-default-500 mb-4">
+                        {error instanceof Error ? error.message : '请检查网络连接并稍后再试'}
+                    </p>
+                </CardBody>
+            </Card>
+        );
     }
 
     // 检查是否有统计数据
@@ -271,7 +293,7 @@ export default function CategoryStats({
                         <div className="absolute inset-0 flex items-center justify-center flex-col">
                             <div className="text-xs text-default-500">总{type === 'expense' ? '支出' : '收入'}</div>
                             <div className={`text-lg font-bold ${type === 'expense' ? 'text-danger' : 'text-success'}`}>
-                                ¥{isGuest ? '***' : totalAmount.toFixed(2)}
+                                ¥{totalAmount.toFixed(2)}
                             </div>
                         </div>
                     )}
@@ -314,18 +336,18 @@ export default function CategoryStats({
                                     <div className="flex items-center gap-2">
                                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}></div>
                                         <span className="text-sm font-medium line-clamp-1">
-                                            {item.category_icon} {item.name}
+                                            {item.name}
                                         </span>
                                     </div>
                                     <div className={`text-sm font-semibold ${type === 'expense' ? 'text-danger' : 'text-success'}`}>
-                                        {isGuest ? '***' : `¥${item.amount.toFixed(2)}`}
+                                        {item.amount.toFixed(2)}
                                     </div>
                                 </div>
                                 <div className="mt-1">
                                     <Progress
                                         size="sm"
-                                        value={item.percentage}
-                                        maxValue={100}
+                                        value={item.amount}
+                                        maxValue={totalAmount}
                                         color={type === 'expense' ? 'danger' : 'success'}
                                         className="mt-1"
                                         showValueLabel={true}

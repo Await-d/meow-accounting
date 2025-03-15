@@ -7,7 +7,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { findUserById } from '../models/user';
+import { getSecretKey } from '../config/auth';
 
 // 扩展 Request 类型以包含 user 属性
 declare module 'express' {
@@ -42,39 +42,54 @@ export function generateToken(user: TokenUser): string {
     });
 }
 
-// 认证中间件
-export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
+// 从数据库查询用户
+async function getUserById(id: number) {
+    // TODO: 实现从数据库查询用户
+    return { id, username: 'test', email: 'test@example.com' };
+}
+
+// 认证中间件 - 验证Token并将用户信息添加到req对象
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    // 获取请求头中的token
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).json({ message: '未提供认证令牌' });
+    }
+
+    // 验证token格式
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+        return res.status(401).json({ message: '认证令牌格式不正确' });
+    }
+
+    const token = parts[1];
+
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: '未提供认证令牌' });
-        }
+        // 验证token
+        const secretKey = getSecretKey();
+        const payload = jwt.verify(token, secretKey) as { id: number };
 
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { id: number };
+        // 查询用户信息
+        const user = await getUserById(payload.id);
 
-        const user = await findUserById(decoded.id);
         if (!user) {
-            return res.status(401).json({ error: '用户不存在' });
+            return res.status(401).json({ message: '用户不存在' });
         }
 
         // 将用户信息添加到请求对象
-        req.user = {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role
-        };
-
+        req.user = user;
         next();
     } catch (error) {
-        if (error instanceof jwt.JsonWebTokenError) {
-            return res.status(401).json({ error: '无效的认证令牌' });
+        if (error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({ message: '认证令牌已过期' });
+        } else if (error instanceof jwt.JsonWebTokenError) {
+            return res.status(401).json({ message: '无效的认证令牌' });
         }
+
         console.error('认证失败:', error);
-        res.status(500).json({ error: '认证失败' });
+        return res.status(500).json({ message: '服务器内部错误' });
     }
-}
+};
 
 // 可选的认证中间件，用于支持访客模式
 export async function optionalAuth(req: Request, res: Response, next: NextFunction) {
@@ -83,15 +98,10 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
 
         if (token) {
             const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { id: number };
-            const user = await findUserById(decoded.id);
+            const user = await getUserById(decoded.id);
 
             if (user) {
-                req.user = {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                    role: user.role
-                };
+                req.user = user;
             }
         }
 

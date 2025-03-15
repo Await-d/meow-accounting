@@ -103,7 +103,7 @@ export default function ProfileSettings() {
 
                 <Button
                     color="primary"
-                    onClick={handleSave}
+                    onPress={handleSave}
                 >
                     保存设置
                 </Button>

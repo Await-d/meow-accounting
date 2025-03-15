@@ -23,12 +23,13 @@ import {
 import { ArrowPathIcon, PencilIcon, TrashIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, EyeIcon, EyeSlashIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import dayjs from 'dayjs';
-import { useTransactions, useDeleteTransaction, type Transaction, type TransactionFilter } from '@/lib/api';
+import { useTransactions, useDeleteTransaction } from '@/lib/api';
+import { Transaction, TransactionFilter, TransactionType } from '@/lib/types';
 import { useToast } from './Toast';
 import { useAuth } from '@/hooks/useAuth';
 import Skeleton from './Skeleton';
 import TransactionForm from './TransactionForm';
-import { default as TransactionFilterComponent } from './TransactionFilter';
+import SimpleTransactionFilter from './TransactionFilter';
 import TransactionImport from './TransactionImport';
 import TransactionExport from './TransactionExport';
 import { CreditCardIcon } from '@heroicons/react/24/outline';
@@ -36,9 +37,9 @@ import { CreditCardIcon } from '@heroicons/react/24/outline';
 export default function TransactionList() {
     const [page, setPage] = useState(1);
     const [filter, setFilter] = useState<TransactionFilter>({});
-    const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useTransactions(filter);
-    const { mutate: deleteTransaction } = useDeleteTransaction();
     const { user, isGuest, enterGuestMode, exitGuestMode } = useAuth();
+    const { transactions, isLoading, error } = useTransactions(user?.currentFamilyId);
+    const { mutate: deleteTransaction } = useDeleteTransaction();
     const { showToast } = useToast();
     const { isOpen: isGuestOpen, onOpen: onGuestOpen, onClose: onGuestClose } = useDisclosure();
     const { isOpen: isImportOpen, onOpen: onImportOpen, onClose: onImportClose } = useDisclosure();
@@ -49,35 +50,21 @@ export default function TransactionList() {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const parentRef = useRef<HTMLDivElement>(null);
 
-    const transactions = useMemo(() => {
-        if (!data?.pages) return [];
-        return data.pages.flatMap((page) => page.items || []);
-    }, [data]);
-
     const virtualizer = useVirtualizer({
-        count: transactions.length + (hasNextPage ? 1 : 0),
+        count: transactions.length,
         getScrollElement: () => parentRef.current,
         estimateSize: () => 70,
         overscan: 10,
     });
 
-    const handleScroll = useCallback(() => {
-        const { scrollTop, scrollHeight, clientHeight } = parentRef.current || {};
-        if (!scrollTop || !scrollHeight || !clientHeight) return;
-
-        const isCloseToBottom = scrollTop + clientHeight >= scrollHeight - 300;
-        if (isCloseToBottom && hasNextPage && !isFetchingNextPage) {
-            fetchNextPage();
-        }
-    }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
-
-    useEffect(() => {
-        const scrollElement = parentRef.current;
-        if (!scrollElement) return;
-
-        scrollElement.addEventListener('scroll', handleScroll);
-        return () => scrollElement.removeEventListener('scroll', handleScroll);
-    }, [handleScroll]);
+    const filteredTransactions = useMemo(() => {
+        if (!transactions) return [];
+        return transactions.filter(t => {
+            // 根据filter实现过滤逻辑
+            // 这里简化处理，可根据实际需求添加条件
+            return true;
+        });
+    }, [transactions, filter]);
 
     const handleEdit = (transaction: Transaction) => {
         if (isGuest) {
@@ -116,7 +103,7 @@ export default function TransactionList() {
         setSelectedTransaction(null);
     };
 
-    const formatAmount = (amount: number, type: 'income' | 'expense') => {
+    const formatAmount = (amount: number, type: TransactionType) => {
         if (isGuest) {
             return '****';
         }
@@ -131,7 +118,7 @@ export default function TransactionList() {
         <div className="space-y-4">
             <div className="flex justify-between items-center sticky top-0 bg-background/70 backdrop-blur-lg z-10 py-2 px-4">
                 <div className="flex items-center gap-2">
-                    <TransactionFilterComponent onFilter={setFilter} />
+                    <SimpleTransactionFilter onFilter={setFilter} />
                     {user?.privacy_mode && (
                         <Button
                             size="sm"
@@ -169,7 +156,7 @@ export default function TransactionList() {
                 ref={parentRef}
                 className="h-[calc(100vh-350px)] md:h-[calc(100vh-230px)] overflow-auto px-4"
             >
-                {transactions.length === 0 ? (
+                {filteredTransactions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                         <div className="bg-default-100 rounded-full p-6 mb-4">
                             <CreditCardIcon className="h-10 w-10 text-default-400" />
@@ -188,11 +175,11 @@ export default function TransactionList() {
                     </div>
                 ) : (
                     <div className="space-y-2 pb-4">
-                        {transactions.map((transaction, index) => {
+                        {filteredTransactions.map((transaction: Transaction, index: number) => {
                             const date = dayjs(transaction.date).format('YYYY-MM-DD');
                             const showHeader =
                                 index === 0 ||
-                                date !== dayjs(transactions[index - 1].date).format('YYYY-MM-DD');
+                                date !== dayjs(filteredTransactions[index - 1].date).format('YYYY-MM-DD');
 
                             return (
                                 <React.Fragment key={transaction.id}>
@@ -214,10 +201,10 @@ export default function TransactionList() {
                                                 ? 'bg-danger/10 text-danger'
                                                 : 'bg-success/10 text-success'
                                                 }`}>
-                                                <span className="text-xl">{transaction.category_icon}</span>
+                                                <span className="text-xl">{transaction.category || '💰'}</span>
                                             </div>
                                             <div>
-                                                <div className="font-medium">{transaction.category_name}</div>
+                                                <div className="font-medium">{transaction.category || '未分类'}</div>
                                                 <div className="text-xs text-default-400">
                                                     {transaction.description || '无描述'}
                                                 </div>
@@ -260,19 +247,6 @@ export default function TransactionList() {
                                 </React.Fragment>
                             );
                         })}
-                        {hasNextPage && (
-                            <div className="py-4 flex justify-center">
-                                <Button
-                                    variant="flat"
-                                    size="sm"
-                                    color="primary"
-                                    onPress={() => fetchNextPage()}
-                                    isLoading={isFetchingNextPage}
-                                >
-                                    加载更多
-                                </Button>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>

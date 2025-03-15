@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-04 18:52:47
  * @LastEditors: Await
- * @LastEditTime: 2025-03-13 20:46:32
+ * @LastEditTime: 2025-03-14 18:46:40
  * @Description: 请填写简介
  */
 import type { Metadata, Viewport } from 'next';
@@ -12,7 +12,6 @@ import { Providers } from '@/providers';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ToastProvider } from '@/components/Toast';
 import { RouteProvider } from '@/hooks/useRoute';
-import { Toaster } from 'sonner';
 import { UnauthorizedHandler } from '@/components/UnauthorizedHandler';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -64,7 +63,6 @@ export default function RootLayout({
                         <AuthProvider>
                             <RouteProvider>
                                 <UnauthorizedHandler />
-                                <Toaster richColors position="top-right" />
                                 {children}
                             </RouteProvider>
                         </AuthProvider>

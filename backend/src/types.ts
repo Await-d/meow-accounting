@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-09 20:12:39
  * @LastEditors: Await
- * @LastEditTime: 2025-03-09 20:13:33
+ * @LastEditTime: 2025-03-15 14:47:30
  * @Description: 请填写简介
  */
 // 路由权限枚举
@@ -63,4 +63,17 @@ export interface Transaction {
     category_id: number;
     description?: string;
     date: string;
+}
+
+// 账户接口
+export interface Account {
+    id: number;
+    name: string;
+    balance: number;
+    icon?: string;
+    color?: string;
+    user_id?: number;
+    family_id?: number;
+    created_at?: string;
+    updated_at?: string;
 } 

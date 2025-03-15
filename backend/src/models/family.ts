@@ -1,5 +1,12 @@
-import db from './db';
-import { createCategory } from './category';
+/*
+ * @Author: Await
+ * @Date: 2025-03-15 17:15:45
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-15 17:15:45
+ * @Description: 家庭模型
+ */
+import { db } from '../config/database';
+import * as categoryModel from './category';
 
 export interface Family {
     id: number;

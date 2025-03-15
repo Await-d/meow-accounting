@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { useToast } from '@/components/Toast';
@@ -20,26 +20,52 @@ export function useFamily() {
     const queryClient = useQueryClient();
     const { showToast } = useToast();
     const [members, setMembers] = useState<FamilyMember[]>([]);
+    const hasError = useRef(false);
 
     // 获取家庭列表
-    const { data: families, isLoading: isLoadingFamilies } = useQuery({
+    const { data: families, isLoading: isLoadingFamilies, error: familiesError } = useQuery({
         queryKey: ['families'],
-        queryFn: () => fetchAPI<Family[]>('/families/user'),
+        queryFn: async () => {
+            try {
+                const result = await fetchAPI<Family[]>('/families/user');
+                hasError.current = false;
+                return result;
+            } catch (error) {
+                console.error('获取家庭列表失败:', error);
+                hasError.current = true;
+                throw error;
+            }
+        },
         enabled: !!user,
         staleTime: 5 * 60 * 1000, // 5分钟
+        retry: hasError.current ? 0 : 2 // 如果已经有错误，不再重试
     });
 
     // 获取当前家庭
     const currentFamily = families?.find((f: Family) => f.id === user?.currentFamilyId);
 
     // 获取当前家庭成员
-    const { data: membersData, isLoading: isLoadingMembers } = useQuery({
+    const { data: membersData, isLoading: isLoadingMembers, error: membersError } = useQuery({
         queryKey: ['familyMembers', user?.currentFamilyId],
         queryFn: () => fetchAPI<FamilyMember[]>(`/families/${user?.currentFamilyId}/members`),
-        enabled: !!user?.currentFamilyId,
+        enabled: !!user?.currentFamilyId && !hasError.current, // 不在错误状态下才启用查询
         staleTime: 5 * 60 * 1000, // 5分钟
         gcTime: 5 * 60 * 1000,
+        retry: 1 // 只重试一次
     });
+
+    // 使用useEffect处理错误
+    useEffect(() => {
+        if (familiesError) {
+            console.error('获取家庭列表失败:', familiesError);
+        }
+    }, [familiesError]);
+
+    useEffect(() => {
+        if (membersError) {
+            console.error('获取家庭成员失败:', membersError);
+        }
+    }, [membersError]);
 
     // 获取用户的待处理邀请
     const userInvitations = useUserInvitations();
@@ -52,10 +78,22 @@ export function useFamily() {
                     ...user,
                     currentFamilyId: family.id,
                 } as User);
+
+                // 切换家庭后刷新相关数据
+                queryClient.invalidateQueries({ queryKey: ['familyMembers'] });
+                queryClient.invalidateQueries({ queryKey: ['transactions'] });
+                queryClient.invalidateQueries({ queryKey: ['categories'] });
+                queryClient.invalidateQueries({ queryKey: ['statistics'] });
+                queryClient.invalidateQueries({ queryKey: ['categoryStats'] });
+                queryClient.invalidateQueries({ queryKey: ['recentTransactions'] });
+
                 showToast('已切换到' + family.name, 'success');
+
+                // 存储当前家庭ID到localStorage，用于API请求
+                localStorage.setItem('currentFamilyId', family.id.toString());
             }
         },
-        [user, updateUser, showToast]
+        [user, updateUser, showToast, queryClient]
     );
 
     // 加载家庭成员
@@ -115,9 +153,10 @@ export function useFamily() {
 
     return {
         families,
-        members,
-        currentFamily: families?.find((f: Family) => f.id === user?.currentFamilyId),
+        members: membersData || members,
+        currentFamily,
         isLoading: isLoadingFamilies || isLoadingMembers,
+        error: familiesError,
         setCurrentFamily,
         userInvitations,
         addMember,

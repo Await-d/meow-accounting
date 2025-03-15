@@ -69,6 +69,19 @@ export class DB {
         }
     }
 
+    public async getValue<T>(sql: string, params: any[] = []): Promise<T | null> {
+        if (!this.db) throw new DatabaseError('Database not connected');
+        try {
+            const result = await this.db.get(sql, params);
+            if (!result) return null;
+            // 返回结果的第一个属性值
+            const firstKey = Object.keys(result)[0];
+            return result[firstKey] as T;
+        } catch (error: any) {
+            throw new DatabaseError(`Query failed: ${error.message}`);
+        }
+    }
+
     public async findMany<T>(sql: string, params: any[] = []): Promise<T[]> {
         if (!this.db) throw new DatabaseError('Database not connected');
         try {
@@ -114,6 +127,109 @@ export class DB {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (family_id) REFERENCES families(id)
+            )
+        `);
+
+        // 创建accounts表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(100) NOT NULL,
+                type VARCHAR(50) NOT NULL,
+                initial_balance DECIMAL(15,2) NOT NULL,
+                currency VARCHAR(10) NOT NULL,
+                description TEXT,
+                family_id INTEGER,
+                user_id INTEGER,
+                created_by INTEGER NOT NULL,
+                updated_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
+                FOREIGN KEY (family_id) REFERENCES families(id),
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (created_by) REFERENCES users(id),
+                FOREIGN KEY (updated_by) REFERENCES users(id),
+                CHECK ((family_id IS NOT NULL) OR (user_id IS NOT NULL))
+            )
+        `);
+
+        // 创建transactions表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id INTEGER NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                type VARCHAR(20) NOT NULL,
+                category_id INTEGER,
+                description TEXT,
+                transaction_date DATE NOT NULL,
+                created_by INTEGER NOT NULL,
+                updated_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
+                FOREIGN KEY (account_id) REFERENCES accounts(id),
+                FOREIGN KEY (category_id) REFERENCES categories(id),
+                FOREIGN KEY (created_by) REFERENCES users(id),
+                FOREIGN KEY (updated_by) REFERENCES users(id)
+            )
+        `);
+
+        // 创建families表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS families (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(100) NOT NULL,
+                description TEXT,
+                created_by INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        `);
+
+        // 创建family_members表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                role VARCHAR(20) NOT NULL,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (family_id) REFERENCES families(id),
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(family_id, user_id)
+            )
+        `);
+
+        // 创建categories表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(50) NOT NULL,
+                type VARCHAR(20) NOT NULL,
+                icon VARCHAR(50),
+                color VARCHAR(20),
+                is_default BOOLEAN DEFAULT 0,
+                family_id INTEGER,
+                created_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
+                FOREIGN KEY (family_id) REFERENCES families(id),
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        `);
+
+        // 创建family_settings表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS family_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_id INTEGER NOT NULL,
+                guest_password VARCHAR(100),
+                default_currency VARCHAR(10) DEFAULT 'CNY',
+                settings JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
                 FOREIGN KEY (family_id) REFERENCES families(id)
             )
         `);
@@ -187,6 +303,22 @@ export class DB {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        `);
+
+        // 创建user_privacy_settings表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS user_privacy_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                visibility VARCHAR(20) DEFAULT 'private',
+                show_transactions BOOLEAN DEFAULT 0,
+                show_statistics BOOLEAN DEFAULT 0,
+                guest_password VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE(user_id)
             )
         `);
 

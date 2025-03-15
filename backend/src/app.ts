@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 19:24:44
  * @LastEditors: Await
- * @LastEditTime: 2025-03-13 20:41:21
+ * @LastEditTime: 2025-03-15 16:08:10
  * @Description: 请填写简介
  */
 /*
@@ -17,10 +17,11 @@ import cors from 'cors';
 import authRoutes from './routes/auth.routes';
 import familyRoutes from './routes/family.routes';
 import userRoutes from './routes/user.routes';
-import categoriesRoutes from './routes/categories';
+import categoriesRoutes from './routes/categories.routes';
 import transactionRoutes from './routes/transaction.routes';
 import cacheRoutes from './routes/cache';
 import routeRoutes from './routes/route.routes';
+import accountRoutes from './routes/account.routes';
 import { createUserTable } from './models/user';
 import { createFamilyTables } from './models/family';
 import { createCategoryTable } from './models/category';
@@ -28,6 +29,7 @@ import { createTransactionTable } from './models/transaction';
 import { db } from './config/database';
 import { swaggerUi, specs } from './swagger';
 import dotenv from 'dotenv';
+import { initDefaultCategories } from './models/category';
 
 // 加载环境变量
 dotenv.config();
@@ -58,6 +60,7 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/cache', cacheRoutes);
 app.use('/api/routes', routeRoutes);
+app.use('/api/accounts', accountRoutes);
 
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -75,8 +78,12 @@ async function initDatabase() {
         // 初始化表
         await createUserTable();
         await createFamilyTables();
-        await createCategoryTable();
+        // 注释掉对已弃用方法的调用
+        // await createCategoryTable();
         await createTransactionTable();
+
+        // 初始化默认分类数据
+        await initDefaultCategories();
         console.log('数据库表初始化成功');
     } catch (error) {
         console.error('数据库初始化失败:', error);

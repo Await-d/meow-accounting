@@ -11,9 +11,10 @@ import {
     Progress,
     Tabs,
     Tab,
-    useToast
+    TableHeader
 } from '@nextui-org/react';
 import { RefreshCw, Trash2, Database } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 import {
     CacheStats,
     getCacheStats,
@@ -27,18 +28,14 @@ const CacheManager: React.FC = () => {
     const [pattern, setPattern] = useState('');
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('stats');
-    const { toast } = useToast();
+    const { showToast } = useToast();
 
     const fetchStats = async () => {
         try {
             const data = await getCacheStats();
             setStats(data);
         } catch (error) {
-            toast({
-                title: '错误',
-                description: '获取缓存统计失败',
-                status: 'error'
-            });
+            showToast('获取缓存统计失败', 'error');
         }
     };
 
@@ -50,29 +47,17 @@ const CacheManager: React.FC = () => {
 
     const handleClearPattern = async () => {
         if (!pattern) {
-            toast({
-                title: '警告',
-                description: '请输入缓存模式',
-                status: 'warning'
-            });
+            showToast('请输入缓存模式', 'warning');
             return;
         }
 
         try {
             setLoading(true);
             const deletedCount = await clearCachePattern(pattern);
-            toast({
-                title: '成功',
-                description: `已清除 ${deletedCount} 个缓存项`,
-                status: 'success'
-            });
+            showToast(`已清除 ${deletedCount} 个缓存项`, 'success');
             fetchStats();
         } catch (error) {
-            toast({
-                title: '错误',
-                description: '清除缓存失败',
-                status: 'error'
-            });
+            showToast('清除缓存失败', 'error');
         } finally {
             setLoading(false);
         }
@@ -82,18 +67,10 @@ const CacheManager: React.FC = () => {
         try {
             setLoading(true);
             await clearAllCache();
-            toast({
-                title: '成功',
-                description: '所有缓存已清除',
-                status: 'success'
-            });
+            showToast('所有缓存已清除', 'success');
             fetchStats();
         } catch (error) {
-            toast({
-                title: '错误',
-                description: '清除缓存失败',
-                status: 'error'
-            });
+            showToast('清除缓存失败', 'error');
         } finally {
             setLoading(false);
         }
@@ -102,17 +79,9 @@ const CacheManager: React.FC = () => {
     const handleMonitorMemory = async () => {
         try {
             await monitorMemory(0.8);
-            toast({
-                title: '成功',
-                description: '内存监控正常',
-                status: 'success'
-            });
+            showToast('内存监控正常', 'success');
         } catch (error) {
-            toast({
-                title: '错误',
-                description: '内存监控失败',
-                status: 'error'
-            });
+            showToast('内存监控失败', 'error');
         }
     };
 
@@ -160,13 +129,13 @@ const CacheManager: React.FC = () => {
                         <Button
                             color="primary"
                             startContent={<RefreshCw size={16} />}
-                            onClick={fetchStats}
+                            onPress={fetchStats}
                             isLoading={loading}
                         >
                             刷新统计
                         </Button>
                         <Button
-                            onClick={handleMonitorMemory}
+                            onPress={handleMonitorMemory}
                             isLoading={loading}
                         >
                             检查内存
@@ -174,10 +143,12 @@ const CacheManager: React.FC = () => {
                     </div>
 
                     <Table>
-                        <TableColumn>指标</TableColumn>
-                        <TableColumn>Redis缓存</TableColumn>
-                        <TableColumn>本地缓存</TableColumn>
-                        <TableColumn>总计</TableColumn>
+                        <TableHeader>
+                            <TableColumn>指标</TableColumn>
+                            <TableColumn>Redis缓存</TableColumn>
+                            <TableColumn>本地缓存</TableColumn>
+                            <TableColumn>总计</TableColumn>
+                        </TableHeader>
                         <TableBody>
                             {statsData.map((row, index) => (
                                 <TableRow key={index}>
@@ -218,7 +189,7 @@ const CacheManager: React.FC = () => {
                                     <Button
                                         color="danger"
                                         startContent={<Trash2 size={16} />}
-                                        onClick={handleClearPattern}
+                                        onPress={handleClearPattern}
                                         isLoading={loading}
                                     >
                                         清除
@@ -233,7 +204,7 @@ const CacheManager: React.FC = () => {
                                 <Button
                                     color="danger"
                                     startContent={<Trash2 size={16} />}
-                                    onClick={handleClearAll}
+                                    onPress={handleClearAll}
                                     isLoading={loading}
                                 >
                                     清除所有缓存

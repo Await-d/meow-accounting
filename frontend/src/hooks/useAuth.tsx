@@ -82,7 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // 处理路由跳转
     const handleRouteNavigation = async (user: User) => {
-        if (!user.default_route) {
+        if (!user || !user.default_route) {
             router.push('/dashboard');
             return;
         }
@@ -96,8 +96,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const hasPermission = checkRoutePermission(
                 routeType,
                 RoutePermission.PRIVATE,
-                user.id,
-                user.currentFamilyId
+                typeof user.id === 'string' ? parseInt(user.id, 10) : user.id,
+                user.currentFamilyId ? (typeof user.currentFamilyId === 'string' ? parseInt(user.currentFamilyId, 10) : user.currentFamilyId) : undefined
             );
 
             if (!hasPermission) {

@@ -74,7 +74,7 @@ export default function RouteAnalytics() {
                 <Button
                     color="primary"
                     size="sm"
-                    onClick={handleRefresh}
+                    onPress={handleRefresh}
                 >
                     刷新数据
                 </Button>

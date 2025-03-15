@@ -1,150 +1,194 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-    Button,
-    Input,
-    Select,
-    SelectItem,
-    Popover,
-    PopoverTrigger,
-    PopoverContent,
-} from '@nextui-org/react';
-import { FunnelIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from 'react';
+import { Card, CardBody, Button, Checkbox, Input, Slider, RadioGroup, Radio, Divider } from '@nextui-org/react';
+import { TransactionFilter as FilterType, TransactionFilter as TransactionFilterType, Category } from '@/lib/types';
+import { X, Check } from 'lucide-react';
 import { useCategories } from '@/lib/api';
+import DatePicker from '@/components/DatePicker';
 
-export interface TransactionFilterValues {
-    startDate?: string;
-    endDate?: string;
-    type?: 'income' | 'expense';
-    categoryId?: number;
-    minAmount?: number;
-    maxAmount?: number;
+// 添加简单版本的过滤器组件
+export interface SimpleFilterProps {
+    onFilter: (filter: FilterType) => void;
 }
 
-interface TransactionFilterProps {
-    onFilter: (values: TransactionFilterValues) => void;
+// 简单版本的过滤器组件
+export default function SimpleTransactionFilter({ onFilter }: SimpleFilterProps) {
+    const [filter, setFilter] = useState<FilterType>({});
+
+    // 添加你需要的过滤UI元素
+    return (
+        <Button size="sm" onPress={() => onFilter(filter)}>
+            过滤
+        </Button>
+    );
 }
 
-export default function TransactionFilter({ onFilter }: TransactionFilterProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [type, setType] = useState<'income' | 'expense'>();
-    const [categoryId, setCategoryId] = useState<string>();
-    const [minAmount, setMinAmount] = useState('');
-    const [maxAmount, setMaxAmount] = useState('');
-    const { categories = [] } = useCategories();
-    const filteredCategories = type ? categories.filter(cat => cat.type === type) : categories;
+// 原有复杂版本保持不变
+export interface TransactionFilterProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onApply: (filter: FilterType) => void;
+    initialFilter?: FilterType;
+    onFilter?: React.Dispatch<React.SetStateAction<TransactionFilterType>>;
+}
 
-    const handleFilter = () => {
-        onFilter({
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-            type,
-            categoryId: categoryId ? parseInt(categoryId) : undefined,
-            minAmount: minAmount ? parseFloat(minAmount) : undefined,
-            maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
-        });
-        setIsOpen(false);
+export function TransactionFilter({ isOpen, onClose, onApply, initialFilter = {} }: TransactionFilterProps) {
+    const [filter, setFilter] = useState<FilterType>(initialFilter);
+    const { categories } = useCategories();
+
+    useEffect(() => {
+        setFilter(initialFilter);
+    }, [initialFilter]);
+
+    const handleTypeChange = (types: string[]) => {
+        setFilter(prev => ({ ...prev, types }));
+    };
+
+    const handleCategoryChange = (categoryIds: number[]) => {
+        setFilter(prev => ({ ...prev, categoryIds }));
+    };
+
+    const handleDateRangeChange = (range: { startDate?: string; endDate?: string }) => {
+        setFilter(prev => ({
+            ...prev,
+            startDate: range.startDate,
+            endDate: range.endDate
+        }));
+    };
+
+    const handleAmountRangeChange = (range: [number, number]) => {
+        setFilter(prev => ({
+            ...prev,
+            minAmount: range[0],
+            maxAmount: range[1]
+        }));
     };
 
     const handleReset = () => {
-        setStartDate('');
-        setEndDate('');
-        setType(undefined);
-        setCategoryId(undefined);
-        setMinAmount('');
-        setMaxAmount('');
-        onFilter({});
-        setIsOpen(false);
+        setFilter({});
     };
 
+    const handleApply = () => {
+        onApply(filter);
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
     return (
-        <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
-            <PopoverTrigger>
-                <Button
-                    variant="flat"
-                    startContent={<FunnelIcon className="h-4 w-4" />}
-                >
-                    筛选
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-                <div className="p-4 space-y-4">
-                    <div className="space-y-2">
-                        <Input
-                            type="date"
-                            label="开始日期"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                        />
-                        <Input
-                            type="date"
-                            label="结束日期"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                        />
-                    </div>
-
-                    <Select
-                        label="类型"
-                        selectedKeys={type ? new Set([type]) : new Set()}
-                        onChange={(e) => setType(e.target.value as 'income' | 'expense')}
-                    >
-                        <SelectItem key="income" value="income">收入</SelectItem>
-                        <SelectItem key="expense" value="expense">支出</SelectItem>
-                    </Select>
-
-                    <Select
-                        label="分类"
-                        selectedKeys={categoryId ? new Set([categoryId]) : new Set()}
-                        onChange={(e) => setCategoryId(e.target.value)}
-                    >
-                        {filteredCategories.map((category) => (
-                            <SelectItem
-                                key={category.id.toString()}
-                                value={category.id.toString()}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <span>{category.icon}</span>
-                                    <span>{category.name}</span>
-                                </div>
-                            </SelectItem>
-                        ))}
-                    </Select>
-
-                    <div className="grid grid-cols-2 gap-2">
-                        <Input
-                            type="number"
-                            label="最小金额"
-                            value={minAmount}
-                            onChange={(e) => setMinAmount(e.target.value)}
-                        />
-                        <Input
-                            type="number"
-                            label="最大金额"
-                            value={maxAmount}
-                            onChange={(e) => setMaxAmount(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="flex justify-end gap-2">
-                        <Button
-                            variant="light"
-                            onPress={handleReset}
-                        >
-                            重置
-                        </Button>
-                        <Button
-                            color="primary"
-                            onPress={handleFilter}
-                        >
-                            应用
-                        </Button>
-                    </div>
+        <Card className="w-full max-w-md mx-auto">
+            <CardBody className="p-5">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold">交易筛选</h3>
+                    <Button isIconOnly variant="light" onPress={onClose}>
+                        <X size={18} />
+                    </Button>
                 </div>
-            </PopoverContent>
-        </Popover>
+
+                <Divider className="my-3" />
+
+                <div className="space-y-5">
+                    {/* 交易类型筛选 */}
+                    <div>
+                        <h4 className="text-md font-medium mb-2">交易类型</h4>
+                        <RadioGroup
+                            value={filter.type}
+                            onValueChange={(value) => setFilter(prev => ({ ...prev, type: value as 'income' | 'expense' | undefined }))}
+                        >
+                            <Radio value="all">全部</Radio>
+                            <Radio value="income">收入</Radio>
+                            <Radio value="expense">支出</Radio>
+                        </RadioGroup>
+                    </div>
+
+                    {/* 金额范围筛选 */}
+                    <div>
+                        <h4 className="text-md font-medium mb-2">金额范围</h4>
+                        <div className="flex gap-3">
+                            <Input
+                                type="number"
+                                label="最小金额"
+                                placeholder="0"
+                                value={filter.minAmount?.toString() || ''}
+                                onChange={(e) => setFilter(prev => ({ ...prev, minAmount: e.target.value ? Number(e.target.value) : undefined }))}
+                                className="flex-1"
+                            />
+                            <Input
+                                type="number"
+                                label="最大金额"
+                                placeholder="不限"
+                                value={filter.maxAmount?.toString() || ''}
+                                onChange={(e) => setFilter(prev => ({ ...prev, maxAmount: e.target.value ? Number(e.target.value) : undefined }))}
+                                className="flex-1"
+                            />
+                        </div>
+                    </div>
+
+                    {/* 日期范围筛选 */}
+                    <div>
+                        <h4 className="text-md font-medium mb-2">日期范围</h4>
+                        <div className="flex gap-3">
+                            <DatePicker
+                                label="开始日期"
+                                value={filter.startDate ? new Date(filter.startDate) : undefined}
+                                onChange={(date) => setFilter(prev => ({
+                                    ...prev,
+                                    startDate: date ? date.toISOString().split('T')[0] : undefined
+                                }))}
+                                className="flex-1"
+                            />
+                            <DatePicker
+                                label="结束日期"
+                                value={filter.endDate ? new Date(filter.endDate) : undefined}
+                                onChange={(date) => setFilter(prev => ({
+                                    ...prev,
+                                    endDate: date ? date.toISOString().split('T')[0] : undefined
+                                }))}
+                                className="flex-1"
+                            />
+                        </div>
+                    </div>
+
+                    {/* 分类筛选 */}
+                    {categories && categories.length > 0 && (
+                        <div>
+                            <h4 className="text-md font-medium mb-2">分类</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {categories.map(category => (
+                                    <Checkbox
+                                        key={category.id}
+                                        isSelected={filter.categoryIds?.includes(Number(category.id))}
+                                        onValueChange={(isSelected) => {
+                                            setFilter(prev => {
+                                                const categoryIds = prev.categoryIds || [];
+                                                if (isSelected) {
+                                                    return { ...prev, categoryIds: [...categoryIds, Number(category.id)] };
+                                                } else {
+                                                    return { ...prev, categoryIds: categoryIds.filter(id => id !== Number(category.id)) };
+                                                }
+                                            });
+                                        }}
+                                    >
+                                        {category.name}
+                                    </Checkbox>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <Divider className="my-4" />
+
+                <div className="flex justify-between gap-2">
+                    <Button variant="flat" color="danger" onPress={handleReset} className="flex-1">
+                        重置
+                    </Button>
+                    <Button color="primary" onPress={handleApply} className="flex-1">
+                        应用筛选
+                    </Button>
+                </div>
+            </CardBody>
+        </Card>
     );
-} 
+}

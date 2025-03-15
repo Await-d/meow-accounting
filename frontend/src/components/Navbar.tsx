@@ -103,7 +103,7 @@ export default function Navbar() {
                                             </Chip>
                                         )}
                                     </DropdownItem>
-                                    <DropdownItem key="logout" color="danger" onClick={logout}>
+                                    <DropdownItem key="logout" color="danger" onPress={logout}>
                                         退出登录
                                     </DropdownItem>
                                 </DropdownMenu>
@@ -153,7 +153,7 @@ export default function Navbar() {
                                                 </Chip>
                                             )}
                                         </DropdownItem>
-                                        <DropdownItem key="logout" color="danger" onClick={logout}>
+                                        <DropdownItem key="logout" color="danger" onPress={logout}>
                                             退出登录
                                         </DropdownItem>
                                     </>

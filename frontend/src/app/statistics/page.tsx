@@ -11,7 +11,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardBody, CardHeader } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoute } from '@/hooks/useRoute';
-import { Statistics, CategoryStats } from '@/components';
+import { Statistics } from '@/components';
+import CategoryStats from '@/components/CategoryStats';
 import { TimeRange } from '@/lib/types';
 
 export default function StatisticsPage() {

@@ -1,9 +1,16 @@
+/*
+ * @Author: Await
+ * @Date: 2025-03-04 19:13:33
+ * @LastEditors: Await
+ * @LastEditTime: 2025-03-15 11:58:18
+ * @Description: 请填写简介
+ */
 'use client';
 
 import { createContext, useContext } from 'react';
-import { Modal, ModalContent, ModalBody } from '@nextui-org/react';
-import { useToast as useToastHook } from '@/hooks/useToast';
-import type { ToastType } from '@/hooks/useToast';
+import { toast, Toaster } from 'react-hot-toast';
+
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 interface ToastContextType {
     showToast: (message: string, type?: ToastType) => void;
@@ -20,72 +27,42 @@ export function useToast() {
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-    const toast = useToastHook();
+    const showToast = (message: string, type: ToastType = 'info') => {
+        const options = {
+            duration: 3000,
+            style: {
+                padding: '16px',
+                borderRadius: '8px',
+            },
+        };
 
-    const getColorClass = () => {
-        switch (toast.type) {
+        switch (type) {
             case 'success':
-                return 'bg-success-500';
+                toast.success(message, options);
+                break;
             case 'error':
-                return 'bg-danger-500';
+                toast.error(message, options);
+                break;
             case 'warning':
-                return 'bg-warning-500';
+                toast(message, {
+                    ...options,
+                    icon: '⚠️',
+                });
+                break;
+            case 'info':
             default:
-                return 'bg-primary-500';
-        }
-    };
-
-    const getIcon = () => {
-        switch (toast.type) {
-            case 'success':
-                return '✓';
-            case 'error':
-                return '✕';
-            case 'warning':
-                return '⚠';
-            default:
-                return 'ℹ';
+                toast(message, {
+                    ...options,
+                    icon: 'ℹ️',
+                });
+                break;
         }
     };
 
     return (
-        <ToastContext.Provider value={{ showToast: toast.showToast }}>
+        <ToastContext.Provider value={{ showToast }}>
             {children}
-            <Modal
-                isOpen={toast.isOpen}
-                onClose={toast.onClose}
-                hideCloseButton
-                className="bg-transparent shadow-none fixed top-4 right-4 m-0"
-                size="sm"
-                placement="top"
-                motionProps={{
-                    variants: {
-                        enter: {
-                            x: 0,
-                            opacity: 1,
-                            transition: {
-                                duration: 0.3,
-                                ease: "easeOut"
-                            }
-                        },
-                        exit: {
-                            x: 20,
-                            opacity: 0,
-                            transition: {
-                                duration: 0.2,
-                                ease: "easeIn"
-                            }
-                        }
-                    }
-                }}
-            >
-                <ModalContent>
-                    <ModalBody className={`${getColorClass()} text-white rounded-lg p-3 flex items-center gap-2`}>
-                        <span className="text-lg">{getIcon()}</span>
-                        <span>{toast.message}</span>
-                    </ModalBody>
-                </ModalContent>
-            </Modal>
+            <Toaster position="top-center" />
         </ToastContext.Provider>
     );
 }

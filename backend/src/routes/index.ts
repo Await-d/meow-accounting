@@ -5,21 +5,23 @@
  * @LastEditTime: 2025-03-12 21:40:17
  * @Description: 请填写简介
  */
-import { Router } from 'express';
-import * as transactionController from '../controllers/transactionController';
+import express from 'express';
+import * as transactionController from '../controllers/transaction.controller';
 import authRoutes from './auth.routes';
 import userRoutes from './user.routes';
 import familyRoutes from './family.routes';
-import categoryRoutes from './category.routes';
+import categoryRoutes from './categories.routes';
 import transactionRoutes from './transaction.routes';
-import statisticsRoutes from './statistics.routes';
+import accountRoutes from './account.routes';
 import routeRoutes from './route.routes';
+import statisticsRoutes from './statistics.routes';
+import cacheRoutes from './cache';
 import * as routeController from '../controllers/route.controller';
 import * as routeStatsController from '../controllers/route-stats.controller';
 import * as routeParamsController from '../controllers/route-params.controller';
 import * as settingsController from '../controllers/settings.controller';
 import { authMiddleware } from '../middleware/auth';
-
+import { Router } from 'express';
 
 const router = Router();
 
@@ -39,8 +41,10 @@ router.use('/users', userRoutes);
 router.use('/families', familyRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/transactions', transactionRoutes);
-router.use('/statistics', statisticsRoutes);
+router.use('/accounts', accountRoutes);
 router.use('/routes', routeRoutes);
+router.use('/statistics', statisticsRoutes);
+router.use('/cache', cacheRoutes);
 
 // 路由性能监控
 router.post('/routes/stats/access', authMiddleware, routeStatsController.recordAccess);

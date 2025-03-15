@@ -2,7 +2,7 @@
 
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from "@nextui-org/react";
 import { useCategories, useCreateTransaction, useUpdateTransaction } from '@/lib/api';
-import type { Transaction, CreateTransactionData } from '@/lib/types';
+import type { Transaction, CreateTransactionData, UpdateTransactionData } from '@/lib/types';
 import { useToast } from './Toast';
 import { useState, useEffect } from 'react';
 
@@ -31,7 +31,7 @@ const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps)
         if (transaction) {
             setTransactionType(transaction.type);
             setAmount(transaction.amount.toString());
-            setCategoryId(transaction.category_id.toString());
+            setCategoryId(transaction.category_id?.toString() || '');
             setDescription(transaction.description);
             setDate(transaction.date);
         }
@@ -80,7 +80,7 @@ const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps)
                 await updateTransaction.mutateAsync({
                     ...transactionData,
                     id: transaction.id,
-                });
+                } as unknown as Transaction);
                 showToast('修改成功', 'success');
             } else {
                 // 创建模式
