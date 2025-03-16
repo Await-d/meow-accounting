@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 20:47:37
  * @LastEditors: Await
- * @LastEditTime: 2025-03-16 10:15:52
+ * @LastEditTime: 2025-03-16 16:26:37
  * @Description: 请填写简介
  */
 import { Request, Response, NextFunction } from 'express';
@@ -11,17 +11,25 @@ import * as familyModel from '../models/family';
 // 验证用户是否是家庭成员
 export const familyMemberMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // 如果是个人数据查询，跳过家庭成员检查
-        if (req.query.user_id) {
-            return next();
-        }
-
+        // 获取当前登录用户ID
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ message: '未授权访问' });
         }
 
         const userIdNum = typeof userId === 'string' ? parseInt(userId) : userId;
+
+        // 如果是个人数据查询，确保只能查询自己的数据
+        if (req.query.user_id) {
+            const requestedUserId = parseInt(req.query.user_id as string);
+
+            // 验证请求的user_id是否与当前登录用户ID匹配
+            if (requestedUserId !== userIdNum) {
+                return res.status(403).json({ message: '无权访问其他用户的数据' });
+            }
+
+            return next();
+        }
 
         // 从查询参数中获取family_id
         const familyId = req.query.family_id ? parseInt(req.query.family_id as string) : undefined;

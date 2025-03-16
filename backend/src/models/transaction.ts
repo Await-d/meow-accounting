@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-15 17:15:45
  * @LastEditors: Await
- * @LastEditTime: 2025-03-16 13:16:51
+ * @LastEditTime: 2025-03-16 16:41:54
  * @Description: 交易记录模型
  */
 import { db } from '../config/database';
@@ -126,7 +126,7 @@ export async function getTransactions(params: {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const sql = `
-        SELECT t.*, c.name as category_name, c.icon as category_icon, u.username as username
+        SELECT t.*, c.name as category_name, c.icon as category_icon, u.id as user_id
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         LEFT JOIN users u ON t.created_by = u.id
@@ -165,7 +165,7 @@ export async function getTransactions(params: {
 // 获取事务详情
 export async function getTransactionById(id: number) {
     const sql = `
-        SELECT t.*, c.name as category_name, c.icon as category_icon, u.username as username
+        SELECT t.*, c.name as category_name, c.icon as category_icon, u.id as user_id
         FROM transactions t
         LEFT JOIN categories c ON t.category_id = c.id
         LEFT JOIN users u ON t.created_by = u.id

@@ -82,7 +82,7 @@ export const getDefaultCategories = async (type?: 'income' | 'expense'): Promise
 export const getCustomCategories = async (familyId: number, type?: 'income' | 'expense'): Promise<Category[]> => {
     try {
         let query = `
-            SELECT c.*, u1.username as creator_name
+            SELECT c.*, u1.id as creator_id
             FROM categories c
             LEFT JOIN users u1 ON c.created_by = u1.id
             WHERE c.family_id = ? AND c.is_default = 0
@@ -109,7 +109,7 @@ export const getCustomCategories = async (familyId: number, type?: 'income' | 'e
 export const getCategoryById = async (id: number): Promise<Category | null> => {
     try {
         const query = `
-            SELECT c.*, u1.username as creator_name
+            SELECT c.*, u1.id as creator_id
             FROM categories c
             LEFT JOIN users u1 ON c.created_by = u1.id
             WHERE c.id = ?

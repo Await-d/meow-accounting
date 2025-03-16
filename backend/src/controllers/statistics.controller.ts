@@ -18,6 +18,12 @@ export const getTransactionStats = async (req: Request, res: Response, next: Nex
         const { range = 'month', user_id, family_id, familyId } = req.query;
         const actualFamilyId = family_id || familyId;
 
+        // 获取当前登录用户ID
+        const currentUserId = req.user?.id;
+        if (!currentUserId) {
+            return res.status(401).json({ error: '未授权访问' });
+        }
+
         // 计算日期范围
         const { startDate, endDate } = calculateDateRange(String(range));
 
@@ -30,9 +36,16 @@ export const getTransactionStats = async (req: Request, res: Response, next: Nex
         // 设置用户ID或家庭ID
         if (actualFamilyId) {
             params.familyId = parseInt(String(actualFamilyId));
+            // 家庭ID的权限检查由familyMemberMiddleware处理
         } else if (user_id) {
-            params.userId = parseInt(String(user_id));
+            const requestedUserId = parseInt(String(user_id));
+            // 验证请求的user_id与当前登录用户是否匹配
+            if (requestedUserId !== currentUserId) {
+                return res.status(403).json({ error: '无权访问其他用户的数据' });
+            }
+            params.userId = requestedUserId;
         } else if (req.user) {
+            // 如果没有指定user_id或family_id，默认使用当前用户ID
             params.userId = req.user.id;
         }
 
@@ -55,6 +68,12 @@ export const getCategoryStats = async (req: Request, res: Response, next: NextFu
         const { range = 'month', user_id, family_id, familyId } = req.query;
         const actualFamilyId = family_id || familyId;
 
+        // 获取当前登录用户ID
+        const currentUserId = req.user?.id;
+        if (!currentUserId) {
+            return res.status(401).json({ error: '未授权访问' });
+        }
+
         // 计算日期范围
         const { startDate, endDate } = calculateDateRange(String(range));
 
@@ -67,9 +86,16 @@ export const getCategoryStats = async (req: Request, res: Response, next: NextFu
         // 设置用户ID或家庭ID
         if (actualFamilyId) {
             params.familyId = parseInt(String(actualFamilyId));
+            // 家庭ID的权限检查由familyMemberMiddleware处理
         } else if (user_id) {
-            params.userId = parseInt(String(user_id));
+            const requestedUserId = parseInt(String(user_id));
+            // 验证请求的user_id与当前登录用户是否匹配
+            if (requestedUserId !== currentUserId) {
+                return res.status(403).json({ error: '无权访问其他用户的数据' });
+            }
+            params.userId = requestedUserId;
         } else if (req.user) {
+            // 如果没有指定user_id或family_id，默认使用当前用户ID
             params.userId = req.user.id;
         }
 

@@ -171,7 +171,7 @@ export async function getUserFamilies(userId: number): Promise<Family[]> {
 // 获取家庭成员
 export async function getFamilyMembers(familyId: number): Promise<FamilyMember[]> {
     const sql = `
-        SELECT fm.*, u.username, u.email
+        SELECT fm.*, u.id as user_id, u.email
         FROM family_members fm
         JOIN users u ON fm.user_id = u.id
         WHERE fm.family_id = ?
@@ -290,7 +290,7 @@ export async function getInvitationByToken(token: string): Promise<FamilyInvitat
 // 获取用户的待处理邀请
 export async function getPendingInvitationsByEmail(email: string): Promise<FamilyInvitation[]> {
     const sql = `
-        SELECT i.*, f.name as family_name, u.username as inviter_name
+        SELECT i.*, f.name as family_name, u.id as creator_id
         FROM family_invitations i
         JOIN families f ON i.family_id = f.id
         JOIN users u ON i.created_by = u.id
@@ -386,7 +386,7 @@ export async function cleanupExpiredInvitations(): Promise<number> {
 // 获取家庭的所有邀请
 export async function getFamilyInvitations(familyId: number): Promise<FamilyInvitation[]> {
     const sql = `
-        SELECT i.*, u.username as creator_name
+        SELECT i.*, u.id as creator_id
         FROM family_invitations i
         JOIN users u ON i.created_by = u.id
         WHERE i.family_id = ?

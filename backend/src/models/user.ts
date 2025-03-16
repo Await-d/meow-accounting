@@ -189,8 +189,16 @@ export async function getAllUsers(): Promise<User[]> {
 // 搜索用户
 export async function searchUsers(query: string): Promise<User[]> {
     try {
-        const sql = 'SELECT id, username, email, role, avatar, created_at, updated_at FROM users WHERE username LIKE ? OR email LIKE ?';
-        const users = await db.findMany<User>(sql, [`%${query}%`, `%${query}%`]);
+        // 如果查询参数是数字，尝试按ID查询
+        if (/^\d+$/.test(query)) {
+            const sql = 'SELECT id, username, email, role, avatar, created_at, updated_at FROM users WHERE id = ?';
+            const users = await db.findMany<User>(sql, [parseInt(query)]);
+            return users;
+        }
+
+        // 否则只按邮箱查询
+        const sql = 'SELECT id, username, email, role, avatar, created_at, updated_at FROM users WHERE email LIKE ?';
+        const users = await db.findMany<User>(sql, [`%${query}%`]);
         return users;
     } catch (error) {
         console.error('搜索用户失败:', error);

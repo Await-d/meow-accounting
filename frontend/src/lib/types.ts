@@ -31,8 +31,7 @@ export interface Transaction {
     createdBy: number;
     createdAt: string;
     updatedAt: string;
-    user_id?: number;
-    username?: string;
+    user_id: number;
 }
 
 // 分类接口

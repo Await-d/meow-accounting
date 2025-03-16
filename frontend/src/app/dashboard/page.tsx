@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-10 19:42:20
  * @LastEditors: Await
- * @LastEditTime: 2025-03-16 16:08:53
+ * @LastEditTime: 2025-03-16 20:21:48
  * @Description: 仪表盘页面
  */
 "use client";
@@ -64,9 +64,9 @@ export default function DashboardPage() {
     const [timeRange, setTimeRange] = useState<'month' | 'quarter' | 'year'>('month');
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isPersonalMode, setIsPersonalMode] = useState(false);
+    const [isPersonalMode, setIsPersonalMode] = useState(true);
     const { showToast } = useToast();
-    const { families, currentFamily, setCurrentFamily } = useFamily();
+    const { families, currentFamily, setCurrentFamily, isLoading: familiesLoading } = useFamily();
     const [greeting, setGreeting] = useState('');
     const [isAddTransactionModalOpen, setIsAddTransactionModalOpen] = useState(false);
     const [transactionType, setTransactionType] = useState<TransactionType>('expense');
@@ -79,6 +79,9 @@ export default function DashboardPage() {
     const [totalTransactions, setTotalTransactions] = useState<Transaction[]>([]);
     const [totalPages, setTotalPages] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // 添加一个ref来跟踪是否已经显示过提示
+    const hasShownNoFamilyToast = React.useRef(false);
 
     // 设置问候语
     useEffect(() => {
@@ -123,13 +126,38 @@ export default function DashboardPage() {
         }
     }, [isPersonalMode, currentFamily?.id]);
 
-    // 当家庭列表加载后，如果没有选中的家庭，自动选择第一个
-    useEffect(() => {
-        if (families && families.length > 0 && !currentFamily) {
-            setCurrentFamily(families[0]);
-            setIsPersonalMode(false);
+    // 修改确保家庭模式有效的函数，增加加载状态检查
+    const ensureFamilyModeValid = useCallback(() => {
+        // 只有在家庭数据加载完成后，且用户确实没有家庭时，才切换到个人模式
+        if (!isPersonalMode && !familiesLoading && (!families || families.length === 0)) {
+            setIsPersonalMode(true);
+
+            // 只在第一次显示提示
+            if (!hasShownNoFamilyToast.current) {
+                showToast && showToast('您还没有家庭，已自动切换到个人模式', 'warning');
+                hasShownNoFamilyToast.current = true;
+            }
         }
-    }, [families]);
+    }, [isPersonalMode, families, familiesLoading, showToast]);
+
+    // 添加加载状态
+    const [isPageLoading, setIsPageLoading] = useState(true);
+    const [currentTransaction, setCurrentTransaction] = useState<Transaction | undefined>(undefined);
+
+    // 页面加载处理 - 合并逻辑，确保只有一个控制页面初始加载的useEffect
+    useEffect(() => {
+        // 模拟页面加载
+        const timer = setTimeout(() => {
+            setIsPageLoading(false);
+
+            // 页面加载完成后检查家庭状态，但只在家庭数据加载完成时才进行判断
+            if (!familiesLoading && (!families || families.length === 0)) {
+                setIsPersonalMode(true);
+            }
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [families, familiesLoading, setIsPersonalMode]);
 
     useEffect(() => {
         if (user) {
@@ -149,9 +177,11 @@ export default function DashboardPage() {
             let queryParams: Record<string, string> = {};
 
             // 根据当前模式设置查询参数
-            if (isPersonalMode) {
+            if (isPersonalMode || !currentFamily) {
+                // 个人模式或没有当前家庭时，显示个人交易
                 queryParams.user_id = String(user.id);
             } else if (currentFamily) {
+                // 家庭模式且有当前家庭时，显示家庭交易
                 queryParams.family_id = String(currentFamily.id);
             }
 
@@ -239,19 +269,6 @@ export default function DashboardPage() {
             setIsPersonalMode(false); // 切换到家庭后，自动切换到家庭模式
         }
     };
-
-    // 添加加载状态
-    const [isPageLoading, setIsPageLoading] = useState(true);
-    const [currentTransaction, setCurrentTransaction] = useState<Transaction | undefined>(undefined);
-
-    useEffect(() => {
-        // 模拟页面加载
-        const timer = setTimeout(() => {
-            setIsPageLoading(false);
-        }, 1000);
-
-        return () => clearTimeout(timer);
-    }, []);
 
     const handleEditTransaction = (transaction: Transaction) => {
         setCurrentTransaction(transaction);
@@ -368,6 +385,35 @@ export default function DashboardPage() {
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
     };
+
+    // 在关键点调用检查函数
+    useEffect(() => {
+        ensureFamilyModeValid();
+    }, [ensureFamilyModeValid, isPersonalMode]);
+
+    // 当家庭列表加载后，如果没有选中的家庭，自动选择第一个
+    useEffect(() => {
+        // 只有在家庭数据加载完成后才进行判断
+        if (!familiesLoading) {
+            if (families && families.length > 0) {
+                // 存在家庭数据，选择第一个并切换到家庭模式
+                if (!currentFamily) {
+                    setCurrentFamily(families[0]);
+                }
+                // 只在确实有家庭时才切换到家庭模式
+                setIsPersonalMode(false);
+            }
+            // 不再需要else分支，如果没有家庭，保持个人模式状态
+        }
+    }, [families, familiesLoading, currentFamily, setCurrentFamily]);
+
+    // 当发现有家庭数据时重置标记
+    useEffect(() => {
+        if (!familiesLoading && families && families.length > 0) {
+            // 如果有家庭数据，重置标记
+            hasShownNoFamilyToast.current = false;
+        }
+    }, [families, familiesLoading]);
 
     if (isPageLoading) {
         return <LoadingScreen />;
@@ -499,12 +545,26 @@ export default function DashboardPage() {
                                             color={isPersonalMode ? "secondary" : "primary"}
                                             isSelected={isPersonalMode}
                                             onValueChange={(value) => {
-                                                // 如果切换到家庭模式但没有家庭，显示提示并阻止切换
+                                                // 如果家庭数据正在加载中，不执行任何操作
+                                                if (familiesLoading) {
+                                                    showToast('家庭数据加载中，请稍候...', 'warning');
+                                                    return;
+                                                }
+
                                                 if (!value && (!families || families.length === 0)) {
-                                                    showToast('您还没有家庭，请先创建或加入一个家庭', 'error');
+                                                    showToast('您还没有家庭，请先创建或加入一个家庭', 'warning');
                                                     return;
                                                 }
                                                 setIsPersonalMode(value);
+
+                                                // 当切换到家庭模式时重置标记
+                                                if (!value) {
+                                                    hasShownNoFamilyToast.current = false;
+                                                }
+
+                                                if (!value && families && families.length > 0 && !currentFamily) {
+                                                    setCurrentFamily(families[0]);
+                                                }
                                             }}
                                             startContent={<UsersIcon className="h-4 w-4" />}
                                             endContent={<WalletIcon className="h-4 w-4" />}
@@ -828,7 +888,7 @@ export default function DashboardPage() {
                                                                                 {formatDate(transaction?.date || new Date())}
                                                                                 {!isPersonalMode && transaction?.user_id && (
                                                                                     <span className={`ml-2 ${Number(transaction?.user_id) === Number(user?.id) ? 'text-primary font-medium' : 'text-default-500'}`}>
-                                                                                        {transaction?.username || `用户${transaction?.user_id}`}
+                                                                                        {transaction?.user_id ? `用户${transaction.user_id}` : '未知用户'}
                                                                                         {Number(transaction?.user_id) === Number(user?.id) && ' (我)'}
                                                                                     </span>
                                                                                 )}

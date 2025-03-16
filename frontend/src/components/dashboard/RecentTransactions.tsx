@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-15 12:29:12
  * @LastEditors: Await
- * @LastEditTime: 2025-03-16 13:39:18
+ * @LastEditTime: 2025-03-16 18:29:14
  * @Description: 最近交易记录组件
  */
 import React, { useMemo } from 'react';
@@ -179,7 +179,7 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({
                                                         {formatDate(transaction?.date || new Date())}
                                                         {!isPersonalMode && transaction?.user_id && (
                                                             <span className={`ml-2 ${isCurrentUserTransaction(transaction) ? 'text-primary font-medium' : 'text-default-500'}`}>
-                                                                {transaction?.username || `用户${transaction?.user_id}`}
+                                                                {transaction?.user_id ? `用户${transaction.user_id}` : '未知用户'}
                                                                 {isCurrentUserTransaction(transaction) && ' (我)'}
                                                             </span>
                                                         )}

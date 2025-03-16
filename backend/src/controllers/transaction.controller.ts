@@ -77,6 +77,12 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
         const { startDate, endDate, type, user_id, family_id, familyId } = req.query;
         const actualFamilyId = family_id || familyId;
 
+        // 获取当前登录用户ID
+        const currentUserId = req.user?.id;
+        if (!currentUserId) {
+            return res.status(401).json({ error: '未授权访问' });
+        }
+
         // 构建查询参数
         const queryParams: any = {};
 
@@ -89,12 +95,19 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             queryParams.type = String(type);
         }
 
+        // 确保只能查询自己的数据
         if (user_id) {
-            queryParams.user_id = parseInt(String(user_id));
+            const requestedUserId = parseInt(String(user_id));
+            // 二次检查，确保user_id与当前登录用户一致（防止中间件被绕过）
+            if (requestedUserId !== currentUserId) {
+                return res.status(403).json({ error: '无权访问其他用户的数据' });
+            }
+            queryParams.user_id = requestedUserId;
         }
 
         if (actualFamilyId) {
             queryParams.family_id = parseInt(String(actualFamilyId));
+            // 家庭ID的权限检查由familyMemberMiddleware处理
         }
 
         // 记录请求参数以便调试
@@ -230,17 +243,30 @@ export const getRecentTransactions = async (req: Request, res: Response, next: N
         const { limit = 5, user_id, family_id, familyId } = req.query;
         const actualFamilyId = family_id || familyId;
 
+        // 获取当前登录用户ID
+        const currentUserId = req.user?.id;
+        if (!currentUserId) {
+            return res.status(401).json({ error: '未授权访问' });
+        }
+
         // 构建查询参数
         const queryParams: any = {
             limit: parseInt(String(limit))
         };
 
+        // 确保只能查询自己的数据
         if (user_id) {
-            queryParams.userId = parseInt(String(user_id));
+            const requestedUserId = parseInt(String(user_id));
+            // 验证请求的user_id与当前登录用户是否匹配
+            if (requestedUserId !== currentUserId) {
+                return res.status(403).json({ error: '无权访问其他用户的数据' });
+            }
+            queryParams.userId = requestedUserId;
         }
 
         if (actualFamilyId) {
             queryParams.familyId = parseInt(String(actualFamilyId));
+            // 家庭ID权限检查由familyMemberMiddleware处理
         }
 
         // 获取最近交易记录
