@@ -126,6 +126,7 @@ const ExpenseSummary: React.FC<ExpenseSummaryProps> = ({
                                         color={getCategoryColor(index)}
                                         size="sm"
                                         className="h-1"
+                                        aria-label={`${category.name}支出百分比`}
                                     />
                                 </div>
                             ))}

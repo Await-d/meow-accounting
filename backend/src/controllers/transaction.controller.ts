@@ -24,7 +24,9 @@ interface MulterRequest extends Request {
 // 创建事务
 export const createTransaction = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { amount, type, category_id, description, date, family_id } = req.body;
+        // 支持两种参数名: family_id 和 familyId
+        const { amount, type, category_id, description, date, family_id, familyId } = req.body;
+        const actualFamilyId = family_id || familyId;
 
         if (!req.user) {
             return res.status(401).json({ error: '未认证，请先登录' });
@@ -37,10 +39,18 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
             return res.status(400).json({ error: '金额、类型、分类和日期都是必填项' });
         }
 
-        // 验证分类是否属于该家庭
-        const belongs = await categoryModel.isCategoryInFamily(category_id, family_id);
-        if (!belongs) {
-            return res.status(400).json({ error: '分类不属于该家庭' });
+        // 如果指定了家庭，验证用户是否属于该家庭
+        if (actualFamilyId) {
+            const isUserInFamily = await transactionModel.isUserInFamily(userId, parseInt(actualFamilyId));
+            if (!isUserInFamily) {
+                return res.status(403).json({ error: '您不属于该家庭，无法创建家庭交易' });
+            }
+
+            // 验证分类是否属于该家庭
+            const belongs = await categoryModel.isCategoryInFamily(parseInt(category_id), parseInt(actualFamilyId));
+            if (!belongs) {
+                return res.status(400).json({ error: '分类不属于该家庭' });
+            }
         }
 
         // 创建交易记录
@@ -51,7 +61,7 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
             description: description || '',
             date,
             user_id: userId,
-            family_id: parseInt(family_id)
+            family_id: actualFamilyId ? parseInt(actualFamilyId) : undefined
         });
 
         res.status(201).json(transaction);
@@ -64,7 +74,8 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
 // 获取事务列表
 export const getTransactions = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { startDate, endDate, type, user_id, family_id } = req.query;
+        const { startDate, endDate, type, user_id, family_id, familyId } = req.query;
+        const actualFamilyId = family_id || familyId;
 
         // 构建查询参数
         const queryParams: any = {};
@@ -82,14 +93,21 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
             queryParams.user_id = parseInt(String(user_id));
         }
 
-        if (family_id) {
-            queryParams.family_id = parseInt(String(family_id));
+        if (actualFamilyId) {
+            queryParams.family_id = parseInt(String(actualFamilyId));
         }
+
+        // 记录请求参数以便调试
+        console.log("[GET transactions] 查询参数:", JSON.stringify(queryParams));
 
         // 获取事务记录
         const transactions = await transactionModel.getTransactions(queryParams);
 
-        res.json(transactions);
+        // 直接返回data数组，确保前端接收一致的格式
+        console.log("[GET transactions] 返回数据长度:", transactions.data?.length || 0);
+
+        // 直接返回data数组而不是整个分页对象
+        res.json(transactions.data || []);
     } catch (error) {
         console.error('获取事务列表失败:', error);
         next(error);
@@ -183,8 +201,11 @@ export const deleteTransaction = async (req: Request, res: Response, next: NextF
 // 获取分类统计
 export const getCategoryStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // 将调用重定向到统计控制器
-        res.redirect(307, '/api/statistics/transactions/stats/category' + req.url.split('?')[1] || '');
+        const { range, user_id, family_id } = req.query;
+
+        // 直接导入并调用统计控制器
+        const statisticsController = require('../controllers/statistics.controller');
+        await statisticsController.getCategoryStats(req, res, next);
     } catch (error) {
         console.error('获取分类统计失败:', error);
         next(error);
@@ -194,8 +215,9 @@ export const getCategoryStats = async (req: Request, res: Response, next: NextFu
 // 获取总体统计
 export const getStatistics = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // 将调用重定向到统计控制器
-        res.redirect(307, '/api/statistics/transactions/stats' + req.url.split('?')[1] || '');
+        // 直接导入并调用统计控制器
+        const statisticsController = require('../controllers/statistics.controller');
+        await statisticsController.getTransactionStats(req, res, next);
     } catch (error) {
         console.error('获取统计数据失败:', error);
         next(error);
@@ -205,7 +227,8 @@ export const getStatistics = async (req: Request, res: Response, next: NextFunct
 // 获取最近的交易记录
 export const getRecentTransactions = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { limit = 5, user_id, family_id } = req.query;
+        const { limit = 5, user_id, family_id, familyId } = req.query;
+        const actualFamilyId = family_id || familyId;
 
         // 构建查询参数
         const queryParams: any = {
@@ -213,11 +236,11 @@ export const getRecentTransactions = async (req: Request, res: Response, next: N
         };
 
         if (user_id) {
-            queryParams.user_id = parseInt(String(user_id));
+            queryParams.userId = parseInt(String(user_id));
         }
 
-        if (family_id) {
-            queryParams.family_id = parseInt(String(family_id));
+        if (actualFamilyId) {
+            queryParams.familyId = parseInt(String(actualFamilyId));
         }
 
         // 获取最近交易记录

@@ -38,7 +38,6 @@ export interface UpdateCategoryParams {
     name?: string;
     icon?: string;
     color?: string;
-    updated_by: number;
 }
 
 // 检查用户是否属于家庭
@@ -83,10 +82,9 @@ export const getDefaultCategories = async (type?: 'income' | 'expense'): Promise
 export const getCustomCategories = async (familyId: number, type?: 'income' | 'expense'): Promise<Category[]> => {
     try {
         let query = `
-            SELECT c.*, u1.username as creator_name, u2.username as updater_name
+            SELECT c.*, u1.username as creator_name
             FROM categories c
             LEFT JOIN users u1 ON c.created_by = u1.id
-            LEFT JOIN users u2 ON c.updated_by = u2.id
             WHERE c.family_id = ? AND c.is_default = 0
         `;
 
@@ -111,10 +109,9 @@ export const getCustomCategories = async (familyId: number, type?: 'income' | 'e
 export const getCategoryById = async (id: number): Promise<Category | null> => {
     try {
         const query = `
-            SELECT c.*, u1.username as creator_name, u2.username as updater_name
+            SELECT c.*, u1.username as creator_name
             FROM categories c
             LEFT JOIN users u1 ON c.created_by = u1.id
-            LEFT JOIN users u2 ON c.updated_by = u2.id
             WHERE c.id = ?
         `;
 
@@ -162,47 +159,55 @@ export const createCategory = async (params: CreateCategoryParams): Promise<Cate
 // 更新分类
 export const updateCategory = async (id: number, params: UpdateCategoryParams): Promise<Category> => {
     try {
-        const { name, icon, color, updated_by } = params;
-        const updated_at = new Date().toISOString();
+        // 提取所有要更新的字段
+        const { name, icon, color } = params; // 移除updated_by字段
 
-        // 构建更新语句
-        let updateFields = [];
-        let queryParams = [];
+        // 构建UPDATE语句
+        const updateFields: string[] = [];
+        const queryParams: any[] = [];
 
-        if (name !== undefined) {
+        if (name) {
             updateFields.push('name = ?');
             queryParams.push(name);
         }
-
-        if (icon !== undefined) {
+        if (icon) {
             updateFields.push('icon = ?');
             queryParams.push(icon);
         }
-
-        if (color !== undefined) {
+        if (color) {
             updateFields.push('color = ?');
             queryParams.push(color);
         }
 
-        updateFields.push('updated_by = ?');
-        queryParams.push(updated_by);
-
+        // 添加更新时间
         updateFields.push('updated_at = ?');
-        queryParams.push(updated_at);
+        queryParams.push(new Date().toISOString());
 
-        // 添加ID作为WHERE条件的参数
-        queryParams.push(id);
+        // 没有可更新的字段则直接返回
+        if (updateFields.length === 0) {
+            throw new Error('没有提供要更新的字段');
+        }
 
-        const query = `
+        // 构建完整的UPDATE语句
+        const updateQuery = `
             UPDATE categories
             SET ${updateFields.join(', ')}
             WHERE id = ?
         `;
 
-        await db.execute(query, queryParams);
+        // 添加ID参数
+        queryParams.push(id);
 
-        // 返回更新后的分类信息
-        return await getCategoryById(id) as Category;
+        // 执行更新
+        await db.execute(updateQuery, queryParams);
+
+        // 获取更新后的分类
+        const updatedCategory = await getCategoryById(id);
+        if (!updatedCategory) {
+            throw new Error('未找到更新后的分类');
+        }
+
+        return updatedCategory;
     } catch (error) {
         console.error('更新分类失败:', error);
         throw error;
@@ -235,6 +240,16 @@ export const isCategoryInUse = async (categoryId: number): Promise<boolean> => {
 // 检查分类是否属于指定家庭
 export const isCategoryInFamily = async (categoryId: number, familyId: number): Promise<boolean> => {
     try {
+        // 先检查是否为默认分类
+        const defaultQuery = 'SELECT COUNT(*) as count FROM categories WHERE id = ? AND is_default = 1';
+        const defaultResult = await db.findOne<{ count: number }>(defaultQuery, [categoryId]);
+
+        // 如果是默认分类，允许任何家庭使用
+        if (defaultResult && defaultResult.count > 0) {
+            return true;
+        }
+
+        // 否则检查是否属于指定家庭
         const query = 'SELECT COUNT(*) as count FROM categories WHERE id = ? AND family_id = ?';
         const result = await db.findOne<{ count: number }>(query, [categoryId, familyId]);
         return result ? result.count > 0 : false;

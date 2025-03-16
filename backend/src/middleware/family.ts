@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-05 20:47:37
  * @LastEditors: Await
- * @LastEditTime: 2025-03-12 18:46:52
+ * @LastEditTime: 2025-03-16 10:15:52
  * @Description: 请填写简介
  */
 import { Request, Response, NextFunction } from 'express';
@@ -11,15 +11,28 @@ import * as familyModel from '../models/family';
 // 验证用户是否是家庭成员
 export const familyMemberMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        // 如果是个人数据查询，跳过家庭成员检查
+        if (req.query.user_id) {
+            return next();
+        }
+
         const userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ message: '未授权访问' });
         }
+
         const userIdNum = typeof userId === 'string' ? parseInt(userId) : userId;
-        const familyId = parseInt(req.params.familyId);
+
+        // 从查询参数中获取family_id
+        const familyId = req.query.family_id ? parseInt(req.query.family_id as string) : undefined;
+
+        // 如果没有家庭ID，跳过检查
+        if (!familyId) {
+            return next();
+        }
 
         if (isNaN(familyId)) {
-            console.error('无效的家庭ID:', req.params.familyId);
+            console.error('无效的家庭ID:', req.query.family_id);
             return res.status(400).json({ message: '无效的家庭ID' });
         }
 

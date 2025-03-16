@@ -6,6 +6,7 @@ import {
     AuthResponse,
     Transaction,
     CreateTransactionData,
+    UpdateTransactionData,
     TransactionsResponse,
     TransactionFilter,
     Statistics,
@@ -137,18 +138,6 @@ export async function fetchAPI<T>(
     options: RequestInit = {}
 ): Promise<T> {
     let url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-
-    // 如果URL中包含transactions相关请求，但不包含familyId，则从localStorage中获取
-    if ((url.includes('/transactions') || url.includes('/statistics') || url.includes('/categories')) &&
-        !url.includes('families/') && !options.body) {
-        const currentFamilyId = localStorage.getItem('currentFamilyId');
-        if (currentFamilyId) {
-            // 添加家庭ID到URL查询参数
-            const separator = url.includes('?') ? '&' : '?';
-            url += `${separator}familyId=${currentFamilyId}`;
-        }
-    }
-
     const headers = new Headers(options.headers || {});
     headers.set('Content-Type', 'application/json');
 
@@ -424,9 +413,11 @@ export const useDeleteTransaction = () => {
 };
 
 // 统计相关API
-export function useStatistics(timeRange: 'month' | 'quarter' | 'year' = 'month', userId?: number) {
-    const { user } = useAuth();
-    const familyId = user?.currentFamilyId;
+export function useStatistics(
+    timeRange: 'month' | 'quarter' | 'year' = 'month',
+    userId?: number,
+    familyId?: number
+) {
     const errorRef = useRef(false);
 
     // 使用useMemo计算日期范围和查询参数，避免每次渲染时重建
@@ -474,9 +465,20 @@ export function useStatistics(timeRange: 'month' | 'quarter' | 'year' = 'month',
         queryKey: ['statistics', timeRange, userId ? `user_${userId}` : `family_${familyId}`],
         queryFn: async () => {
             try {
-                const data = await fetchAPI<Statistics>(`/transactions/stats?${queryParams}`);
+                const data = await fetchAPI<any>(`/transactions/stats?${queryParams}`);
+                console.log('获取统计数据成功', data);
+
+                // 将后端字段名映射到前端字段名
+                const mappedData = {
+                    total_income: data.totalIncome || 0,
+                    total_expense: data.totalExpense || 0,
+                    balance: (data.totalIncome || 0) - (data.totalExpense || 0),
+                    chart: data.chart || data.chartData || [],
+                    details: [] // 前端期望的字段，但后端可能不提供
+                };
+
                 errorRef.current = false;
-                return data;
+                return mappedData;
             } catch (error) {
                 console.error('获取统计数据失败', error);
                 errorRef.current = true;
@@ -501,25 +503,49 @@ export function useCategoryStats(
 
     console.log('useCategoryStats', timeRange, userId, familyId);
     // 构建查询参数
-    const queryParams = new URLSearchParams({
-        range: timeRange
-    });
+    const queryParams = useMemo(() => {
+        const params = new URLSearchParams({
+            range: timeRange
+        });
 
-    // 根据模式添加不同的参数
-    if (userId) {
-        // 个人模式
-        queryParams.append('user_id', userId.toString());
-    } else if (familyId) {
-        // 家庭模式
-        queryParams.append('family_id', familyId.toString());
-    }
+        // 根据模式添加不同的参数
+        if (userId) {
+            params.append('user_id', userId.toString());
+        } else if (familyId) {
+            params.append('family_id', familyId.toString());
+        }
+
+        return params.toString();
+    }, [timeRange, userId, familyId]);
 
     return useQuery({
         queryKey: ['categoryStats', timeRange, userId ? `user_${userId}` : `family_${familyId}`],
         queryFn: async () => {
             try {
-                const data = await fetchAPI<CategoryStats[]>(`/transactions/stats/category?${queryParams.toString()}`);
-                errorRef.current = false; // 重置错误状态
+                const data = await fetchAPI<any>(`/transactions/stats/category?${queryParams}`);
+                console.log('获取分类统计数据成功', data);
+
+                // 确保数据格式一致
+                if (Array.isArray(data)) {
+                    // 后端返回的是数组格式，确保每个分类项都有正确的字段
+                    return data.map(item => {
+                        if (item.categories && Array.isArray(item.categories)) {
+                            return {
+                                ...item,
+                                categories: item.categories.map((cat: any) => ({
+                                    id: cat.id,
+                                    name: cat.name,
+                                    icon: cat.icon,
+                                    color: cat.color,
+                                    amount: cat.amount,
+                                    count: cat.count
+                                }))
+                            };
+                        }
+                        return item;
+                    });
+                }
+
                 return data;
             } catch (error) {
                 console.error('获取分类统计失败:', error);
@@ -592,7 +618,7 @@ export function useCategories() {
 
             try {
                 // 获取自定义分类
-                const result = await fetchAPI<Category[]>(`/categories/${familyId}/custom`);
+                const result = await fetchAPI<Category[]>(`/categories/family/${familyId}`);
                 return result;
             } catch (error) {
                 console.error('获取自定义分类失败:', error);
@@ -1180,30 +1206,143 @@ export async function cancelInvitation(familyId: number, invitationId: number) {
 
 // 从transactionService.ts合并的简化交易API
 // 创建交易
-export async function createTransaction(data: Transaction) {
-    return await fetchAPI<Transaction>('/transactions', {
+export async function createTransaction(data: CreateTransactionData) {
+    // 将前端字段名映射到后端字段名
+    const backendData = {
+        ...data,
+        transaction_date: data.date,
+        family_id: data.familyId
+    };
+
+    const responseData = await fetchAPI<any>('/transactions', {
         method: 'POST',
-        body: JSON.stringify(data)
+        body: JSON.stringify(backendData)
     });
+
+    // 将后端字段名映射到前端字段名
+    return {
+        id: responseData.id,
+        familyId: responseData.family_id,
+        amount: responseData.amount,
+        type: responseData.type,
+        category_id: responseData.category_id,
+        category_name: responseData.category_name,
+        category_icon: responseData.category_icon,
+        description: responseData.description || '',
+        date: responseData.transaction_date || responseData.date,
+        createdBy: responseData.created_by,
+        createdAt: responseData.created_at,
+        updatedAt: responseData.updated_at,
+        user_id: responseData.created_by,
+        username: responseData.username
+    };
 }
 
 // 更新交易
-export async function updateTransaction(id: string | number, data: Transaction) {
-    return await fetchAPI<Transaction>(`/transactions/${id}`, {
+export async function updateTransaction(id: string | number, data: UpdateTransactionData) {
+    // 将前端字段名映射到后端字段名
+    const backendData = {
+        ...data,
+        transaction_date: data.date,
+        family_id: data.familyId
+    };
+
+    const responseData = await fetchAPI<any>(`/transactions/${id}`, {
         method: 'PUT',
-        body: JSON.stringify(data)
+        body: JSON.stringify(backendData)
     });
+
+    // 将后端字段名映射到前端字段名
+    return {
+        id: responseData.id,
+        familyId: responseData.family_id,
+        amount: responseData.amount,
+        type: responseData.type,
+        category_id: responseData.category_id,
+        category_name: responseData.category_name,
+        category_icon: responseData.category_icon,
+        description: responseData.description || '',
+        date: responseData.transaction_date || responseData.date,
+        createdBy: responseData.created_by,
+        createdAt: responseData.created_at,
+        updatedAt: responseData.updated_at,
+        user_id: responseData.created_by,
+        username: responseData.username
+    };
 }
 
 // 获取单个交易
 export async function getTransaction(id: string | number) {
-    return await fetchAPI<Transaction>(`/transactions/${id}`);
+    const data = await fetchAPI<any>(`/transactions/${id}`);
+
+    // 将后端字段名映射到前端字段名
+    return {
+        id: data.id,
+        familyId: data.family_id,
+        amount: data.amount,
+        type: data.type,
+        category_id: data.category_id,
+        category_name: data.category_name,
+        category_icon: data.category_icon,
+        description: data.description || '',
+        date: data.transaction_date || data.date,
+        createdBy: data.created_by,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        user_id: data.created_by,
+        username: data.username
+    };
 }
 
 // 获取交易列表
-export async function getTransactions(params?: Record<string, string>) {
-    const queryString = params ? new URLSearchParams(params).toString() : '';
-    return await fetchAPI<Transaction[]>(`/transactions?${queryString}`);
+export async function getTransactions(params?: Record<string, string>, options?: { pageSize?: number }) {
+    // 构建查询参数
+    const queryParams = { ...(params || {}) };
+
+    // 默认请求较大数量的记录，可通过选项覆盖
+    if (options?.pageSize) {
+        queryParams.pageSize = String(options.pageSize);
+    } else {
+        // 对于查看全部的情况，设置更大的默认值
+        queryParams.pageSize = '100';
+    }
+
+    const queryString = new URLSearchParams(queryParams).toString();
+    const response = await fetchAPI<any>(`/transactions?${queryString}`);
+
+    // 确保能处理后端返回的不同格式
+    let data = response;
+    // 如果返回的是包含data属性的对象，提取data数组
+    if (response && typeof response === 'object' && 'data' in response) {
+        data = response.data;
+    }
+
+    console.log('API原始返回数据:', response);
+    console.log('处理后的data:', data);
+
+    // 确保data是数组
+    if (!Array.isArray(data)) {
+        console.warn('交易数据不是数组格式:', data);
+        return [];
+    }
+
+    // 将后端字段名映射到前端字段名
+    return data.map(item => ({
+        id: item.id,
+        familyId: item.family_id,
+        amount: item.amount,
+        type: item.type,
+        category_id: item.category_id,
+        category_name: item.category_name,
+        category_icon: item.category_icon,
+        description: item.description || '',
+        date: item.transaction_date || item.date,
+        createdBy: item.created_by,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        user_id: item.created_by,
+        username: item.username
+    }));
 }
 
 // 获取单个交易记录

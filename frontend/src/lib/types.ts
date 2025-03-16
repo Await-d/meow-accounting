@@ -14,7 +14,7 @@
  */
 
 // 交易类型
-export type TransactionType = 'income' | 'expense' | 'transfer';
+export type TransactionType = 'income' | 'expense';
 
 // 交易记录类型
 export interface Transaction {

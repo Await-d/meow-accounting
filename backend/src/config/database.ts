@@ -59,13 +59,13 @@ export class DB {
     }
 
     // 通用CRUD操作
-    public async findOne<T>(sql: string, params: any[] = []): Promise<T | null> {
-        if (!this.db) throw new DatabaseError('Database not connected');
+    public async findOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+        if (!this.db) await this.connect();
         try {
-            const result = await this.db.get(sql, params);
+            const result = await this.db!.get(sql, params);
             return result as T || null;
-        } catch (error: any) {
-            throw new DatabaseError(`Query failed: ${error.message}`);
+        } catch (error) {
+            throw new DatabaseError(`Query failed: ${(error as Error).message}`);
         }
     }
 
@@ -82,32 +82,32 @@ export class DB {
         }
     }
 
-    public async findMany<T>(sql: string, params: any[] = []): Promise<T[]> {
-        if (!this.db) throw new DatabaseError('Database not connected');
+    public async findMany<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+        if (!this.db) await this.connect();
         try {
-            const results = await this.db.all(sql, params);
-            return results as T[];
-        } catch (error: any) {
-            throw new DatabaseError(`Query failed: ${error.message}`);
+            const result = await this.db!.all(sql, params);
+            return result as T[];
+        } catch (error) {
+            throw new DatabaseError(`Query failed: ${(error as Error).message}`);
         }
     }
 
     public async execute(sql: string, params: any[] = []): Promise<void> {
-        if (!this.db) throw new DatabaseError('Database not connected');
+        if (!this.db) await this.connect();
         try {
-            await this.db.run(sql, params);
-        } catch (error: any) {
-            throw new DatabaseError(`Execute failed: ${error.message}`);
+            await this.db!.run(sql, params);
+        } catch (error) {
+            throw new DatabaseError(`Execute failed: ${(error as Error).message}`);
         }
     }
 
     public async insert(sql: string, params: any[] = []): Promise<number> {
-        if (!this.db) throw new DatabaseError('Database not connected');
+        if (!this.db) await this.connect();
         try {
-            const result = await this.db.run(sql, params);
-            return result?.lastID ?? -1; // 如果插入失败返回-1
-        } catch (error: any) {
-            throw new DatabaseError(`Insert failed: ${error.message}`);
+            const result = await this.db!.run(sql, params);
+            return result.lastID ?? -1;
+        } catch (error) {
+            throw new DatabaseError(`Insert failed: ${(error as Error).message}`);
         }
     }
 
@@ -131,34 +131,10 @@ export class DB {
             )
         `);
 
-        // 创建accounts表
-        await this.db?.run(`
-            CREATE TABLE IF NOT EXISTS accounts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR(100) NOT NULL,
-                type VARCHAR(50) NOT NULL,
-                initial_balance DECIMAL(15,2) NOT NULL,
-                currency VARCHAR(10) NOT NULL,
-                description TEXT,
-                family_id INTEGER,
-                user_id INTEGER,
-                created_by INTEGER NOT NULL,
-                updated_by INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP,
-                FOREIGN KEY (family_id) REFERENCES families(id),
-                FOREIGN KEY (user_id) REFERENCES users(id),
-                FOREIGN KEY (created_by) REFERENCES users(id),
-                FOREIGN KEY (updated_by) REFERENCES users(id),
-                CHECK ((family_id IS NOT NULL) OR (user_id IS NOT NULL))
-            )
-        `);
-
         // 创建transactions表
         await this.db?.run(`
             CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
                 amount DECIMAL(15,2) NOT NULL,
                 type VARCHAR(20) NOT NULL,
                 category_id INTEGER,
@@ -166,12 +142,13 @@ export class DB {
                 transaction_date DATE NOT NULL,
                 created_by INTEGER NOT NULL,
                 updated_by INTEGER,
+                family_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP,
-                FOREIGN KEY (account_id) REFERENCES accounts(id),
                 FOREIGN KEY (category_id) REFERENCES categories(id),
                 FOREIGN KEY (created_by) REFERENCES users(id),
-                FOREIGN KEY (updated_by) REFERENCES users(id)
+                FOREIGN KEY (updated_by) REFERENCES users(id),
+                FOREIGN KEY (family_id) REFERENCES families(id)
             )
         `);
 

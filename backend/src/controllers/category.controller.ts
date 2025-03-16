@@ -104,8 +104,7 @@ export async function updateCategory(req: Request, res: Response) {
         const updatedCategory = await categoryModel.updateCategory(id, {
             name,
             icon,
-            color,
-            updated_by: userId
+            color
         });
 
         res.json(updatedCategory);

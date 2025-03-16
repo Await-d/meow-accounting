@@ -1,8 +1,47 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Logo } from '@/components';
 
+// 为粒子定义类型
+interface Particle {
+    id: number;
+    top: string;
+    left: string;
+    duration: number;
+    delay: number;
+    xOffset: number;
+}
+
 const LoadingScreen: React.FC = () => {
+    // 使用state来存储粒子位置，初始为空数组
+    const [particles, setParticles] = useState<Particle[]>([]);
+    // 跟踪组件是否已挂载到客户端
+    const [isMounted, setIsMounted] = useState(false);
+
+    // 组件挂载检查
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    // 使用useEffect确保只在客户端生成粒子
+    useEffect(() => {
+        if (!isMounted) return;
+
+        // 生成6个随机位置的粒子
+        const newParticles = Array.from({ length: 6 }).map((_, i) => ({
+            id: i,
+            top: `${Math.random() * 100}%`,
+            left: `${Math.random() * 100}%`,
+            duration: 2 + Math.random() * 2,
+            delay: Math.random() * 2,
+            xOffset: Math.random() * 10 - 5 // 预先计算x方向的随机移动值
+        }));
+
+        setParticles(newParticles);
+    }, [isMounted]);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="relative flex flex-col items-center">
@@ -72,25 +111,25 @@ const LoadingScreen: React.FC = () => {
                     />
                 </div>
 
-                {/* 粒子装饰 */}
+                {/* 粒子装饰 - 仅客户端渲染 */}
                 <div className="absolute -z-10 inset-0">
-                    {[...Array(6)].map((_, i) => (
+                    {isMounted && particles.map((particle) => (
                         <motion.div
-                            key={i}
+                            key={particle.id}
                             className="absolute w-2 h-2 rounded-full bg-primary/30"
                             style={{
-                                top: `${Math.random() * 100}%`,
-                                left: `${Math.random() * 100}%`,
+                                top: particle.top,
+                                left: particle.left,
                             }}
                             animate={{
                                 y: [0, -20, 0],
-                                x: [0, Math.random() * 10 - 5, 0],
+                                x: [0, particle.xOffset, 0],
                                 opacity: [0, 1, 0],
                             }}
                             transition={{
-                                duration: 2 + Math.random() * 2,
+                                duration: particle.duration,
                                 repeat: Infinity,
-                                delay: Math.random() * 2,
+                                delay: particle.delay,
                             }}
                         />
                     ))}

@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-15 15:09:10
  * @LastEditors: Await
- * @LastEditTime: 2025-03-15 15:09:10
+ * @LastEditTime: 2025-03-16 13:15:38
  * @Description: 统计数据控制器
  */
 import { Request, Response, NextFunction } from 'express';
@@ -14,38 +14,32 @@ import dayjs from 'dayjs';
  */
 export const getTransactionStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { startDate, endDate, user_id, family_id } = req.query;
+        // 解析查询参数
+        const { range = 'month', user_id, family_id, familyId } = req.query;
+        const actualFamilyId = family_id || familyId;
 
-        // 验证必填参数
-        if (!startDate || !endDate) {
-            return res.status(400).json({ error: '开始日期和结束日期是必需的' });
-        }
+        // 计算日期范围
+        const { startDate, endDate } = calculateDateRange(String(range));
 
-        // 验证用户权限
-        if (family_id && !user_id) {
-            // 需要验证用户是否是该家庭的成员
-            if (req.user) {
-                const isFamilyMember = await transactionModel.isUserInFamily(req.user.id, Number(family_id));
-                if (!isFamilyMember) {
-                    return res.status(403).json({ error: '您不是该家庭的成员' });
-                }
-            }
+        // 构建查询参数
+        const params: transactionModel.TransactionStatsParams = {
+            startDate,
+            endDate
+        };
+
+        // 设置用户ID或家庭ID
+        if (actualFamilyId) {
+            params.familyId = parseInt(String(actualFamilyId));
+        } else if (user_id) {
+            params.userId = parseInt(String(user_id));
+        } else if (req.user) {
+            params.userId = req.user.id;
         }
 
         // 获取统计数据
-        const stats = await transactionModel.getTransactionStats({
-            startDate: String(startDate),
-            endDate: String(endDate),
-            userId: user_id ? Number(user_id) : undefined,
-            familyId: family_id ? Number(family_id) : undefined
-        });
+        const stats = await transactionModel.getTransactionStats(params);
 
-        // 响应统计数据
-        res.json({
-            total_income: stats.totalIncome,
-            total_expense: stats.totalExpense,
-            chart: stats.chartData
-        });
+        res.json(stats);
     } catch (error) {
         console.error('获取交易统计失败:', error);
         next(error);
@@ -57,52 +51,57 @@ export const getTransactionStats = async (req: Request, res: Response, next: Nex
  */
 export const getCategoryStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { range = 'month', user_id, family_id } = req.query;
+        // 解析查询参数
+        const { range = 'month', user_id, family_id, familyId } = req.query;
+        const actualFamilyId = family_id || familyId;
 
         // 计算日期范围
-        let startDate: string;
-        const endDate = dayjs().format('YYYY-MM-DD');
+        const { startDate, endDate } = calculateDateRange(String(range));
 
-        // 根据范围确定开始日期
-        switch (String(range)) {
-            case 'week':
-                startDate = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
-                break;
-            case 'quarter':
-                const quarterStart = Math.floor(dayjs().month() / 3) * 3;
-                startDate = dayjs().month(quarterStart).startOf('month').format('YYYY-MM-DD');
-                break;
-            case 'year':
-                startDate = dayjs().startOf('year').format('YYYY-MM-DD');
-                break;
-            case 'month':
-            default:
-                startDate = dayjs().startOf('month').format('YYYY-MM-DD');
-        }
+        // 构建查询参数
+        const params: transactionModel.CategoryStatsParams = {
+            startDate,
+            endDate
+        };
 
-        // 验证用户权限
-        if (family_id && !user_id) {
-            // 需要验证用户是否是该家庭的成员
-            if (req.user) {
-                const isFamilyMember = await transactionModel.isUserInFamily(req.user.id, Number(family_id));
-                if (!isFamilyMember) {
-                    return res.status(403).json({ error: '您不是该家庭的成员' });
-                }
-            }
+        // 设置用户ID或家庭ID
+        if (actualFamilyId) {
+            params.familyId = parseInt(String(actualFamilyId));
+        } else if (user_id) {
+            params.userId = parseInt(String(user_id));
+        } else if (req.user) {
+            params.userId = req.user.id;
         }
 
         // 获取分类统计数据
-        const categoryStats = await transactionModel.getCategoryStats({
-            startDate,
-            endDate,
-            userId: user_id ? Number(user_id) : undefined,
-            familyId: family_id ? Number(family_id) : undefined
-        });
+        const categoryStats = await transactionModel.getTransactionCategoryStats(params);
 
-        // 响应分类统计数据
         res.json(categoryStats);
     } catch (error) {
         console.error('获取分类统计失败:', error);
         next(error);
     }
-}; 
+};
+
+function calculateDateRange(range: string) {
+    let startDate: string;
+    const endDate = dayjs().format('YYYY-MM-DD');
+
+    switch (range) {
+        case 'week':
+            startDate = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
+            break;
+        case 'quarter':
+            const quarterStart = Math.floor(dayjs().month() / 3) * 3;
+            startDate = dayjs().month(quarterStart).startOf('month').format('YYYY-MM-DD');
+            break;
+        case 'year':
+            startDate = dayjs().startOf('year').format('YYYY-MM-DD');
+            break;
+        case 'month':
+        default:
+            startDate = dayjs().startOf('month').format('YYYY-MM-DD');
+    }
+
+    return { startDate, endDate };
+} 

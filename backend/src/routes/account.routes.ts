@@ -23,7 +23,7 @@ router.post('/', authenticate, createAccount);
 // 获取单个账户
 router.get('/:id', authenticate, getAccount);
 
-// 获取账户列表（支持按用户ID或家庭ID筛选）
+// 获取账户列表（现在直接返回当前用户作为默认账户）
 router.get('/', authenticate, getAccounts);
 
 // 更新账户

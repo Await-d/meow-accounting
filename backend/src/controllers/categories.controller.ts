@@ -126,8 +126,7 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
         const updatedCategory = await categoryModel.updateCategory(id, {
             name,
             icon,
-            color,
-            updated_by: req.user.id
+            color
         });
 
         res.json(updatedCategory);

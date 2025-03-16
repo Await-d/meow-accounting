@@ -2,11 +2,11 @@
  * @Author: Await
  * @Date: 2025-03-10 19:42:20
  * @LastEditors: Await
- * @LastEditTime: 2025-03-16 09:50:33
+ * @LastEditTime: 2025-03-16 16:08:53
  * @Description: 仪表盘页面
  */
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     Card,
     CardBody,
@@ -26,12 +26,14 @@ import {
     DropdownMenu,
     DropdownItem,
     Avatar,
-    Spinner
+    Spinner,
+    Pagination,
+    Input
 } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoute } from '@/hooks/useRoute';
 import { useStatistics, useCategoryStats, useDeleteTransaction, getTransactions } from '@/lib/api';
-import { ArrowUpRight, ArrowDownRight, Plus, RefreshCw, Download, Users, ChevronDown, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Plus, RefreshCw, Download, Users, ChevronDown, TrendingUp, Pencil, Trash2 } from 'lucide-react';
 import dayjs from 'dayjs';
 import { Transaction, TransactionType } from '@/lib/types';
 import StatisticsCard from '@/components/dashboard/StatisticsCard';
@@ -71,6 +73,12 @@ export default function DashboardPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const deleteTransactionMutation = useDeleteTransaction();
+    const [isTransactionListModalOpen, setIsTransactionListModalOpen] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalTransactions, setTotalTransactions] = useState<Transaction[]>([]);
+    const [totalPages, setTotalPages] = useState(1);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // 设置问候语
     useEffect(() => {
@@ -91,7 +99,8 @@ export default function DashboardPage() {
     // 获取统计数据 - 根据个人/家庭模式传递不同参数
     const { data: statistics, isLoading: statsLoading, refetch: refetchStats } = useStatistics(
         timeRange,
-        isPersonalMode && typeof user?.id === 'number' ? user.id : undefined
+        isPersonalMode && typeof user?.id === 'number' ? user.id : undefined,
+        !isPersonalMode && currentFamily ? currentFamily.id : undefined
     );
 
     // 获取分类统计 - 根据个人/家庭模式传递不同参数
@@ -126,22 +135,45 @@ export default function DashboardPage() {
         if (user) {
             fetchTransactions();
         }
-    }, [user?.id]);
+    }, [user?.id, isPersonalMode, currentFamily?.id]);
 
     const fetchTransactions = async () => {
-        // 避免重复加载或未登录时加载
-        if (isLoading || !user) return;
+        // 避免未登录时加载
+        if (!user) return;
 
+        // 设置加载状态，无条件执行
         setIsLoading(true);
+        console.log('开始加载交易数据...');
+
         try {
-            const data = await getTransactions();
-            setTransactions(data);
+            let queryParams: Record<string, string> = {};
+
+            // 根据当前模式设置查询参数
+            if (isPersonalMode) {
+                queryParams.user_id = String(user.id);
+            } else if (currentFamily) {
+                queryParams.family_id = String(currentFamily.id);
+            }
+
+            console.log('查询参数:', queryParams);
+            const data = await getTransactions(queryParams);
+            console.log('获取到的交易数据:', data);
+
+            // 确保data是数组
+            if (Array.isArray(data)) {
+                setTransactions(data);
+                console.log('成功设置交易数据，数量:', data.length);
+            } else {
+                console.error('返回的交易数据不是数组格式', data);
+                setTransactions([]);
+            }
         } catch (error) {
             console.error('获取交易记录失败', error);
             // 设置空数组避免组件报错
             setTransactions([]);
         } finally {
             setIsLoading(false);
+            console.log('加载状态已重置为false');
         }
     };
 
@@ -153,7 +185,7 @@ export default function DashboardPage() {
         const headers = ['日期', '收入', '支出', '结余'];
         const csvData = [
             headers.join(','),
-            ...statistics.chart.map(item => {
+            ...statistics.chart.map((item: any) => {
                 const balance = item.income - item.expense;
                 return `${item.date},${item.income},${item.expense},${balance}`;
             })
@@ -235,6 +267,106 @@ export default function DashboardPage() {
                 console.error('删除交易失败', error);
             }
         }
+    };
+
+    // 在其他useEffect之后添加日志记录
+    useEffect(() => {
+        console.log('RecentTransactions组件状态:', {
+            isLoading,
+            transactionsCount: transactions?.length || 0,
+            hasTransactions: Array.isArray(transactions) && transactions.length > 0
+        });
+    }, [transactions, isLoading]);
+
+    // 加载更多交易数据
+    const loadAllTransactions = async () => {
+        try {
+            setIsLoading(true);
+            let queryParams: Record<string, string> = {};
+
+            // 根据当前模式设置查询参数
+            if (isPersonalMode) {
+                queryParams.user_id = String(user?.id);
+            } else if (currentFamily) {
+                queryParams.family_id = String(currentFamily.id);
+            }
+
+            console.log('加载所有交易数据的查询参数:', queryParams);
+            // 请求一个较大的数据量，便于分页显示
+            const data = await getTransactions(queryParams, { pageSize: 100 });
+
+            if (Array.isArray(data)) {
+                setTotalTransactions(data);
+                setTotalPages(Math.ceil(data.length / pageSize));
+                console.log('加载到的所有交易数据:', data.length);
+            } else {
+                console.error('返回的所有交易数据不是数组格式', data);
+                setTotalTransactions([]);
+            }
+        } catch (error) {
+            console.error('获取所有交易记录失败', error);
+            setTotalTransactions([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 处理查看更多交易
+    const handleViewMoreTransactions = useCallback(() => {
+        // 只设置打开模态框的状态
+        setIsTransactionListModalOpen(true);
+    }, []);
+
+    // 当模态框打开时加载交易数据
+    useEffect(() => {
+        if (isTransactionListModalOpen) {
+            loadAllTransactions();
+        }
+    }, [isTransactionListModalOpen]);
+
+    // 过滤和分页显示交易数据
+    const getPagedTransactions = useCallback(() => {
+        let filtered = [...totalTransactions];
+
+        // 搜索过滤
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(t =>
+                (t.category_name && t.category_name.toLowerCase().includes(query)) ||
+                (t.description && t.description.toLowerCase().includes(query)) ||
+                (t.amount && String(t.amount).includes(query))
+            );
+        }
+
+        // 返回当前页数据
+        const start = (currentPage - 1) * pageSize;
+        return filtered.slice(start, start + pageSize);
+    }, [totalTransactions, searchQuery, currentPage, pageSize]);
+
+    // 使用useEffect处理总页数更新，避免在渲染过程中调用setState
+    useEffect(() => {
+        // 只有当模态框打开时才计算总页数
+        if (isTransactionListModalOpen && totalTransactions.length > 0) {
+            let filtered = [...totalTransactions];
+
+            // 搜索过滤
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(t =>
+                    (t.category_name && t.category_name.toLowerCase().includes(query)) ||
+                    (t.description && t.description.toLowerCase().includes(query)) ||
+                    (t.amount && String(t.amount).includes(query))
+                );
+            }
+
+            const newTotalPages = Math.ceil(filtered.length / pageSize);
+            setTotalPages(newTotalPages);
+        }
+    }, [totalTransactions, searchQuery, pageSize, isTransactionListModalOpen]);
+
+    // 处理页码变化
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
     };
 
     if (isPageLoading) {
@@ -366,7 +498,14 @@ export default function DashboardPage() {
                                             size="sm"
                                             color={isPersonalMode ? "secondary" : "primary"}
                                             isSelected={isPersonalMode}
-                                            onValueChange={setIsPersonalMode}
+                                            onValueChange={(value) => {
+                                                // 如果切换到家庭模式但没有家庭，显示提示并阻止切换
+                                                if (!value && (!families || families.length === 0)) {
+                                                    showToast('您还没有家庭，请先创建或加入一个家庭', 'error');
+                                                    return;
+                                                }
+                                                setIsPersonalMode(value);
+                                            }}
                                             startContent={<UsersIcon className="h-4 w-4" />}
                                             endContent={<WalletIcon className="h-4 w-4" />}
                                         />
@@ -440,10 +579,12 @@ export default function DashboardPage() {
                     <AccountsSummary
                         transactions={transactions}
                         isPersonalMode={isPersonalMode}
+                        isLoading={isLoading}
                     />
                     <ExpenseSummary
                         transactions={transactions}
                         isPersonalMode={isPersonalMode}
+                        isLoading={isLoading}
                     />
                     <Card className="overflow-hidden h-full border border-default-100">
                         <CardHeader className="flex gap-3 items-center">
@@ -523,15 +664,41 @@ export default function DashboardPage() {
                                 </h4>
                                 <p className="text-tiny text-default-500">最近的5笔交易记录</p>
                             </div>
-                            <Button
-                                size="sm"
-                                color="primary"
-                                variant="flat"
-                                onPress={() => setIsAddTransactionModalOpen(true)}
-                                startContent={<Plus size={14} />}
-                            >
-                                添加交易
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    color="default"
+                                    variant="light"
+                                    onPress={fetchTransactions}
+                                    startContent={<RefreshCw size={14} />}
+                                >
+                                    刷新
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    color="secondary"
+                                    variant="flat"
+                                    onPress={handleViewMoreTransactions}
+                                >
+                                    查看全部
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    color="primary"
+                                    variant="flat"
+                                    onPress={() => {
+                                        // 验证在家庭模式下是否有选中的家庭
+                                        if (!isPersonalMode && (!currentFamily || !families || families.length === 0)) {
+                                            showToast('请先创建或加入一个家庭', 'error');
+                                            return;
+                                        }
+                                        setIsAddTransactionModalOpen(true);
+                                    }}
+                                    startContent={<Plus size={14} />}
+                                >
+                                    添加交易
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardBody>
                             <RecentTransactions
@@ -541,6 +708,7 @@ export default function DashboardPage() {
                                 onDelete={handleDeleteTransaction}
                                 isPersonalMode={isPersonalMode}
                                 userId={user?.id}
+                                onViewMore={handleViewMoreTransactions}
                             />
                         </CardBody>
                     </Card>
@@ -600,6 +768,143 @@ export default function DashboardPage() {
                                         }}
                                     >
                                         编辑
+                                    </Button>
+                                </ModalFooter>
+                            </>
+                        )}
+                    </ModalContent>
+                </Modal>
+
+                {/* 交易列表模态框 */}
+                <Modal
+                    isOpen={isTransactionListModalOpen}
+                    onOpenChange={setIsTransactionListModalOpen}
+                    size="4xl"
+                    scrollBehavior="inside"
+                >
+                    <ModalContent>
+                        {(onClose) => (
+                            <>
+                                <ModalHeader className="flex flex-col gap-1">
+                                    {isPersonalMode ? "我的所有交易记录" : `${currentFamily?.name || '家庭'}交易记录`}
+                                </ModalHeader>
+                                <ModalBody>
+                                    <div className="mb-4">
+                                        <Input
+                                            placeholder="搜索交易记录..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            startContent={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-default-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                            </svg>}
+                                            className="w-full"
+                                        />
+                                    </div>
+
+                                    {isLoading ? (
+                                        <div className="flex justify-center py-10">
+                                            <Spinner />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="space-y-3">
+                                                {getPagedTransactions().map((transaction, index) => (
+                                                    <Card key={transaction?.id || `trans-${index}`} className="bg-content1/50">
+                                                        <CardBody className="p-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`p-2 rounded-full ${transaction?.type === 'income' ? 'bg-success/10' : 'bg-danger/10'}`}>
+                                                                    {transaction?.type === 'income' ? (
+                                                                        <ArrowUpRight size={20} className="text-success" />
+                                                                    ) : (
+                                                                        <ArrowDownRight size={20} className="text-danger" />
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="flex-grow">
+                                                                    <div className="flex justify-between items-start">
+                                                                        <div>
+                                                                            <p className="font-medium">{transaction?.category_name || '未分类'}</p>
+                                                                            <p className="text-xs text-default-500">
+                                                                                {formatDate(transaction?.date || new Date())}
+                                                                                {!isPersonalMode && transaction?.user_id && (
+                                                                                    <span className={`ml-2 ${Number(transaction?.user_id) === Number(user?.id) ? 'text-primary font-medium' : 'text-default-500'}`}>
+                                                                                        {transaction?.username || `用户${transaction?.user_id}`}
+                                                                                        {Number(transaction?.user_id) === Number(user?.id) && ' (我)'}
+                                                                                    </span>
+                                                                                )}
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                            <p className={`font-semibold ${transaction?.type === 'income' ? 'text-success' : 'text-danger'}`}>
+                                                                                {transaction?.type === 'income' ? '+' : '-'}
+                                                                                {formatAmount(transaction?.amount)}
+                                                                            </p>
+                                                                            {transaction?.description && (
+                                                                                <p className="text-xs text-default-500">{transaction?.description}</p>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex gap-1">
+                                                                    <Button
+                                                                        isIconOnly
+                                                                        size="sm"
+                                                                        variant="light"
+                                                                        onPress={() => {
+                                                                            onClose();
+                                                                            handleEditTransaction(transaction);
+                                                                        }}
+                                                                    >
+                                                                        <Pencil size={16} />
+                                                                    </Button>
+                                                                    <Button
+                                                                        isIconOnly
+                                                                        size="sm"
+                                                                        variant="light"
+                                                                        onPress={() => {
+                                                                            if (transaction?.id) {
+                                                                                handleDeleteTransaction(transaction.id);
+                                                                                // 不在这里直接调用loadAllTransactions
+                                                                                // 而是依赖handleDeleteTransaction内的fetchTransactions更新
+                                                                            }
+                                                                        }}
+                                                                        className="text-danger"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </CardBody>
+                                                    </Card>
+                                                ))}
+                                            </div>
+
+                                            {totalPages > 1 && (
+                                                <div className="flex justify-center mt-4">
+                                                    <Pagination
+                                                        total={totalPages}
+                                                        initialPage={1}
+                                                        page={currentPage}
+                                                        onChange={handlePageChange}
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </ModalBody>
+                                <ModalFooter>
+                                    <Button color="danger" variant="light" onPress={onClose}>
+                                        关闭
+                                    </Button>
+                                    <Button
+                                        color="primary"
+                                        onPress={() => {
+                                            onClose();
+                                            setIsAddTransactionModalOpen(true);
+                                        }}
+                                    >
+                                        添加交易
                                     </Button>
                                 </ModalFooter>
                             </>

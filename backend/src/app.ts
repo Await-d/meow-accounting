@@ -22,6 +22,7 @@ import transactionRoutes from './routes/transaction.routes';
 import cacheRoutes from './routes/cache';
 import routeRoutes from './routes/route.routes';
 import accountRoutes from './routes/account.routes';
+import statisticsRoutes from './routes/statistics.routes';
 import { createUserTable } from './models/user';
 import { createFamilyTables } from './models/family';
 import { createCategoryTable } from './models/category';
@@ -30,6 +31,8 @@ import { db } from './config/database';
 import { swaggerUi, specs } from './swagger';
 import dotenv from 'dotenv';
 import { initDefaultCategories } from './models/category';
+import categoryRoutes from './routes/category.routes';
+import debugRoutes from './routes/debug.routes';
 
 // 加载环境变量
 dotenv.config();
@@ -61,6 +64,9 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/cache', cacheRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/accounts', accountRoutes);
+app.use('/api/statistics', statisticsRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/debug', debugRoutes);
 
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
