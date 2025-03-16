@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-10 19:42:20
  * @LastEditors: Await
- * @LastEditTime: 2025-03-15 22:21:46
+ * @LastEditTime: 2025-03-16 09:50:33
  * @Description: 仪表盘页面
  */
 "use client";
@@ -25,12 +25,13 @@ import {
     DropdownTrigger,
     DropdownMenu,
     DropdownItem,
-    Avatar
+    Avatar,
+    Spinner
 } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoute } from '@/hooks/useRoute';
 import { useStatistics, useCategoryStats, useDeleteTransaction, getTransactions } from '@/lib/api';
-import { ArrowUpRight, ArrowDownRight, Plus, RefreshCw, Download, Users, ChevronDown } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Plus, RefreshCw, Download, Users, ChevronDown, TrendingUp } from 'lucide-react';
 import dayjs from 'dayjs';
 import { Transaction, TransactionType } from '@/lib/types';
 import StatisticsCard from '@/components/dashboard/StatisticsCard';
@@ -104,7 +105,6 @@ export default function DashboardPage() {
         refetchStats();
         refetchCategoryStats();
         fetchTransactions();
-        showToast('数据已刷新', 'success');
     };
 
     // 当模式切换时，刷新数据
@@ -113,6 +113,14 @@ export default function DashboardPage() {
             refreshAllData();
         }
     }, [isPersonalMode, currentFamily?.id]);
+
+    // 当家庭列表加载后，如果没有选中的家庭，自动选择第一个
+    useEffect(() => {
+        if (families && families.length > 0 && !currentFamily) {
+            setCurrentFamily(families[0]);
+            setIsPersonalMode(false);
+        }
+    }, [families]);
 
     useEffect(() => {
         if (user) {
@@ -263,108 +271,18 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 items-center">
-                        {/* 个人/家庭模式切换 */}
-                        <Card className="bg-content2/60 backdrop-blur-sm border border-default-100">
-                            <CardBody className="py-2 px-4 flex items-center gap-3">
-                                <div className="flex items-center gap-2">
-                                    <Switch
-                                        size="sm"
-                                        color={isPersonalMode ? "secondary" : "primary"}
-                                        isSelected={isPersonalMode}
-                                        onValueChange={setIsPersonalMode}
-                                        startContent={<UsersIcon className="h-4 w-4" />}
-                                        endContent={<WalletIcon className="h-4 w-4" />}
-                                    />
-                                    <span className="text-sm font-medium whitespace-nowrap">
-                                        {isPersonalMode ? '个人数据' : '家庭数据'}
-                                    </span>
-                                </div>
-
-                                {/* 家庭选择下拉菜单 */}
-                                {!isPersonalMode && families && families.length > 0 && (
-                                    <Dropdown>
-                                        <DropdownTrigger>
-                                            <Button
-                                                variant="flat"
-                                                size="sm"
-                                                startContent={<Users size={16} />}
-                                                endContent={<ChevronDown size={16} />}
-                                                color="primary"
-                                            >
-                                                {currentFamily?.name || '选择家庭'}
-                                            </Button>
-                                        </DropdownTrigger>
-                                        <DropdownMenu aria-label="家庭选择">
-                                            {families.map((family) => (
-                                                <DropdownItem
-                                                    key={family.id}
-                                                    onPress={() => handleFamilyChange(family.id)}
-                                                    startContent={
-                                                        <Avatar
-                                                            name={family.name.charAt(0)}
-                                                            size="sm"
-                                                            radius="full"
-                                                            className="mr-2 bg-primary/20"
-                                                        />
-                                                    }
-                                                    description={family.description}
-                                                    className={currentFamily?.id === family.id ? "bg-primary/10" : ""}
-                                                >
-                                                    {family.name}
-                                                </DropdownItem>
-                                            ))}
-                                        </DropdownMenu>
-                                    </Dropdown>
-                                )}
-                            </CardBody>
-                        </Card>
-
-                        {/* 统一的操作按钮组 */}
-                        <div className="flex gap-2">
-                            <Tabs
-                                selectedKey={timeRange}
-                                onSelectionChange={(key) => setTimeRange(key as 'month' | 'quarter' | 'year')}
-                                classNames={{
-                                    base: "w-full",
-                                    tabList: "gap-2 relative rounded-lg p-1 bg-default-100",
-                                    tab: "max-w-fit px-3 h-8 data-[selected=true]:bg-primary data-[selected=true]:text-white",
-                                    cursor: "w-full",
-                                    tabContent: "group-data-[selected=true]:text-inherit"
-                                }}
-                                size="sm"
-                            >
-                                <Tab key="month" title="本月" />
-                                <Tab key="quarter" title="本季度" />
-                                <Tab key="year" title="本年" />
-                            </Tabs>
-                            <Button
-                                isIconOnly
-                                variant="light"
-                                aria-label="刷新数据"
-                                onPress={refreshAllData}
-                            >
-                                <RefreshCw className="h-5 w-5" />
-                            </Button>
-
-                            <NextUITooltip content="导出数据">
-                                <Button
-                                    isIconOnly
-                                    variant="light"
-                                    onPress={exportToCSV}
-                                    isDisabled={statsLoading || !statistics}
-                                >
-                                    <Download size={18} />
-                                </Button>
-                            </NextUITooltip>
-
+                        {/* 简化操作按钮组 - 只保留添加交易和后台管理 */}
+                        <div className="flex items-center gap-3">
                             <Dropdown>
                                 <DropdownTrigger>
                                     <Button
                                         color="primary"
                                         variant="shadow"
-                                        className="bg-gradient-to-r from-primary to-secondary border-0"
+                                        className="bg-gradient-to-r from-blue-500 to-blue-600 border-0"
                                         endContent={<ChevronDown size={16} />}
                                         startContent={<Plus size={18} />}
+                                        radius="full"
+                                        size="md"
                                     >
                                         添加交易
                                     </Button>
@@ -389,12 +307,133 @@ export default function DashboardPage() {
                                 </DropdownMenu>
                             </Dropdown>
 
+                            {/* 管理员操作按钮 */}
                             {user?.role === 'admin' && (
-                                <AdminActionButton variant="shadow" />
+                                <AdminActionButton
+                                    variant="shadow"
+                                    className="bg-gradient-to-r from-purple-500 to-purple-600 border-0"
+                                />
                             )}
+
+                            {/* 主题切换按钮 */}
+                            <NextUITooltip content="切换主题">
+                                <Button
+                                    isIconOnly
+                                    variant="light"
+                                    aria-label="切换主题"
+                                    radius="full"
+                                    className="bg-default-100"
+                                    onPress={() => {
+                                        document.documentElement.classList.toggle('dark');
+                                        localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+                                    }}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"
+                                        className="hidden dark:block text-yellow-300" fill="currentColor">
+                                        <path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z"></path>
+                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"
+                                        className="block dark:hidden text-blue-900" fill="currentColor">
+                                        <path d="M10 6C10 10.4183 13.5817 14 18 14C19.4386 14 20.7885 13.6203 21.9549 12.9556C21.4738 18.0175 17.1419 22 12 22C6.47715 22 2 17.5228 2 12C2 6.85808 5.98249 2.5262 11.0444 2.04506C10.3797 3.21152 10 4.56142 10 6ZM4 12C4 16.4183 7.58172 20 12 20C14.9654 20 17.5757 18.3788 18.9571 15.9546C18.6407 15.9848 18.3212 16 18 16C12.4772 16 8 11.5228 8 6C8 5.67879 8.01524 5.35933 8.04536 5.04293C5.62119 6.42426 4 9.03458 4 12Z"></path>
+                                    </svg>
+                                </Button>
+                            </NextUITooltip>
+
+                            {/* 刷新按钮移到右侧 */}
+                            <Button
+                                isIconOnly
+                                variant="light"
+                                aria-label="刷新数据"
+                                onPress={refreshAllData}
+                                radius="full"
+                                className="ml-auto"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                            </Button>
                         </div>
                     </div>
                 </motion.div>
+
+                {/* 控制面板卡片 - 添加在统计卡片前，包含原来顶部的控件 */}
+                <div className="mb-6">
+                    <Card className="bg-content1/70 backdrop-blur-sm">
+                        <CardBody className="py-4">
+                            <div className="flex flex-wrap justify-between items-center gap-4">
+                                {/* 个人/家庭模式切换 */}
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <Switch
+                                            size="sm"
+                                            color={isPersonalMode ? "secondary" : "primary"}
+                                            isSelected={isPersonalMode}
+                                            onValueChange={setIsPersonalMode}
+                                            startContent={<UsersIcon className="h-4 w-4" />}
+                                            endContent={<WalletIcon className="h-4 w-4" />}
+                                        />
+                                        <span className="text-sm font-medium whitespace-nowrap">
+                                            {isPersonalMode ? '个人数据' : '家庭数据'}
+                                        </span>
+                                    </div>
+
+                                    {/* 家庭选择下拉菜单 */}
+                                    {!isPersonalMode && families && families.length > 0 && (
+                                        <Dropdown>
+                                            <DropdownTrigger>
+                                                <Button
+                                                    variant="flat"
+                                                    size="sm"
+                                                    startContent={<Users size={16} />}
+                                                    endContent={<ChevronDown size={16} />}
+                                                    color="primary"
+                                                >
+                                                    {currentFamily?.name || '选择家庭'}
+                                                </Button>
+                                            </DropdownTrigger>
+                                            <DropdownMenu aria-label="家庭选择">
+                                                {families.map((family) => (
+                                                    <DropdownItem
+                                                        key={family.id}
+                                                        onPress={() => handleFamilyChange(family.id)}
+                                                        startContent={
+                                                            <Avatar
+                                                                name={family.name.charAt(0)}
+                                                                size="sm"
+                                                                radius="full"
+                                                                className="mr-2 bg-primary/20"
+                                                            />
+                                                        }
+                                                        description={family.description}
+                                                        className={currentFamily?.id === family.id ? "bg-primary/10" : ""}
+                                                    >
+                                                        {family.name}
+                                                    </DropdownItem>
+                                                ))}
+                                            </DropdownMenu>
+                                        </Dropdown>
+                                    )}
+                                </div>
+
+                                {/* 时间范围选择 */}
+                                <Tabs
+                                    selectedKey={timeRange}
+                                    onSelectionChange={(key) => setTimeRange(key as 'month' | 'quarter' | 'year')}
+                                    classNames={{
+                                        base: "max-w-fit",
+                                        tabList: "gap-2 relative rounded-lg p-1 bg-default-100",
+                                        tab: "max-w-fit px-3 h-8 data-[selected=true]:bg-primary data-[selected=true]:text-white",
+                                        cursor: "w-full",
+                                        tabContent: "group-data-[selected=true]:text-inherit"
+                                    }}
+                                    size="sm"
+                                >
+                                    <Tab key="month" title="本月" />
+                                    <Tab key="quarter" title="本季度" />
+                                    <Tab key="year" title="本年" />
+                                </Tabs>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </div>
 
                 {/* 统计卡片 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -406,12 +445,42 @@ export default function DashboardPage() {
                         transactions={transactions}
                         isPersonalMode={isPersonalMode}
                     />
-                    <StatisticsCard
-                        title={isPersonalMode ? "个人结余" : "家庭结余"}
-                        value={(statistics?.total_income || 0) - (statistics?.total_expense || 0)}
-                        isLoading={statsLoading}
-                        type="balance"
-                    />
+                    <Card className="overflow-hidden h-full border border-default-100">
+                        <CardHeader className="flex gap-3 items-center">
+                            <div className="p-2 rounded-full bg-blue-500/10">
+                                <TrendingUp size={20} className="text-blue-500" />
+                            </div>
+                            <div className="flex flex-col">
+                                <p className="text-md font-semibold">{isPersonalMode ? "个人结余" : "家庭结余"}</p>
+                                <p className="text-small text-default-500">{isPersonalMode ? "本月收支差额" : "本月收支统计"}</p>
+                            </div>
+                        </CardHeader>
+                        <CardBody className="py-2">
+                            {statsLoading ? (
+                                <Spinner size="sm" />
+                            ) : (
+                                <>
+                                    <p className="text-3xl font-bold text-blue-500">
+                                        {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-4 mt-4">
+                                        <div>
+                                            <p className="text-sm text-default-500">{timeRange === 'month' ? '本月' : timeRange === 'quarter' ? '本季度' : '今年'}</p>
+                                            <p className="text-xl font-semibold text-blue-500">
+                                                {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-default-500">{isPersonalMode ? "个人" : `${currentFamily?.name || '家庭'}`}</p>
+                                            <p className="text-xl font-semibold text-blue-500">
+                                                {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </CardBody>
+                    </Card>
                 </div>
 
                 {/* 图表和最近交易 */}

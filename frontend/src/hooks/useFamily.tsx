@@ -87,8 +87,6 @@ export function useFamily() {
                 queryClient.invalidateQueries({ queryKey: ['categoryStats'] });
                 queryClient.invalidateQueries({ queryKey: ['recentTransactions'] });
 
-                showToast('已切换到' + family.name, 'success');
-
                 // 存储当前家庭ID到localStorage，用于API请求
                 localStorage.setItem('currentFamilyId', family.id.toString());
             }

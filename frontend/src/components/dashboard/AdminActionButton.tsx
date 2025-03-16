@@ -44,7 +44,7 @@ const AdminActionButton: React.FC<AdminActionButtonProps> = ({
         <Dropdown>
             <DropdownTrigger>
                 <Button
-                    className={`${variant !== 'shadow' ? 'bg-gradient-to-r from-primary-700 to-secondary-700 text-white' : ''}`}
+                    className={`${variant !== 'shadow' ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white' : className}`}
                     endContent={<ChevronDown size={16} />}
                     startContent={
                         <motion.div
@@ -54,7 +54,8 @@ const AdminActionButton: React.FC<AdminActionButtonProps> = ({
                             <Settings size={18} />
                         </motion.div>
                     }
-                    size="sm"
+                    radius="full"
+                    size="md"
                     variant={variant}
                     color="secondary"
                 >

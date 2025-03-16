@@ -8,9 +8,10 @@ type StatisticsCardProps = {
     value: number;
     isLoading: boolean;
     type: 'income' | 'expense' | 'balance';
+    description?: string;
 };
 
-export default function StatisticsCard({ title, value, isLoading, type }: StatisticsCardProps) {
+export default function StatisticsCard({ title, value, isLoading, type, description }: StatisticsCardProps) {
     // 获取颜色和图标
     const getColorAndIcon = () => {
         switch (type) {
@@ -34,10 +35,10 @@ export default function StatisticsCard({ title, value, isLoading, type }: Statis
             default:
                 return {
                     textColor: value >= 0 ? 'text-primary' : 'text-danger',
-                    bgColor: 'bg-primary/10',
-                    gradientClass: 'from-primary-500/20 to-primary-700/5',
-                    borderColor: 'border-primary/20',
-                    icon: <TrendingUp className={value >= 0 ? 'text-primary' : 'text-danger'} />
+                    bgColor: value >= 0 ? 'bg-blue-500/10' : 'bg-danger/10',
+                    gradientClass: value >= 0 ? 'from-blue-500/20 to-blue-700/5' : 'from-danger-500/20 to-danger-700/5',
+                    borderColor: value >= 0 ? 'border-blue-500/20' : 'border-danger/20',
+                    icon: <TrendingUp className={value >= 0 ? 'text-blue-500' : 'text-danger'} />
                 };
         }
     };
@@ -69,6 +70,9 @@ export default function StatisticsCard({ title, value, isLoading, type }: Statis
                     <div className="flex flex-row items-center justify-between">
                         <div>
                             <p className="text-sm text-default-500 font-medium">{title}</p>
+                            {description && (
+                                <p className="text-xs text-default-400">{description}</p>
+                            )}
                             {isLoading ? (
                                 <div className="h-8 flex items-center">
                                     <Spinner size="sm" color={type === 'income' ? 'success' : type === 'expense' ? 'danger' : 'primary'} />
