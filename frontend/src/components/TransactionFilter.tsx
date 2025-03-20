@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardBody, Button, Checkbox, Input, Slider, RadioGroup, Radio, Divider } from '@nextui-org/react';
 import { TransactionFilter as FilterType, TransactionFilter as TransactionFilterType, Category } from '@/lib/types';
 import { X, Check } from 'lucide-react';
-import { useCategories } from '@/lib/api';
+import { useCategories } from '@/hooks/useCategories';
 import DatePicker from '@/components/DatePicker';
 
 // 添加简单版本的过滤器组件
@@ -155,7 +155,7 @@ export function TransactionFilter({ isOpen, onClose, onApply, initialFilter = {}
                         <div>
                             <h4 className="text-md font-medium mb-2">分类</h4>
                             <div className="flex flex-wrap gap-2">
-                                {categories.map(category => (
+                                {categories.map((category: Category) => (
                                     <Checkbox
                                         key={category.id}
                                         isSelected={filter.categoryIds?.includes(Number(category.id))}

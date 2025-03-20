@@ -7,21 +7,21 @@
  */
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { useAuth } from './useAuth';
-import { Route, RouteType, RoutePermission, CreateRouteData, UpdateRouteData, RouteParams, RouteConfig } from '@/lib/types';
-import { fetchAPI } from '@/lib/api';
-import { useToast } from '@/hooks/useToast';
-import { routeComponents, checkRoutePermission, getRouteComponent } from '@/config/routes';
-import { useRouteCache } from './useRouteCache';
-import { useRoutePreload } from './useRoutePreload';
-import { useRouteHistory } from './useRouteHistory';
-import { useRouteAnalytics } from './useRouteAnalytics';
-import { useRouteOptimizer } from './useRouteOptimizer';
-import { useRouteMonitor } from '@/hooks/useRouteMonitor';
-import { useRouteParams } from '@/hooks/useRouteParams';
-import { toast } from 'sonner';
+import {createContext, useContext, useState, useEffect, useCallback} from 'react';
+import {useRouter, usePathname, useSearchParams} from 'next/navigation';
+import {useAuth} from './useAuth';
+import {Route, RouteType, RoutePermission, CreateRouteData, UpdateRouteData, RouteParams, RouteConfig} from '@/lib/types';
+import {fetchAPI} from '@/lib/api';
+import {useToast} from '@/hooks/useToast';
+import {routeComponents, checkRoutePermission, getRouteComponent} from '@/config/routes';
+import {useRouteCache} from './useRouteCache';
+import {useRoutePreload} from './useRoutePreload';
+import {useRouteHistory} from './useRouteHistory';
+import {useRouteAnalytics} from './useRouteAnalytics';
+import {useRouteOptimizer} from './useRouteOptimizer';
+import {useRouteMonitor} from '@/hooks/useRouteMonitor';
+import {useRouteParams} from '@/hooks/useRouteParams';
+import {toast} from 'sonner';
 
 interface RouteContextType {
     currentRoute?: RouteConfig;
@@ -90,20 +90,20 @@ interface RouteContextType {
 
 const RouteContext = createContext<RouteContextType | undefined>(undefined);
 
-export function RouteProvider({ children }: { children: React.ReactNode }) {
+export function RouteProvider({children}: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { user } = useAuth();
+    const {user} = useAuth();
     const [currentRoute, setCurrentRoute] = useState<RouteConfig>();
     const [params, setParams] = useState<RouteParams>({});
     const [userRoutes, setUserRoutes] = useState<Route[]>([]);
     const [familyRoutes, setFamilyRoutes] = useState<Route[]>([]);
     const [isLoadingUserRoutes, setIsLoadingUserRoutes] = useState(false);
     const [isLoadingFamilyRoutes, setIsLoadingFamilyRoutes] = useState(false);
-    const { showToast } = useToast();
-    const { getCachedRoute, cacheRoute, clearExpiredCache } = useRouteCache();
-    const { preloadRoute, preloadRoutes } = useRoutePreload();
+    const {showToast} = useToast();
+    const {getCachedRoute, cacheRoute, clearExpiredCache} = useRouteCache();
+    const {preloadRoute, preloadRoutes} = useRoutePreload();
     const {
         addToHistory,
         goBack,
@@ -124,7 +124,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         getPreheatStatus,
         getRoutePriority
     } = useRouteOptimizer();
-    const { saveParams, getParams, clearParams } = useRouteParams();
+    const {saveParams, getParams, clearParams} = useRouteParams();
 
     // 解析URL参数
     const parseUrlParams = useCallback((): RouteParams => {
@@ -158,7 +158,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
 
     // 更新参数
     const updateParams = useCallback((newParams: Partial<RouteParams>) => {
-        const updatedParams = { ...params, ...newParams };
+        const updatedParams = {...params, ...newParams};
         if (validateParams(updatedParams)) {
             const queryString = buildQueryString(updatedParams);
             router.push(`${pathname}${queryString ? `?${queryString}` : ''}`);
@@ -201,8 +201,8 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         if (!user) return;
         setIsLoadingUserRoutes(true);
         try {
-            const routes = await fetchAPI<Route[]>('/routes/user/routes');
-            setUserRoutes(routes);
+            const response = await fetchAPI<Route[]>('/routes/user/routes');
+            setUserRoutes(response.data);
         } catch (error) {
             console.error('获取用户路由失败:', error);
         } finally {
@@ -215,8 +215,8 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         if (!user) return;
         setIsLoadingFamilyRoutes(true);
         try {
-            const routes = await fetchAPI<Route[]>(`/routes/family/${familyId}/routes`);
-            setFamilyRoutes(routes);
+            const response = await fetchAPI<Route[]>(`/routes/family/${familyId}/routes`);
+            setFamilyRoutes(response.data);
         } catch (error) {
             console.error('获取家庭路由失败:', error);
         } finally {
@@ -251,15 +251,16 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
             } else {
                 fetchUserRoutes();
             }
-            return response.id;
+            showToast('路由创建成功', 'success');
+            return response.data.id;
         } catch (error) {
             console.error('创建路由失败:', error);
-            throw error;
+            showToast('创建路由失败', 'error');
         }
-    }, [user, fetchUserRoutes, fetchFamilyRoutes]);
+    }, [user, fetchFamilyRoutes, fetchUserRoutes, showToast]);
 
     // 更新路由
-    const updateRoute = useCallback(async ({ id, data }: { id: number, data: UpdateRouteData }) => {
+    const updateRoute = useCallback(async ({id, data}: { id: number, data: UpdateRouteData }) => {
         if (!user) return;
         try {
             await fetchAPI(`/api/routes/${id}`, {
@@ -296,10 +297,10 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
     // 获取权限选项
     const getPermissionOptions = useCallback(() => {
         return [
-            { key: RoutePermission.PUBLIC, label: '公开' },
-            { key: RoutePermission.PRIVATE, label: '私有' },
-            { key: RoutePermission.FAMILY, label: '家庭' },
-            { key: RoutePermission.ADMIN, label: '管理员' }
+            {key: RoutePermission.PUBLIC, label: '公开'},
+            {key: RoutePermission.PRIVATE, label: '私有'},
+            {key: RoutePermission.FAMILY, label: '家庭'},
+            {key: RoutePermission.ADMIN, label: '管理员'}
         ];
     }, []);
 
@@ -410,7 +411,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
     const getRoutePerformanceReport = useCallback(() => {
         const report = getPerformanceReport();
         // 添加缓存命中率和预热状态
-        const { preheated, preheating } = getPreheatStatus();
+        const {preheated, preheating} = getPreheatStatus();
         return {
             ...report,
             cacheHitRate: 0, // 这里可以计算实际的缓存命中率

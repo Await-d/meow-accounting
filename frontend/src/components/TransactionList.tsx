@@ -23,7 +23,7 @@ import {
 import { ArrowPathIcon, PencilIcon, TrashIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, EyeIcon, EyeSlashIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import dayjs from 'dayjs';
-import { useTransactions, useDeleteTransaction } from '@/lib/api';
+import { useTransactions, useDeleteTransaction } from '@/hooks/useTransactions';
 import { Transaction, TransactionFilter, TransactionType } from '@/lib/types';
 import { useToast } from './Toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,7 +59,7 @@ export default function TransactionList() {
 
     const filteredTransactions = useMemo(() => {
         if (!transactions) return [];
-        return transactions.filter(t => {
+        return transactions.filter((t: Transaction) => {
             // 根据filter实现过滤逻辑
             // 这里简化处理，可根据实际需求添加条件
             return true;

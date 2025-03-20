@@ -18,7 +18,7 @@ import {
     Input,
 } from '@nextui-org/react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
-import { useExportTransactions } from '@/lib/api';
+import { useExportTransactions } from '@/hooks/useTransactions';
 import { useToast } from './Toast';
 import dayjs from 'dayjs';
 

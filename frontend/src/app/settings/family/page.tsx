@@ -24,8 +24,11 @@ import {
     Tabs,
     Tab,
     Switch,
+    Divider,
+    Skeleton,
 } from '@nextui-org/react';
 import { PlusIcon, PencilIcon, TrashIcon, UserPlusIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { Save as SaveIcon } from 'lucide-react';
 import {
     useFamily,
     useCreateFamily,
@@ -34,16 +37,20 @@ import {
     useAddFamilyMember,
     useUpdateMemberRole,
     useRemoveFamilyMember,
+    useDeleteInvitation,
     useFamilyInvitations,
-    useDeleteInvitation
+    Family,
+    FamilyMember,
+    FamilyInvitation
 } from '@/hooks/useFamily';
 import { useToast } from '@/components/Toast';
-import { Family, FamilyMember } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import Skeleton from '@/components/Skeleton';
-import InvitationList from '@/components/InvitationList';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchAPI } from '@/lib/api';
+import { useFamilySettings, FamilySettings } from '@/hooks/useFamilySettings';
+import { useRoles, Role, Permission } from '@/hooks/useRoles';
+import RoleEditModal from '@/components/RoleEditModal';
+import InvitationList from '@/components/InvitationList';
 
 export default function FamilyPage() {
     const { families, members, isLoading, currentFamily, setCurrentFamily } = useFamily();
@@ -53,13 +60,21 @@ export default function FamilyPage() {
     const { mutate: updateFamily } = useUpdateFamily();
     const { mutate: deleteFamily } = useDeleteFamily();
     const { mutate: addMember, data: inviteData } = useAddFamilyMember();
-    const { mutate: updateRole } = useUpdateMemberRole();
+    const { mutate: updateMemberRole } = useUpdateMemberRole();
     const { mutate: removeMember } = useRemoveFamilyMember();
     const { mutate: deleteInvitation } = useDeleteInvitation();
     const { isOpen, onOpen, onClose } = useDisclosure();
     const { isOpen: isDeleteOpen, onOpen: onOpenDelete, onClose: onCloseDelete } = useDisclosure();
     const { isOpen: isMemberOpen, onOpen: onOpenMember, onClose: onCloseMember } = useDisclosure();
     const [selectedFamily, setSelectedFamily] = useState<Family | null>(null);
+    const { settings: familySettings, isLoading: isLoadingSettings, updateSettings } = useFamilySettings(currentFamily?.id);
+    const [settingsForm, setSettingsForm] = useState<FamilySettings>({
+        defaultSharedBooks: false,
+        expenseLimitAlert: false,
+        newMemberNotification: true,
+        largeExpenseNotification: true,
+        budgetOverspendingNotification: true
+    });
     const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
     const [formData, setFormData] = useState<Partial<Family>>({
         name: '',
@@ -78,6 +93,9 @@ export default function FamilyPage() {
     const [activeTab, setActiveTab] = useState<string>("members");
     const [mainTab, setMainTab] = useState<string>("families");
     const queryClient = useQueryClient();
+    const { roles, permissions, isLoading: isLoadingRoles, createRole, updateRole, deleteRole } = useRoles(currentFamily?.id);
+    const [selectedRole, setSelectedRole] = useState<Role | undefined>(undefined);
+    const { isOpen: isRoleModalOpen, onOpen: onOpenRoleModal, onClose: onCloseRoleModal } = useDisclosure();
 
     // 判断当前用户是否是管理员
     const isAdmin = useMemo(() => {
@@ -104,6 +122,27 @@ export default function FamilyPage() {
     useEffect(() => {
         console.log('收到的邀请数据:', userInvitations);
     }, [userInvitations]);
+
+    // 当获取到设置时更新表单
+    useEffect(() => {
+        if (familySettings) {
+            setSettingsForm(familySettings);
+        }
+    }, [familySettings]);
+
+    // 处理设置变更
+    const handleSettingChange = (key: keyof FamilySettings, value: boolean) => {
+        setSettingsForm(prev => ({
+            ...prev,
+            [key]: value
+        }));
+    };
+
+    // 保存设置
+    const handleSaveSettings = () => {
+        if (!currentFamily) return;
+        updateSettings(settingsForm);
+    };
 
     const handleSubmit = () => {
         if (!formData.name) {
@@ -185,13 +224,9 @@ export default function FamilyPage() {
         }
     };
 
-    const handleUpdateRole = (member: FamilyMember, role: 'admin' | 'member') => {
+    const handleRoleChange = async (memberId: number, newRole: 'admin' | 'member') => {
         if (!currentFamily) return;
-        updateRole({
-            familyId: currentFamily.id,
-            memberId: member.id,
-            role,
-        });
+        updateMemberRole({ familyId: currentFamily.id, memberId, role: newRole });
     };
 
     const handleRemoveMember = (member: FamilyMember) => {
@@ -280,6 +315,53 @@ export default function FamilyPage() {
             showToast('拒绝邀请失败', 'error');
         }
     };
+
+    // 处理角色相关操作
+    const handleCreateRole = () => {
+        setSelectedRole(undefined);
+        onOpenRoleModal();
+    };
+
+    const handleEditRole = (role: Role) => {
+        setSelectedRole(role);
+        onOpenRoleModal();
+    };
+
+    const handleDeleteRole = (role: Role) => {
+        if (confirm(`确定要删除角色 "${role.name}" 吗？`)) {
+            deleteRole(role.id);
+        }
+    };
+
+    const handleRoleSubmit = (data: { name: string; description: string; permissions: string[] }) => {
+        if (selectedRole) {
+            updateRole({
+                roleId: selectedRole.id,
+                data: {
+                    name: data.name,
+                    description: data.description,
+                    permissions: data.permissions.map(code => ({
+                        id: 0, // 这个ID会被后端忽略
+                        code,
+                        name: permissions?.find(p => p.code === code)?.name || '',
+                        description: permissions?.find(p => p.code === code)?.description || ''
+                    }))
+                }
+            });
+        } else {
+            createRole(data);
+        }
+        onCloseRoleModal();
+    };
+
+    // 修复 Skeleton 组件的使用
+    const renderLoadingSkeleton = () => (
+        <div className="space-y-4">
+            <Skeleton className="h-16 rounded-lg" />
+            <Skeleton className="h-16 rounded-lg" />
+            <Skeleton className="h-16 rounded-lg" />
+        </div>
+    );
 
     if (isLoading) {
         return <Skeleton type="table" />;
@@ -536,8 +618,8 @@ export default function FamilyPage() {
                                                                             aria-label="修改角色"
                                                                             selectedKeys={[member.role]}
                                                                             onChange={(e) =>
-                                                                                handleUpdateRole(
-                                                                                    member,
+                                                                                handleRoleChange(
+                                                                                    member.id,
                                                                                     e.target.value as 'admin' | 'member'
                                                                                 )
                                                                             }
@@ -585,6 +667,199 @@ export default function FamilyPage() {
                                                     onDelete={isAdmin ? handleDeleteInvitation : undefined}
                                                 />
                                             )}
+                                        </div>
+                                    </Tab>
+                                    <Tab key="roles" title="角色权限">
+                                        <div className="mt-4">
+                                            <Card>
+                                                <CardBody>
+                                                    <div className="space-y-6">
+                                                        <div className="flex justify-between items-center">
+                                                            <div>
+                                                                <h3 className="text-lg font-semibold">角色权限设置</h3>
+                                                                <p className="text-sm text-default-500">管理家庭成员的角色和权限</p>
+                                                            </div>
+                                                            {isAdmin && (
+                                                                <Button
+                                                                    color="primary"
+                                                                    size="sm"
+                                                                    startContent={<PlusIcon className="h-4 w-4" />}
+                                                                    onPress={handleCreateRole}
+                                                                >
+                                                                    添加角色
+                                                                </Button>
+                                                            )}
+                                                        </div>
+
+                                                        {isLoadingRoles ? renderLoadingSkeleton() : (
+                                                            <div className="space-y-4">
+                                                                {roles?.map((role) => (
+                                                                    <div key={role.id} className="border rounded-lg p-4">
+                                                                        <div className="flex justify-between items-start mb-3">
+                                                                            <div>
+                                                                                <h4 className="font-medium">{role.name}</h4>
+                                                                                <p className="text-sm text-default-500">{role.description}</p>
+                                                                            </div>
+                                                                            {isAdmin && !role.isSystem && (
+                                                                                <div className="flex gap-2">
+                                                                                    <Button
+                                                                                        isIconOnly
+                                                                                        size="sm"
+                                                                                        variant="light"
+                                                                                        color="primary"
+                                                                                        onPress={() => handleEditRole(role)}
+                                                                                        className="rounded-full"
+                                                                                    >
+                                                                                        <PencilIcon className="h-4 w-4" />
+                                                                                    </Button>
+                                                                                    <Button
+                                                                                        isIconOnly
+                                                                                        size="sm"
+                                                                                        variant="light"
+                                                                                        color="danger"
+                                                                                        onPress={() => handleDeleteRole(role)}
+                                                                                        className="rounded-full"
+                                                                                    >
+                                                                                        <TrashIcon className="h-4 w-4" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                                            {role.permissions.map((permission) => (
+                                                                                <Chip
+                                                                                    key={permission.code}
+                                                                                    color={role.isSystem ? "warning" : "primary"}
+                                                                                    variant="flat"
+                                                                                    size="sm"
+                                                                                >
+                                                                                    {permission.name}
+                                                                                </Chip>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </CardBody>
+                                            </Card>
+                                        </div>
+                                    </Tab>
+                                    <Tab key="settings" title="家庭设置">
+                                        <div className="mt-4">
+                                            <Card>
+                                                <CardBody>
+                                                    <div className="space-y-6">
+                                                        <div>
+                                                            <h3 className="text-lg font-semibold">基本设置</h3>
+                                                            <div className="mt-4 space-y-4">
+                                                                <Input
+                                                                    label="家庭名称"
+                                                                    value={formData.name}
+                                                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                                    variant="bordered"
+                                                                    isDisabled={!isAdmin}
+                                                                />
+                                                                <Input
+                                                                    label="家庭描述"
+                                                                    value={formData.description}
+                                                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                                                    variant="bordered"
+                                                                    isDisabled={!isAdmin}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <Divider />
+
+                                                        <div>
+                                                            <h3 className="text-lg font-semibold">账本设置</h3>
+                                                            <div className="mt-4 space-y-4">
+                                                                <div className="flex justify-between items-center">
+                                                                    <div>
+                                                                        <p className="font-medium">默认共享账本</p>
+                                                                        <p className="text-sm text-default-500">新成员加入时自动共享的账本</p>
+                                                                    </div>
+                                                                    <Switch
+                                                                        isSelected={settingsForm.defaultSharedBooks}
+                                                                        onValueChange={(value) => handleSettingChange('defaultSharedBooks', value)}
+                                                                        isDisabled={!isAdmin}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex justify-between items-center">
+                                                                    <div>
+                                                                        <p className="font-medium">支出限额提醒</p>
+                                                                        <p className="text-sm text-default-500">成员超出支出限额时发送提醒</p>
+                                                                    </div>
+                                                                    <Switch
+                                                                        isSelected={settingsForm.expenseLimitAlert}
+                                                                        onValueChange={(value) => handleSettingChange('expenseLimitAlert', value)}
+                                                                        isDisabled={!isAdmin}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <Divider />
+
+                                                        <div>
+                                                            <h3 className="text-lg font-semibold">通知设置</h3>
+                                                            <div className="mt-4 space-y-4">
+                                                                <div className="flex justify-between items-center">
+                                                                    <div>
+                                                                        <p className="font-medium">新成员加入通知</p>
+                                                                        <p className="text-sm text-default-500">有新成员加入时通知所有成员</p>
+                                                                    </div>
+                                                                    <Switch
+                                                                        isSelected={settingsForm.newMemberNotification}
+                                                                        onValueChange={(value) => handleSettingChange('newMemberNotification', value)}
+                                                                        isDisabled={!isAdmin}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex justify-between items-center">
+                                                                    <div>
+                                                                        <p className="font-medium">大额支出通知</p>
+                                                                        <p className="text-sm text-default-500">发生大额支出时通知管理员</p>
+                                                                    </div>
+                                                                    <Switch
+                                                                        isSelected={settingsForm.largeExpenseNotification}
+                                                                        onValueChange={(value) => handleSettingChange('largeExpenseNotification', value)}
+                                                                        isDisabled={!isAdmin}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex justify-between items-center">
+                                                                    <div>
+                                                                        <p className="font-medium">预算超支通知</p>
+                                                                        <p className="text-sm text-default-500">预算超支时通知相关成员</p>
+                                                                    </div>
+                                                                    <Switch
+                                                                        isSelected={settingsForm.budgetOverspendingNotification}
+                                                                        onValueChange={(value) => handleSettingChange('budgetOverspendingNotification', value)}
+                                                                        isDisabled={!isAdmin}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {isAdmin && (
+                                                            <>
+                                                                <Divider />
+                                                                <div className="flex justify-end">
+                                                                    <Button
+                                                                        color="primary"
+                                                                        startContent={<SaveIcon className="h-4 w-4" />}
+                                                                        onPress={handleSaveSettings}
+                                                                        isLoading={isLoadingSettings}
+                                                                    >
+                                                                        保存设置
+                                                                    </Button>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </CardBody>
+                                            </Card>
                                         </div>
                                     </Tab>
                                 </Tabs>
@@ -950,6 +1225,16 @@ export default function FamilyPage() {
                     </ModalFooter>
                 </ModalContent>
             </Modal>
+
+            {/* 添加角色编辑模态框 */}
+            <RoleEditModal
+                isOpen={isRoleModalOpen}
+                onClose={onCloseRoleModal}
+                onSubmit={handleRoleSubmit}
+                role={selectedRole}
+                permissions={permissions}
+                isLoading={isLoadingRoles}
+            />
         </div>
     );
 } 

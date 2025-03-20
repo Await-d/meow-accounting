@@ -16,7 +16,8 @@ import {
 import { Calendar, DollarSign, Tag, FileText, ChevronDown } from 'lucide-react';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Category, Transaction, TransactionType } from '@/lib/types';
-import { useCategories, createTransaction, updateTransaction } from '@/lib/api';
+import { useCategories } from '@/hooks/useCategories';
+import { useCreateTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
 import { format } from 'date-fns';
 import dayjs from 'dayjs';
 
@@ -113,7 +114,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     }, [isOpen, transaction, type, familyId]);
 
     const handleInputChange = useCallback((field: string, value: any) => {
-        setFormData(prev => ({
+        setFormData((prev: TransactionFormData) => ({
             ...prev,
             [field]: value
         }));
@@ -150,7 +151,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             };
 
             if (transaction?.id) {
-                await updateTransaction(transaction.id, {
+                await useUpdateTransaction(transaction.id, {
                     ...data,
                     id: transaction.id
                 });
@@ -159,7 +160,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     variant: 'success'
                 });
             } else {
-                await createTransaction(data);
+                await useCreateTransaction(data);
                 toast({
                     title: '交易已创建',
                     variant: 'success'
@@ -230,7 +231,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 placeholder="0.00"
                                 startContent={<DollarSign size={16} />}
                                 value={formData.amount?.toString() || ''}
-                                onChange={(e) => handleInputChange('amount', parseFloat(e.target.value) || 0)}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('amount', parseFloat(e.target.value) || 0)}
                             />
 
                             <div className="flex items-center gap-2">
@@ -247,7 +248,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 placeholder="选择分类"
                                 selectedKeys={formData.categoryId ? [formData.categoryId] : []}
                                 startContent={<Tag size={16} />}
-                                onChange={(e) => handleInputChange('categoryId', e.target.value)}
+                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('categoryId', e.target.value)}
                             >
                                 {filteredCategories.map((category: Category) => (
                                     <SelectItem
@@ -264,7 +265,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 placeholder="添加备注信息"
                                 startContent={<FileText size={16} />}
                                 value={formData.note || ''}
-                                onChange={(e) => handleInputChange('note', e.target.value)}
+                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('note', e.target.value)}
                             />
                         </ModalBody>
                         <ModalFooter>

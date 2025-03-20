@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { Card, CardBody, Button, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { useFamily } from '@/hooks/useFamily';
-import { getFamilyMembers, getFamilyInvitations, inviteMember, removeFamilyMember, updateMemberRole, cancelInvitation } from '@/lib/api';
+import { useFamily, FamilyMember as FamilyMemberType, FamilyInvitation } from '@/hooks/useFamily';
+import { fetchAPI } from '@/lib/api';
+import { useQuery } from 'react-query';
 
 interface FamilyMember {
     id: number;
@@ -32,42 +33,56 @@ export default function FamilySettings() {
     const [newMemberEmail, setNewMemberEmail] = useState('');
     const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
     const [isLoading, setIsLoading] = useState(false);
-    const { currentFamily } = useFamily();
+    const {
+        currentFamily,
+        useFamilyInvitations,
+        useAddFamilyMember,
+        useRemoveFamilyMember,
+        useUpdateMemberRole,
+        useDeleteInvitation
+    } = useFamily();
+
+    const { data: familyMembers } = useQuery(['familyMembers', currentFamily?.id],
+        async () => {
+            if (!currentFamily?.id) return [];
+            const response = await fetchAPI<FamilyMemberType[]>(`/families/${currentFamily.id}/members`);
+            return response.data;
+        },
+        { enabled: !!currentFamily?.id }
+    );
+
+    const { data: familyInvitations } = useFamilyInvitations(currentFamily?.id);
+    const addMemberMutation = useAddFamilyMember();
+    const removeMemberMutation = useRemoveFamilyMember();
+    const updateRoleMutation = useUpdateMemberRole();
+    const deleteInvitationMutation = useDeleteInvitation();
 
     // 加载家庭成员
     useEffect(() => {
-        if (currentFamily?.id) {
-            const loadMembers = async () => {
-                try {
-                    const data = await getFamilyMembers(currentFamily.id);
-                    setMembers(data.map(member => ({
-                        ...member,
-                        joined_at: member.created_at || new Date().toISOString()
-                    })));
-                } catch (error) {
-                    toast.error('加载家庭成员失败');
-                    console.error('加载家庭成员失败:', error);
-                }
-            };
-            loadMembers();
+        if (familyMembers) {
+            setMembers(familyMembers.map((member: FamilyMemberType) => ({
+                id: member.userId || member.id,
+                username: member.name,
+                email: member.email,
+                role: member.role,
+                joined_at: member.joinedAt || new Date().toISOString()
+            })));
         }
-    }, [currentFamily?.id]);
+    }, [familyMembers]);
 
     // 加载邀请记录
     useEffect(() => {
-        if (currentFamily?.id) {
-            const loadInvitations = async () => {
-                try {
-                    const data = await getFamilyInvitations(currentFamily.id);
-                    setInvitations(data);
-                } catch (error) {
-                    toast.error('加载邀请记录失败');
-                    console.error('加载邀请记录失败:', error);
-                }
-            };
-            loadInvitations();
+        if (familyInvitations) {
+            setInvitations(familyInvitations.map((invitation: FamilyInvitation) => ({
+                id: invitation.id,
+                email: invitation.email,
+                role: invitation.role,
+                status: 'pending',
+                expires_at: invitation.expiresAt,
+                created_at: invitation.createdAt
+            })));
         }
-    }, [currentFamily?.id]);
+    }, [familyInvitations]);
 
     // 邀请新成员
     const handleInvite = async () => {
@@ -83,17 +98,17 @@ export default function FamilySettings() {
 
         setIsLoading(true);
         try {
-            await inviteMember(currentFamily.id, {
-                email: newMemberEmail,
-                role: newMemberRole
+            await addMemberMutation.mutateAsync({
+                familyId: currentFamily.id,
+                data: {
+                    email: newMemberEmail,
+                    role: newMemberRole
+                }
             });
+
             toast.success('邀请已发送');
             setNewMemberEmail('');
             onClose();
-
-            // 重新加载邀请记录
-            const data = await getFamilyInvitations(currentFamily.id);
-            setInvitations(data);
         } catch (error) {
             toast.error('邀请发送失败');
             console.error('邀请发送失败:', error);
@@ -107,7 +122,10 @@ export default function FamilySettings() {
         if (!currentFamily?.id) return;
 
         try {
-            await removeFamilyMember(currentFamily.id, memberId);
+            await removeMemberMutation.mutateAsync({
+                familyId: currentFamily.id,
+                memberId
+            });
             setMembers(members.filter(member => member.id !== memberId));
             toast.success('成员已移除');
         } catch (error) {
@@ -121,7 +139,12 @@ export default function FamilySettings() {
         if (!currentFamily?.id) return;
 
         try {
-            await updateMemberRole(currentFamily.id, memberId, newRole);
+            await updateRoleMutation.mutateAsync({
+                familyId: currentFamily.id,
+                memberId,
+                role: newRole
+            });
+
             setMembers(members.map(member =>
                 member.id === memberId ? { ...member, role: newRole } : member
             ));
@@ -137,7 +160,11 @@ export default function FamilySettings() {
         if (!currentFamily?.id) return;
 
         try {
-            await cancelInvitation(currentFamily.id, invitationId);
+            await deleteInvitationMutation.mutateAsync({
+                familyId: currentFamily.id,
+                invitationId
+            });
+
             setInvitations(invitations.filter(inv => inv.id !== invitationId));
             toast.success('邀请已取消');
         } catch (error) {

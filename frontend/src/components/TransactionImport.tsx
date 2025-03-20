@@ -18,7 +18,7 @@ import {
     Input,
 } from '@nextui-org/react';
 import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
-import { useImportTransactions } from '@/lib/api';
+import { useImportTransactions } from '@/hooks/useTransactions';
 import { useToast } from './Toast';
 
 interface TransactionImportProps {

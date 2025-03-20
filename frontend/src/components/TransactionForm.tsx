@@ -1,8 +1,9 @@
 'use client';
 
 import { Button, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from "@nextui-org/react";
-import { useCategories, useCreateTransaction, useUpdateTransaction } from '@/lib/api';
-import type { Transaction, CreateTransactionData, UpdateTransactionData } from '@/lib/types';
+import { useCategories } from '@/hooks/useCategories';
+import { useCreateTransaction, useUpdateTransaction } from '@/hooks/useTransactions';
+import type { Transaction, CreateTransactionData, UpdateTransactionData, Category } from '@/lib/types';
 import { useToast } from './Toast';
 import { useState, useEffect } from 'react';
 
@@ -24,7 +25,7 @@ const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps)
     const createTransaction = useCreateTransaction();
     const updateTransaction = useUpdateTransaction();
 
-    const filteredCategories = categories.filter(cat => cat.type === transactionType);
+    const filteredCategories = categories.filter((cat: Category) => cat.type === transactionType);
 
     // 当编辑模式下，填充表单数据
     useEffect(() => {
@@ -58,7 +59,7 @@ const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps)
             return;
         }
 
-        const selectedCategory = categories.find(cat => cat.id.toString() === categoryId);
+        const selectedCategory = categories.find((cat: Category) => cat.id.toString() === categoryId);
         if (!selectedCategory) {
             showToast('请选择有效的分类', 'error');
             return;
@@ -139,7 +140,7 @@ const TransactionForm = ({ isOpen, onClose, transaction }: TransactionFormProps)
                                 aria-label="选择交易分类"
                                 errorMessage={filteredCategories.length === 0 && !isLoadingCategories ? "请先选择一个家庭并添加分类" : undefined}
                             >
-                                {filteredCategories.map((category) => (
+                                {filteredCategories.map((category: Category) => (
                                     <SelectItem
                                         key={category.id.toString()}
                                         value={category.id.toString()}

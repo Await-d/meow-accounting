@@ -5,16 +5,16 @@
  * @LastEditTime: 2025-03-15 15:59:04
  * @Description: 请填写简介
  */
-import { useState, useEffect, useRef } from 'react';
-import { Account } from '@/lib/types';
-import { fetchAPI } from '@/lib/api';
-import { useAuth } from './useAuth';
+import {useState, useEffect, useRef} from 'react';
+import {Account} from '@/lib/types';
+import {fetchAPI} from '@/lib/api';
+import {useAuth} from './useAuth';
 
 export function useAccounts() {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
-    const { user } = useAuth();
+    const {user} = useAuth();
     const requestAttempted = useRef(false);
 
     useEffect(() => {
@@ -40,7 +40,7 @@ export function useAccounts() {
                     url += `?user_id=${user.id}`;
                 }
                 const data = await fetchAPI<Account[]>(url);
-                setAccounts(data);
+                setAccounts(data.data);
                 setError(null);
             } catch (err) {
                 console.error('获取账户失败', err);
@@ -62,5 +62,5 @@ export function useAccounts() {
         }
     }, [user]);
 
-    return { accounts, isLoading, error };
-} 
+    return {accounts, isLoading, error};
+}

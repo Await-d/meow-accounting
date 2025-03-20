@@ -22,7 +22,7 @@ import {
     Legend,
     ChartData,
 } from 'chart.js';
-import { useCategoryStats } from '@/lib/api';
+import { useCategoryStats } from '@/hooks/useCategoryStats';
 import { useAuth } from '@/hooks/useAuth';
 import { CategoryStats as CategoryStatsType, TimeRange } from '@/lib/types';
 import Skeleton from './Skeleton';
@@ -103,7 +103,7 @@ export default function CategoryStats({
     const filteredStats = useMemo(() => {
         if (!stats) return [];
 
-        const filtered = stats.filter(item => item.type === type);
+        const filtered = stats.filter((item: CategoryStatsType) => item.type === type);
 
         return [...filtered].sort((a, b) => {
             if (sortBy === 'amount') {

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Card, CardBody, CardHeader, Divider, Skeleton, Button, Spinner } from '@nextui-org/react';
 import { DollarSign, AlertCircle, RefreshCw, Wallet } from 'lucide-react';
 import { Transaction } from '@/lib/types';
-import { useAccounts } from '@/lib/api';
+import { useAccounts } from '@/hooks/useAccounts';
 
 interface AccountsSummaryProps {
   transactions: Transaction[];
@@ -11,7 +11,7 @@ interface AccountsSummaryProps {
 }
 
 const AccountsSummary: React.FC<AccountsSummaryProps> = ({
-  transactions,
+  transactions = [],
   isLoading = false,
   isPersonalMode = false
 }) => {
@@ -20,14 +20,14 @@ const AccountsSummary: React.FC<AccountsSummaryProps> = ({
   // 计算总收入和支出
   const incomeTotal = useMemo(() => {
     if (!transactions?.length) return 0;
-    return transactions.filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+    return transactions.filter((t: Transaction) => t.type === 'income')
+      .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
   }, [transactions]);
 
   const expenseTotal = useMemo(() => {
     if (!transactions?.length) return 0;
-    return transactions.filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+    return transactions.filter((t: Transaction) => t.type === 'expense')
+      .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
   }, [transactions]);
 
   const totalBalance = useMemo(() => {

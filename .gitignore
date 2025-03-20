@@ -55,5 +55,6 @@ next-env.d.ts
 
 # 本地文件
 TODO.md
-NOTES.md 
+NOTES.md
 /backend/database/bill.db
+/*/pnpm-lock.yaml

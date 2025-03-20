@@ -2,20 +2,53 @@
  * @Author: Await
  * @Date: 2025-03-05 19:26:06
  * @LastEditors: Await
- * @LastEditTime: 2025-03-15 20:30:39
+ * @LastEditTime: 2025-03-19 20:15:53
  * @Description: 请填写简介
  */
 'use client';
 
-import {createContext, useContext, useState, useEffect, type ReactNode} from 'react';
-import {useRouter} from 'next/navigation';
-import {useToast} from '@/components/Toast';
-import {login as apiLogin, register as apiRegister, verifyGuestPassword, updateUserSettings} from '@/lib/api';
-import {getToken, setToken, removeToken} from '@/utils/auth';
-import {jwtDecode} from 'jwt-decode';
-import type {User, UserSettings, RouteType} from '@/lib/types';
-import {RoutePermission} from '@/lib/types';
-import {checkRoutePermission, getRouteComponent} from '@/config/routes';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/Toast';
+import { fetchAPI } from '@/lib/api';
+import { getToken, setToken, removeToken } from '@/utils/auth';
+import { jwtDecode } from 'jwt-decode';
+import type { User, UserSettings, RouteType } from '@/lib/types';
+import { RoutePermission } from '@/lib/types';
+import { checkRoutePermission, getRouteComponent } from '@/config/routes';
+
+// API调用方法
+const apiLogin = async (data: { email: string; password: string }) => {
+    const response = await fetchAPI<{ token: string; user: User }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+    return response.data;
+};
+
+const apiRegister = async (data: { username: string; email: string; password: string }) => {
+    const response = await fetchAPI<{ token: string; user: User }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+    return response.data;
+};
+
+const verifyGuestPassword = async (password: string) => {
+    const response = await fetchAPI<void>('/auth/verify-guest', {
+        method: 'POST',
+        body: JSON.stringify({ password })
+    });
+    return response.data;
+};
+
+const updateUserSettings = async (settings: UserSettings) => {
+    const response = await fetchAPI<User>('/user/settings', {
+        method: 'PATCH',
+        body: JSON.stringify(settings)
+    });
+    return response.data;
+};
 
 interface AuthContextType {
     user: User | null;
@@ -38,12 +71,12 @@ interface AuthProviderProps {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({children}: AuthProviderProps) {
+export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<User | null>(null);
     const [isGuest, setIsGuest] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-    const {showToast} = useToast();
+    const { showToast } = useToast();
 
     // 更新用户信息
     const updateUser = (updatedUser: User) => {
@@ -149,7 +182,7 @@ export function AuthProvider({children}: AuthProviderProps) {
     // 登录
     const login = async (email: string, password: string) => {
         try {
-            const {token, user} = await apiLogin({email, password});
+            const { token, user } = await apiLogin({ email, password });
             setToken(token);
             setUser(user);
             setIsGuest(false);
@@ -169,7 +202,7 @@ export function AuthProvider({children}: AuthProviderProps) {
     // 注册
     const register = async (data: { username: string; email: string; password: string }) => {
         try {
-            const {token, user} = await apiRegister(data);
+            const { token, user } = await apiRegister(data);
             setToken(token);
             setUser(user);
             setIsGuest(false);

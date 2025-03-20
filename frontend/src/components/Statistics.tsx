@@ -30,7 +30,7 @@ import {
     ArcElement,
 } from 'chart.js';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
-import { useStatistics } from '@/lib/api';
+import { useStatistics } from '@/hooks/useStatistics';
 import { useToast } from './Toast';
 import { Statistics as StatisticsType } from '@/lib/types';
 import { APIError } from '@/lib/types';
@@ -64,6 +64,21 @@ const CHART_COLORS = {
     }
 };
 
+// 定义ChartItem和DetailItem类型，用于表示statistics.chart和statistics.details中的项
+interface ChartItem {
+    date: string;
+    income: number;
+    expense: number;
+}
+
+interface DetailItem {
+    category_name: string;
+    category_icon: string;
+    type: 'income' | 'expense';
+    transaction_count: number;
+    total_amount: number;
+}
+
 export default function Statistics() {
     const [timeRange, setTimeRange] = useState<'month' | 'quarter' | 'year'>('month');
     const { data: statistics, isLoading, error } = useStatistics(timeRange);
@@ -92,16 +107,16 @@ export default function Statistics() {
 
         const { details } = statistics;
         const headers = ['分类', '类型', '交易次数', '总金额'];
-        const rows = details.map(d => [
+        const rows = details.map((d: DetailItem) => [
             d.category_name,
             d.type === 'income' ? '收入' : '支出',
-            d.transaction_count,
+            d.transaction_count.toString(),
             d.total_amount.toFixed(2)
         ]);
 
         const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.join(','))
+            ...rows.map((row) => row.join(','))
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -133,7 +148,7 @@ export default function Statistics() {
     }
 
     const chartData = {
-        labels: statistics.chart.map(item => {
+        labels: statistics.chart.map((item: ChartItem) => {
             // 根据时间范围格式化日期标签
             const date = dayjs(item.date);
             if (timeRange === 'month') {
@@ -147,7 +162,7 @@ export default function Statistics() {
         datasets: [
             {
                 label: '收入',
-                data: statistics.chart.map(item => item.income),
+                data: statistics.chart.map((item: ChartItem) => item.income),
                 borderColor: CHART_COLORS.income.main,
                 backgroundColor: chartType === 'line' ? CHART_COLORS.income.bg : CHART_COLORS.income.main,
                 tension: 0.4,
@@ -156,7 +171,7 @@ export default function Statistics() {
             },
             {
                 label: '支出',
-                data: statistics.chart.map(item => item.expense),
+                data: statistics.chart.map((item: ChartItem) => item.expense),
                 borderColor: CHART_COLORS.expense.main,
                 backgroundColor: chartType === 'line' ? CHART_COLORS.expense.bg : CHART_COLORS.expense.main,
                 tension: 0.4,
@@ -256,11 +271,11 @@ export default function Statistics() {
         return Math.round((value / total) * 100);
     };
 
-    const incomeTrend = statistics.chart.map(item => item.income);
-    const expenseTrend = statistics.chart.map(item => item.expense);
+    const incomeTrend = statistics.chart.map((item: ChartItem) => item.income);
+    const expenseTrend = statistics.chart.map((item: ChartItem) => item.expense);
 
-    const avgIncome = incomeTrend.reduce((sum, val) => sum + val, 0) / incomeTrend.length || 0;
-    const avgExpense = expenseTrend.reduce((sum, val) => sum + val, 0) / expenseTrend.length || 0;
+    const avgIncome = incomeTrend.reduce((sum: number, val: number) => sum + val, 0) / incomeTrend.length || 0;
+    const avgExpense = expenseTrend.reduce((sum: number, val: number) => sum + val, 0) / expenseTrend.length || 0;
 
     // 计算收支比率
     const incomePercentage = calculatePercentage(statistics.total_income, statistics.total_income + statistics.total_expense);
@@ -401,7 +416,7 @@ export default function Statistics() {
                         <TableColumn>总金额</TableColumn>
                     </TableHeader>
                     <TableBody emptyContent="暂无数据">
-                        {statistics.details.map((detail) => (
+                        {statistics.details.map((detail: DetailItem) => (
                             <TableRow key={`${detail.category_name}-${detail.type}`} className="border-b hover:bg-default-100">
                                 <TableCell>
                                     <div className="flex items-center gap-2">

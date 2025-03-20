@@ -2,7 +2,7 @@
  * @Author: Await
  * @Date: 2025-03-10 19:42:20
  * @LastEditors: Await
- * @LastEditTime: 2025-03-16 20:21:48
+ * @LastEditTime: 2025-03-20 19:04:22
  * @Description: 仪表盘页面
  */
 "use client";
@@ -32,10 +32,13 @@ import {
 } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoute } from '@/hooks/useRoute';
-import { useStatistics, useCategoryStats, useDeleteTransaction, getTransactions } from '@/lib/api';
+import { useStatistics } from '@/hooks/useStatistics';
+import { useCategoryStats } from '@/hooks/useCategoryStats';
+import { useDeleteTransaction } from '@/hooks/useTransactions';
+import { Transaction, TransactionType, CategoryStats } from '@/lib/types';
+import { fetchAPI } from '@/lib/api';
 import { ArrowUpRight, ArrowDownRight, Plus, RefreshCw, Download, Users, ChevronDown, TrendingUp, Pencil, Trash2 } from 'lucide-react';
 import dayjs from 'dayjs';
-import { Transaction, TransactionType } from '@/lib/types';
 import StatisticsCard from '@/components/dashboard/StatisticsCard';
 import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
 import CategoryPieChart from '@/components/dashboard/CategoryPieChart';
@@ -57,6 +60,25 @@ const DashboardBackground = dynamic(
     { ssr: false }
 );
 
+// getTransactions方法实现
+const getTransactions = async (params?: Record<string, string>, options?: { pageSize?: number }) => {
+    let queryString = '';
+
+    if (params) {
+        const urlParams = new URLSearchParams();
+        for (const [key, value] of Object.entries(params)) {
+            urlParams.append(key, value);
+        }
+        queryString = `?${urlParams.toString()}`;
+    }
+
+    if (options?.pageSize) {
+        queryString += queryString ? `&pageSize=${options.pageSize}` : `?pageSize=${options.pageSize}`;
+    }
+
+    const response = await fetchAPI<Transaction[]>(`/transactions${queryString}`);
+    return response.data;
+};
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -100,22 +122,19 @@ export default function DashboardPage() {
     }, []);
 
     // 获取统计数据 - 根据个人/家庭模式传递不同参数
-    const { data: statistics, isLoading: statsLoading, refetch: refetchStats } = useStatistics(
+    const { data: statistics, isLoading: statsLoading } = useStatistics(
         timeRange,
         isPersonalMode && typeof user?.id === 'number' ? user.id : undefined,
         !isPersonalMode && currentFamily ? currentFamily.id : undefined
     );
 
     // 获取分类统计 - 根据个人/家庭模式传递不同参数
-    const { data: categoryStats, isLoading: categoryLoading, refetch: refetchCategoryStats } = useCategoryStats(
-        timeRange,
-        isPersonalMode ? user?.id : undefined,
-        !isPersonalMode && currentFamily ? currentFamily.id : undefined
+    const { data: categoryStats, isLoading: categoryLoading } = useCategoryStats(
+        timeRange
     );
+
     // 刷新所有数据
     const refreshAllData = () => {
-        refetchStats();
-        refetchCategoryStats();
         fetchTransactions();
     };
 
@@ -705,7 +724,23 @@ export default function DashboardPage() {
                             </p>
                         </CardHeader>
                         <CardBody className="py-5 h-80">
-                            <CategoryPieChart data={categoryStats} isLoading={categoryLoading} />
+                            <CategoryPieChart
+                                data={categoryStats ? [
+                                    {
+                                        type: 'expense',
+                                        categories: categoryStats
+                                            .filter(stat => stat.type === 'expense')
+                                            .map(stat => ({
+                                                id: stat.id || 0,
+                                                name: stat.name || '未分类',
+                                                amount: stat.amount || 0,
+                                                count: 1,
+                                                color: stat.color
+                                            }))
+                                    }
+                                ] : null}
+                                isLoading={categoryLoading}
+                            />
                         </CardBody>
                     </Card>
                 </motion.div>

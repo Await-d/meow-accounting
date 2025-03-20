@@ -15,10 +15,18 @@ import {
     useDisclosure,
     Input
 } from '@nextui-org/react';
-import { useFamily } from '@/hooks/useFamily';
-import { useCreateFamily } from '@/lib/api';
+import { useFamily, useCreateFamily } from '@/hooks/useFamily';
 import { useToast } from '@/components/Toast';
-import type { Family } from '@/lib/types';
+
+// 使用内部Family类型而不是导入的类型
+interface Family {
+    id: number;
+    name: string;
+    description: string;
+    owner_id?: number;
+    created_at?: string;
+    updated_at?: string;
+}
 
 export default function FamilySelector() {
     const { families = [], currentFamily, isLoading, setCurrentFamily } = useFamily();
@@ -27,7 +35,8 @@ export default function FamilySelector() {
     const [newFamilyName, setNewFamilyName] = useState('');
     const [newFamilyDescription, setNewFamilyDescription] = useState('');
     const [nameError, setNameError] = useState('');
-    const { mutate: createFamily, isPending: isCreating } = useCreateFamily();
+    const createFamilyMutation = useCreateFamily();
+    const isCreating = createFamilyMutation.isPending;
 
     const validateFamilyName = (name: string) => {
         if (!name || name.trim().length === 0) {
@@ -52,7 +61,7 @@ export default function FamilySelector() {
             return;
         }
 
-        createFamily({
+        createFamilyMutation.mutate({
             name: newFamilyName,
             description: newFamilyDescription
         }, {
@@ -86,7 +95,7 @@ export default function FamilySelector() {
             }];
         }
 
-        const menuItems = families.map((family: Family) => ({
+        const menuItems = families.map((family) => ({
             key: family.id.toString(),
             label: family.name,
             className: currentFamily?.id === family.id ? 'text-primary' : ''
