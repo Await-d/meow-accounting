@@ -1,8 +1,4 @@
-import {
-    Transaction,
-    TransactionFilter,
-    APIError,
-} from './types';
+import { APIError, Transaction, TransactionFilter, } from './types';
 import { getToken, removeToken } from '@/utils/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -134,6 +130,7 @@ export async function fetchAPI<T>(
 
         const data = await response.json();
 
+        console.log("sssssss", data)
         if (!response.ok) {
             // 处理特定状态码
             const handler = statusHandlers[response.status];
@@ -145,7 +142,7 @@ export async function fetchAPI<T>(
         }
 
         return {
-            data: data.data as T,
+            data: data,
             message: data.message,
             status: response.status
         };
@@ -184,13 +181,3 @@ export const handleQueryError = (error: any, fallbackMessage = '请求失败') =
     }
     return error?.message || fallbackMessage;
 };
-
-// 以下钩子已移至独立文件
-
-// useBills 已移至 hooks/useBills.ts
-
-// useTransactions 已移至 hooks/useTransactions.ts
-
-// useStatistics 已移至 hooks/useStatistics.ts
-
-// ... existing code ...

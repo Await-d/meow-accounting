@@ -31,11 +31,11 @@ export function useStatistics(
             try {
                 setIsLoading(true);
                 const params = new URLSearchParams();
-                params.append('timeRange', timeRange);
-                if (userId) params.append('userId', userId.toString());
-                if (familyId) params.append('familyId', familyId.toString());
+                params.append('range', timeRange);
+                if (userId) params.append('user_id', userId.toString());
+                if (familyId) params.append('family_id', familyId.toString());
 
-                const response = await fetchAPI<Statistics>(`/statistics?${params.toString()}`);
+                const response = await fetchAPI<Statistics>(`/transactions/stats?${params.toString()}`);
                 setData(response.data);
                 setError(null);
             } catch (err) {

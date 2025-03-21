@@ -7,15 +7,15 @@
  */
 'use client';
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/Toast';
-import { fetchAPI } from '@/lib/api';
-import { getToken, setToken, removeToken } from '@/utils/auth';
-import { jwtDecode } from 'jwt-decode';
-import type { User, UserSettings, RouteType } from '@/lib/types';
-import { RoutePermission } from '@/lib/types';
-import { checkRoutePermission, getRouteComponent } from '@/config/routes';
+import {createContext, type ReactNode, useContext, useEffect, useState} from 'react';
+import {useRouter} from 'next/navigation';
+import {useToast} from '@/components/Toast';
+import {fetchAPI} from '@/lib/api';
+import {getToken, removeToken, setToken} from '@/utils/auth';
+import {jwtDecode} from 'jwt-decode';
+import type {RouteType, User, UserSettings} from '@/lib/types';
+import {RoutePermission} from '@/lib/types';
+import {checkRoutePermission, getRouteComponent} from '@/config/routes';
 
 // API调用方法
 const apiLogin = async (data: { email: string; password: string }) => {
@@ -23,6 +23,8 @@ const apiLogin = async (data: { email: string; password: string }) => {
         method: 'POST',
         body: JSON.stringify(data)
     });
+    console.log("ssss", response)
+    
     return response.data;
 };
 
@@ -190,11 +192,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             showToast('登录成功', 'success');
             handleRouteNavigation(user);
         } catch (error) {
-            if (error instanceof Error) {
-                showToast(error.message, 'error');
-            } else {
-                showToast('登录失败', 'error');
-            }
+            showToast('登录失败', 'error');
             throw error;
         }
     };
@@ -210,11 +208,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             showToast('注册成功', 'success');
             handleRouteNavigation(user);
         } catch (error) {
-            if (error instanceof Error) {
-                // showToast(error.message, 'error');
-            } else {
-                showToast('注册失败', 'error');
-            }
+            showToast('注册失败', 'error');
             throw error;
         }
     };
