@@ -1,0 +1,66 @@
+kind: pipeline
+type: docker
+name: meow-accounting
+
+steps:
+  - name: build-frontend
+    image: node:18-alpine
+    commands:
+      - cd frontend
+      - npm ci
+      - npm run build
+    volumes:
+      - name: node_modules_frontend
+        path: /drone/src/frontend/node_modules
+
+  - name: build-backend
+    image: node:18-alpine
+    commands:
+      - cd backend
+      - npm ci
+      - npm run build
+    volumes:
+      - name: node_modules_backend
+        path: /drone/src/backend/node_modules
+
+  - name: build-and-deploy
+    image: plugins/docker
+    settings:
+      dockerfile: Dockerfile
+      context: .
+      repo: meow-accounting
+      tags: latest
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    when:
+      branch:
+        - main
+
+  - name: restart-service
+    image: docker
+    commands:
+      - docker stop meow-accounting || true
+      - docker rm meow-accounting || true
+      - >
+        docker run -d --name meow-accounting
+        --restart always
+        -p 3000:3000
+        -e NODE_ENV=production
+        -v meow-accounting-data:/app/data
+        meow-accounting:latest
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    when:
+      branch:
+        - main
+
+volumes:
+  - name: node_modules_frontend
+    temp: {}
+  - name: node_modules_backend
+    temp: {}
+  - name: docker_sock
+    host:
+      path: /var/run/docker.sock 
