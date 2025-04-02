@@ -2,7 +2,7 @@
 FROM node:18-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
@@ -10,7 +10,7 @@ RUN npm run build
 FROM node:18-alpine AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm install
 COPY backend/ ./
 RUN npm run build
 
@@ -27,7 +27,7 @@ COPY --from=backend-builder /app/backend/package*.json /app/backend/
 
 # 安装后端生产依赖
 WORKDIR /app/backend
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # 复制前端构建产物
 COPY --from=frontend-builder /app/frontend/.next /app/frontend/.next
@@ -37,7 +37,7 @@ COPY --from=frontend-builder /app/frontend/next.config.js /app/frontend/
 
 # 安装前端生产依赖
 WORKDIR /app/frontend
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # 添加启动脚本
 WORKDIR /app
