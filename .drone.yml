@@ -45,7 +45,7 @@ steps:
       - >
         docker run -d --name meow-accounting
         --restart always
-        -p 3000:3000
+        -p 7110:3000
         -e NODE_ENV=production
         -v meow-accounting-data:/app/data
         meow-accounting:latest
