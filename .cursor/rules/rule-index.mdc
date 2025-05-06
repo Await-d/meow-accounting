@@ -1,0 +1,91 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 喵呜记账项目规则索引
+
+本文档整合了所有项目规则，帮助开发人员快速找到所需信息。
+
+## 项目结构与架构
+
+- [项目结构概览](mdc:project-structure.mdc)：整体项目结构和文件组织
+- [前端架构](mdc:frontend-architecture.mdc)：前端技术栈和组件结构
+- [后端架构](mdc:backend-architecture.mdc)：后端API和数据模型
+
+## 开发流程与工具
+
+- [开发指南](mdc:development-guide.mdc)：项目设置和启动方法
+- [工作流规则](mdc:workflow.mdc)：使用MCP工具的开发流程
+- [编码规范](mdc:coding-conventions.mdc)：代码风格和最佳实践
+
+## 工具使用指南
+
+- [MCP工具使用指南](mdc:mcp-tools.mdc)：优先使用的自动化工具
+- [pnpm使用指南](mdc:pnpm-usage.mdc)：包管理器使用方法
+
+## 快速参考
+
+### 设置项目
+
+```bash
+# 克隆仓库
+git clone https://gitee.com/await29/meow-accounting.git
+cd meow-accounting
+
+# 安装pnpm (如果尚未安装)
+npm install -g pnpm
+
+# 安装依赖
+cd frontend && pnpm install
+cd ../backend && pnpm install
+```
+
+### 启动项目
+
+```bash
+# 使用启动脚本(推荐)
+bash start.sh
+
+# 或分别启动
+cd frontend && pnpm dev
+cd backend && pnpm dev
+```
+
+### 使用MCP工具
+
+```typescript
+// 示例：修改文件并提交
+await mcp.editAndCommit({
+  path: '/home/await/project/meow-accounting/frontend/src/app/page.tsx',
+  content: newContent,
+  commitMessage: 'feat: 更新首页'
+});
+```
+
+### 项目目录结构
+
+- `frontend/`: Next.js前端项目
+- `backend/`: Express后端项目
+- `docs/`: 项目文档
+- `start.sh`: 启动脚本
+
+## 常见问题
+
+### 如何添加新功能？
+
+参考[工作流规则](mdc:workflow.mdc)的"功能开发"部分。
+
+### 如何运行测试？
+
+```bash
+# 前端测试
+cd frontend && pnpm test
+
+# 后端测试
+cd backend && pnpm test
+```
+
+### 如何部署项目？
+
+参考[开发指南](mdc:development-guide.mdc)的Docker部署部分或[工作流规则](mdc:workflow.mdc)的自动化部署部分。

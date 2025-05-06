@@ -1,0 +1,127 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 喵呜记账编码规范
+
+## 通用规范
+
+- 使用TypeScript进行类型安全开发
+- 使用2空格缩进
+- 使用分号结尾
+- 使用单引号代替双引号
+- 文件命名使用kebab-case (例如: `user-profile.ts`)
+
+## 前端编码规范
+
+### 组件规范
+
+- React组件使用函数组件和hooks
+- 组件文件命名使用PascalCase (例如: `UserProfile.tsx`)
+- 样式采用Tailwind CSS
+
+```tsx
+// 组件示例
+import React from 'react';
+
+interface ProfileProps {
+  username: string;
+  email: string;
+}
+
+export function UserProfile({ username, email }: ProfileProps) {
+  return (
+    <div className="p-4 rounded-lg shadow">
+      <h2 className="text-xl font-bold">{username}</h2>
+      <p className="text-gray-600">{email}</p>
+    </div>
+  );
+}
+```
+
+### Hooks规范
+
+- 自定义Hooks前缀使用`use`
+- 一个hook只做一件事
+
+```tsx
+// Hook示例
+import { useState, useEffect } from 'react';
+
+export function useUserData(userId: string) {
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    // 获取用户数据的逻辑
+  }, [userId]);
+  
+  return { userData, loading };
+}
+```
+
+## 后端编码规范
+
+### API规范
+
+- RESTful API设计
+- 路由使用复数名词 (例如: `/api/users`)
+- 使用HTTP动词表示操作 (GET, POST, PUT, DELETE)
+
+### 控制器规范
+
+- 一个控制器负责一种资源
+- 方法命名约定: `getAll`, `getById`, `create`, `update`, `delete`
+
+```typescript
+// 控制器示例
+import { Request, Response } from 'express';
+import { User } from '../models/user';
+
+export const userController = {
+  async getAll(req: Request, res: Response) {
+    try {
+      const users = await User.getAll();
+      return res.status(200).json(users);
+    } catch (error) {
+      return res.status(500).json({ error: '服务器内部错误' });
+    }
+  },
+  
+  async getById(req: Request, res: Response) {
+    // 实现逻辑
+  }
+};
+```
+
+### 错误处理
+
+- 统一使用HTTP状态码
+- 错误响应格式一致
+
+```json
+{
+  "error": "错误消息",
+  "details": "错误详情(可选)"
+}
+```
+
+## 提交规范
+
+Git提交信息格式:
+
+```
+<类型>: <描述>
+
+[可选的详细描述]
+```
+
+类型包括:
+- feat: 新功能
+- fix: 修复bug
+- docs: 文档变更
+- style: 代码风格变更
+- refactor: 代码重构
+- test: 测试相关
+- chore: 构建过程或辅助工具变更
