@@ -1,5 +1,136 @@
 ---
-description:
-globs:
-alwaysApply: false
+description: 
+globs: 
+alwaysApply: true
 ---
+# MCP工具使用指南
+
+## 工具介绍
+
+MCP工具是本项目中优先使用的自动化工具，具有以下特点：
+- 支持浏览器自动化操作
+- 允许直接进行文件修改
+- 集成自动git提交功能
+
+## 浏览器自动化
+
+```typescript
+// 启动浏览器会话
+const browser = await mcp.launchBrowser({
+  headless: false,  // 设置为true可隐藏浏览器界面
+  defaultViewport: { width: 1280, height: 800 }
+});
+
+// 打开页面
+const page = await browser.newPage();
+await page.goto('http://localhost:3000');
+
+// 执行元素操作
+await page.click('#login-button');
+await page.fill('input[name="username"]', 'admin');
+await page.fill('input[name="password"]', 'password');
+await page.click('button[type="submit"]');
+
+// 等待导航完成
+await page.waitForNavigation();
+
+// 截图
+await page.screenshot({ path: './screenshots/login.png' });
+
+// 关闭浏览器
+await browser.close();
+```
+
+## 文件操作
+
+使用MCP工具处理文件时，应使用绝对路径：
+
+```typescript
+// 读取文件
+const content = await mcp.readFile('/home/await/project/meow-accounting/frontend/src/app/page.tsx');
+
+// 修改文件
+await mcp.writeFile('/home/await/project/meow-accounting/frontend/src/app/page.tsx', newContent);
+
+// 批量修改
+await mcp.batchUpdate([
+  {
+    path: '/home/await/project/meow-accounting/frontend/src/components/Login.tsx',
+    content: newLoginContent
+  },
+  {
+    path: '/home/await/project/meow-accounting/frontend/src/hooks/useAuth.ts',
+    content: newAuthHookContent
+  }
+]);
+```
+
+## 自动Git提交
+
+MCP工具支持完成重要更改后自动创建Git提交：
+
+```typescript
+// 单文件修改后提交
+await mcp.editAndCommit({
+  path: '/home/await/project/meow-accounting/frontend/src/app/page.tsx',
+  content: newContent,
+  commitMessage: 'feat: 更新首页布局'
+});
+
+// 批量修改后提交
+await mcp.batchEditAndCommit({
+  files: [
+    {
+      path: '/home/await/project/meow-accounting/frontend/src/components/Dashboard.tsx',
+      content: newDashboardContent
+    },
+    {
+      path: '/home/await/project/meow-accounting/frontend/src/hooks/useDashboard.ts',
+      content: newDashboardHookContent
+    }
+  ],
+  commitMessage: 'feat: 重构仪表盘组件和相关Hook'
+});
+```
+
+## 集成测试
+
+结合文件修改和浏览器测试：
+
+```typescript
+// 修改代码
+await mcp.editFile('/home/await/project/meow-accounting/frontend/src/components/Login.tsx', newLoginContent);
+
+// 启动测试服务器
+const server = await mcp.startDevServer({
+  cwd: '/home/await/project/meow-accounting/frontend',
+  command: 'pnpm dev'
+});
+
+// 等待服务器启动
+await mcp.wait(3000);
+
+// 运行浏览器测试
+const browser = await mcp.launchBrowser();
+const page = await browser.newPage();
+await page.goto('http://localhost:3000/login');
+
+// 验证修改是否生效
+const hasNewFeature = await page.isVisible('#new-feature-button');
+
+// 关闭资源
+await browser.close();
+await server.kill();
+
+// 如果测试通过，提交更改
+if (hasNewFeature) {
+  await mcp.gitCommit('feat: 添加登录页新功能按钮');
+}
+```
+
+## 最佳实践
+
+1. 始终使用绝对路径操作文件
+2. 大改动后使用自动提交功能保存工作
+3. 修改前先验证当前状态
+4. 添加有意义的提交信息，遵循项目的Git提交规范
