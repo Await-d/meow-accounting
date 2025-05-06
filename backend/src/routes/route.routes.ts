@@ -96,6 +96,18 @@ router.get('/access/:path', routeController.checkAccess);
 // 获取路由性能统计
 router.get('/stats/report/:id', routeController.getRouteStats);
 
+// 获取路由预测
+router.get('/predictions', routeController.getRoutePredictions);
+
+// 获取路由优化建议
+router.get('/:id/optimization', routeController.getRouteOptimizationSuggestions);
+
+// 导出路由分析报告
+router.get('/export', routeController.exportRouteAnalysisReport);
+
+// 获取路由可视化数据
+router.get('/visualization', routeController.getRouteVisualizationData);
+
 // 添加测试路由，用于检查路由注册是否正常
 router.get('/test', (req, res) => {
     res.json({ message: '路由测试成功！', status: 'ok' });
