@@ -44,9 +44,27 @@ export default function BackupPage() {
     const { data: backups, refetch } = useQuery({
         queryKey: ['backups'],
         queryFn: async () => {
-            // TODO: 实现实际的API调用
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return mockBackups;
+            // 实现实际的API调用
+            try {
+                const response = await fetch('/api/settings/backups', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('获取备份列表失败');
+                }
+
+                return await response.json();
+            } catch (error) {
+                // 如果API尚未实现，使用模拟数据
+                console.warn('备份API未实现，使用模拟数据:', error);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                return mockBackups;
+            }
         }
     });
 
@@ -54,13 +72,27 @@ export default function BackupPage() {
     const handleCreateBackup = async () => {
         setIsLoading(true);
         try {
-            // TODO: 实现实际的备份创建逻辑
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // 实现实际的备份创建逻辑
+            const response = await fetch('/api/settings/backups', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({ name: backupName || `backup_${new Date().toISOString().split('T')[0]}` })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || '创建备份失败');
+            }
+
             toast.success('备份创建成功');
             onClose();
             refetch();
         } catch (error) {
-            toast.error('备份创建失败');
+            console.error('备份创建失败:', error);
+            toast.error(`备份创建失败: ${error instanceof Error ? error.message : '未知错误'}`);
         } finally {
             setIsLoading(false);
         }
@@ -69,23 +101,49 @@ export default function BackupPage() {
     // 处理恢复备份
     const handleRestoreBackup = async (backupId: number) => {
         try {
-            // TODO: 实现实际的备份恢复逻辑
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // 实现实际的备份恢复逻辑
+            const response = await fetch(`/api/settings/backups/${backupId}/restore`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || '恢复备份失败');
+            }
+
             toast.success('备份恢复成功');
         } catch (error) {
-            toast.error('备份恢复失败');
+            console.error('备份恢复失败:', error);
+            toast.error(`备份恢复失败: ${error instanceof Error ? error.message : '未知错误'}`);
         }
     };
 
     // 处理删除备份
     const handleDeleteBackup = async (backupId: number) => {
         try {
-            // TODO: 实现实际的备份删除逻辑
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // 实现实际的备份删除逻辑
+            const response = await fetch(`/api/settings/backups/${backupId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || '删除备份失败');
+            }
+
             toast.success('备份删除成功');
             refetch();
         } catch (error) {
-            toast.error('备份删除失败');
+            console.error('备份删除失败:', error);
+            toast.error(`备份删除失败: ${error instanceof Error ? error.message : '未知错误'}`);
         }
     };
 

@@ -290,12 +290,83 @@ export const importTransactions = async (req: MulterRequest, res: Response, next
             return res.status(401).json({ error: '未认证，请先登录' });
         }
 
-        // TODO: 实现CSV文件解析和导入
-        // 这里需要根据实际业务需求完成CSV文件解析和批量导入功能
+        // 实现CSV文件解析和导入
+        const fs = require('fs');
+        const csv = require('csv-parser');
+        const path = require('path');
+        const dayjs = require('dayjs');
 
-        res.json({ message: '导入成功', count: 0 });
+        const results: Transaction[] = [];
+        const errors: string[] = [];
+        let processedCount = 0;
+
+        // 读取CSV文件
+        fs.createReadStream(req.file.path)
+            .pipe(csv())
+            .on('data', (data: any) => {
+                try {
+                    // 验证并转换数据
+                    const transaction: Transaction = {
+                        id: 0, // 自动生成
+                        amount: parseFloat(data.amount),
+                        category_id: parseInt(data.category_id),
+                        description: data.description || '',
+                        date: data.date || dayjs().format('YYYY-MM-DD'),
+                        type: data.type === '支出' ? 'expense' : data.type === '收入' ? 'income' : data.type,
+                        user_id: req.user?.id || 0,
+                        family_id: parseInt(data.family_id) || 0
+                    };
+
+                    // 验证必填字段
+                    if (isNaN(transaction.amount) || !transaction.type || isNaN(transaction.category_id) || isNaN(transaction.family_id)) {
+                        errors.push(`行 ${processedCount + 1}: 缺少必要字段或格式错误`);
+                    } else {
+                        results.push(transaction);
+                    }
+                } catch (error) {
+                    errors.push(`行 ${processedCount + 1}: 解析失败 - ${(error as Error).message}`);
+                }
+                processedCount++;
+            })
+            .on('end', async () => {
+                try {
+                    // 清理临时文件
+                    fs.unlinkSync(req.file!.path);
+
+                    // 批量插入数据库
+                    if (results.length > 0) {
+                        const insertedCount = await transactionModel.bulkInsertTransactions(results);
+
+                        res.json({
+                            message: '导入成功',
+                            count: insertedCount,
+                            errors: errors.length > 0 ? errors : undefined
+                        });
+                    } else {
+                        res.status(400).json({
+                            error: '没有有效数据可导入',
+                            errors
+                        });
+                    }
+                } catch (dbError) {
+                    console.error('数据库批量插入失败:', dbError);
+                    next(dbError);
+                }
+            })
+            .on('error', (error: Error) => {
+                // 清理临时文件
+                if (req.file?.path) {
+                    fs.unlinkSync(req.file.path);
+                }
+                next(error);
+            });
     } catch (error) {
         console.error('导入事务记录失败:', error);
+        // 清理临时文件
+        if (req.file?.path) {
+            const fs = require('fs');
+            fs.unlinkSync(req.file.path);
+        }
         next(error);
     }
 };

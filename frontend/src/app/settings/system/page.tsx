@@ -57,9 +57,21 @@ export default function SystemSettingsPage() {
         queryKey: ['systemSettings'],
         queryFn: async () => {
             try {
-                // TODO: 实现获取系统设置的API调用
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                return settings;
+                // 实现获取系统设置的API调用
+                const response = await fetch('/api/settings/system', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('获取系统设置失败');
+                }
+
+                const data = await response.json();
+                return data;
             } catch (error) {
                 toast.error('获取系统设置失败');
                 throw error;
@@ -70,9 +82,22 @@ export default function SystemSettingsPage() {
     // 保存系统设置
     const { mutate: saveSettings, isPending: isSaving } = useMutation({
         mutationFn: async (data: Settings) => {
-            // TODO: 实现保存系统设置的API调用
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return data;
+            // 实现保存系统设置的API调用
+            const response = await fetch('/api/settings/system', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || '保存系统设置失败');
+            }
+
+            return await response.json();
         },
         onSuccess: () => {
             toast.success('设置保存成功');
