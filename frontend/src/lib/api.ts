@@ -181,3 +181,79 @@ export const handleQueryError = (error: any, fallbackMessage = '请求失败') =
     }
     return error?.message || fallbackMessage;
 };
+
+// 路由预测系统API
+export async function getRoutePredictions(userId: number) {
+    const response = await fetchAPI<any>(`/routes/predictions?user_id=${userId}`, {
+        method: 'GET',
+    });
+    return response.data;
+}
+
+// 获取路由优化建议
+export async function getRouteOptimizationSuggestions(routeId: number) {
+    const response = await fetchAPI<any>(`/routes/${routeId}/optimization`, {
+        method: 'GET',
+    });
+    return response.data;
+}
+
+// 导出路由分析报告
+export async function exportRouteAnalysisReport(options: {
+    format: 'pdf' | 'csv' | 'excel',
+    startDate?: string,
+    endDate?: string,
+    routeIds?: number[]
+}) {
+    // 构建查询参数
+    const queryParams = new URLSearchParams();
+
+    if (options.startDate) queryParams.append('startDate', options.startDate);
+    if (options.endDate) queryParams.append('endDate', options.endDate);
+    if (options.routeIds && options.routeIds.length > 0) {
+        options.routeIds.forEach(id => queryParams.append('routeIds[]', id.toString()));
+    }
+
+    const url = `${API_BASE_URL}/routes/export?${queryParams.toString()}&format=${options.format}`;
+    const token = getToken();
+
+    // 使用fetch直接返回blob数据
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new APIError(response.status, errorData.message || '导出失败');
+    }
+
+    const blob = await response.blob();
+    return blob;
+}
+
+// 获取更多数据可视化所需的数据
+export async function getRouteVisualizationData(params: {
+    type: 'distribution' | 'performance' | 'errors' | 'cache',
+    startDate?: string,
+    endDate?: string,
+    routeIds?: number[]
+}) {
+    // 构建查询参数
+    const queryParams = new URLSearchParams();
+    queryParams.append('type', params.type);
+
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.routeIds && params.routeIds.length > 0) {
+        params.routeIds.forEach(id => queryParams.append('routeIds[]', id.toString()));
+    }
+
+    const response = await fetchAPI<any>(`/routes/visualization?${queryParams.toString()}`, {
+        method: 'GET',
+    });
+
+    return response.data;
+}
