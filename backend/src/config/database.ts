@@ -112,6 +112,21 @@ export class DB {
     }
 
     private async createTables(): Promise<void> {
+        // 创建users表（基础表，其他表依赖它）
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                display_name VARCHAR(100),
+                avatar_url VARCHAR(255),
+                is_active BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // 创建routes表
         await this.db?.run(`
             CREATE TABLE IF NOT EXISTS routes (
