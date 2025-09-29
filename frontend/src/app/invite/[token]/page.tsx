@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardBody, Button, Spinner } from '@nextui-org/react';
 import { fetchAPI } from '@/lib/api';
 import { useToast } from '@/components/Toast';
+import PageLayout from '@/components/PageLayout';
 import { useAuth } from '@/hooks/useAuth';
 
 interface InvitationInfo {
@@ -99,61 +100,62 @@ export default function InvitePage({ params }: { params: { token: string } }) {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center min-h-screen">
-                <Spinner size="lg" />
-            </div>
+            <PageLayout title="加载邀请" description="正在检索邀请信息，请稍候。" backgroundVariant="minimal">
+                <div className="flex justify-center items-center h-[40vh]">
+                    <Spinner size="lg" />
+                </div>
+            </PageLayout>
         );
     }
 
+
     if (error) {
         return (
-            <div className="max-w-md mx-auto mt-12 p-4">
-                <Card>
+            <PageLayout title="邀请无效" description={error} backgroundVariant="minimal">
+                <Card className="border border-default-100 bg-background/70 backdrop-blur max-w-md mx-auto">
                     <CardBody className="flex flex-col items-center text-center p-8 gap-4">
-                        <div className="text-danger text-5xl mb-4">✗</div>
+                        <div className="text-danger text-5xl mb-2">✗</div>
                         <h1 className="text-2xl font-bold">邀请无效</h1>
                         <p className="text-default-500">{error}</p>
-                        <Button
-                            color="primary"
-                            onPress={() => router.push('/settings/family')}
-                            className="mt-4"
-                        >
+                        <Button color="primary" onPress={() => router.push('/settings/family')}>
                             返回家庭设置
                         </Button>
                     </CardBody>
                 </Card>
-            </div>
+            </PageLayout>
         );
     }
 
+
     if (!invitation || !user) {
         return (
-            <div className="flex justify-center items-center min-h-screen">
-                <Spinner size="lg" />
-            </div>
+            <PageLayout title="验证身份" description="正在确认您的账户信息。" backgroundVariant="minimal">
+                <div className="flex justify-center items-center h-[40vh]">
+                    <Spinner size="lg" />
+                </div>
+            </PageLayout>
         );
     }
+
 
     // 移除前端的邮箱验证，让后端处理
 
     return (
-        <div className="max-w-md mx-auto mt-12 p-4">
-            <Card>
+        <PageLayout
+            title="家庭邀请"
+            description={`邀请加入 ${invitation.family_name} 家庭`}
+            backgroundVariant="minimal"
+        >
+            <Card className="border border-default-100 bg-background/70 backdrop-blur max-w-md mx-auto">
                 <CardBody className="flex flex-col items-center text-center p-8 gap-4">
-                    <div className="text-primary text-5xl mb-4">🏠</div>
-                    <h1 className="text-2xl font-bold">家庭邀请</h1>
+                    <div className="text-primary text-5xl mb-2">🏠</div>
                     <p className="text-default-700">
-                        您被邀请加入 <span className="font-bold">{invitation.family_name}</span> 家庭
+                        您将以 <span className="font-medium">{invitation.role === 'admin' ? '管理员' : '成员'}</span> 身份加入
+                        <span className="font-bold ml-1">{invitation.family_name}</span>
                     </p>
                     <p className="text-default-500">
-                        您将以 <span className="font-medium">
-                            {invitation.role === 'admin' ? '管理员' : '成员'}
-                        </span> 身份加入此家庭
-                    </p>
-
-                    <div className="text-sm text-default-400 mt-2">
                         邀请将于 {new Date(invitation.expires_at).toLocaleString()} 过期
-                    </div>
+                    </p>
 
                     <div className="flex gap-4 mt-6 w-full">
                         <Button
@@ -177,6 +179,6 @@ export default function InvitePage({ params }: { params: { token: string } }) {
                     </div>
                 </CardBody>
             </Card>
-        </div>
+        </PageLayout>
     );
 } 

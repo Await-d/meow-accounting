@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { Card, CardBody, CardHeader, Button, Breadcrumbs, BreadcrumbItem } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import PageLayout from '@/components/PageLayout';
 import { TransactionForm } from '@/components';
 import { ArrowLeft } from 'lucide-react';
 import { useCreateTransaction } from '@/hooks/useTransactions';
@@ -27,41 +28,41 @@ export default function NewTransactionPage() {
     };
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="mb-6">
+        <PageLayout
+            title="新增交易"
+            description="记录一笔新的收入或支出。"
+            backgroundVariant="minimal"
+        >
+            <div className="space-y-6">
                 <Breadcrumbs>
                     <BreadcrumbItem onPress={() => router.push('/dashboard')}>仪表盘</BreadcrumbItem>
                     <BreadcrumbItem onPress={() => router.push('/transactions')}>交易记录</BreadcrumbItem>
                     <BreadcrumbItem>新增交易</BreadcrumbItem>
                 </Breadcrumbs>
-            </div>
 
-            <Card>
-                <CardHeader className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <Button
-                            isIconOnly
-                            variant="light"
-                            onPress={handleBack}
-                        >
-                            <ArrowLeft size={20} />
-                        </Button>
-                        <h1 className="text-2xl font-bold">新增交易</h1>
-                    </div>
-                </CardHeader>
-                <CardBody>
-                    {error && (
-                        <div className="bg-red-100 text-red-800 p-3 rounded-lg mb-4">
-                            {error}
+                <Card className="border border-default-100 bg-background/70 backdrop-blur">
+                    <CardHeader className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <Button isIconOnly variant="light" onPress={handleBack}>
+                                <ArrowLeft size={20} />
+                            </Button>
+                            <h1 className="text-2xl font-bold">新增交易</h1>
                         </div>
-                    )}
-                    <TransactionForm
-                        isOpen={true}
-                        onClose={() => router.push('/transactions')}
-                        transaction={null}
-                    />
-                </CardBody>
-            </Card>
-        </div>
+                    </CardHeader>
+                    <CardBody>
+                        {error && (
+                            <div className="bg-danger-50 text-danger p-3 rounded-lg mb-4">
+                                {error}
+                            </div>
+                        )}
+                        <TransactionForm
+                            isOpen={true}
+                            onClose={() => router.push('/transactions')}
+                            transaction={null}
+                        />
+                    </CardBody>
+                </Card>
+            </div>
+        </PageLayout>
     );
 } 

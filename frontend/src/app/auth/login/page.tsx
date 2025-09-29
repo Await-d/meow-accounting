@@ -11,6 +11,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { Card, CardBody, Input, Button, Link } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/Toast';
+import PageLayout from '@/components/PageLayout';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 function LoginForm() {
@@ -46,16 +47,20 @@ function LoginForm() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-100 to-purple-100 p-4">
-            <Card className="w-full max-w-md">
+        <PageLayout
+            title="登录喵呜记账"
+            description={redirectPath ? '登录后将自动跳转回先前页面。' : '欢迎回来，继续管理您的家庭财务。'}
+            backgroundVariant="default"
+            maxWidth="lg"
+            padding="lg"
+        >
+            <Card className="w-full max-w-md mx-auto border border-default-100 bg-background/80 backdrop-blur">
                 <CardBody className="gap-4">
-                    <div className="text-center mb-4">
-                        <h1 className="text-2xl font-bold">登录</h1>
-                        <p className="text-default-500">欢迎回来！</p>
+                    <div className="text-center mb-2">
+                        <h1 className="text-2xl font-bold">账号登录</h1>
+                        <p className="text-default-500">请输入您的邮箱和密码</p>
                         {redirectPath && (
-                            <p className="text-sm text-primary mt-2">
-                                登录后将返回到您之前访问的页面
-                            </p>
+                            <p className="text-sm text-primary mt-2">登录后将返回: {redirectPath}</p>
                         )}
                     </div>
 
@@ -91,13 +96,19 @@ function LoginForm() {
                     </form>
                 </CardBody>
             </Card>
-        </div>
+        </PageLayout>
     );
 }
 
 export default function LoginPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">加载中...</div>}>
+        <Suspense
+            fallback={
+                <PageLayout title="加载中" description="正在加载登录页面。" backgroundVariant="minimal">
+                    <div className="flex justify-center items-center h-[40vh]">加载中...</div>
+                </PageLayout>
+            }
+        >
             <LoginForm />
         </Suspense>
     );

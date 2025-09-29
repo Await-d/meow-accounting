@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import {
     Card,
     CardBody,
@@ -34,22 +35,56 @@ import { useFamily } from '@/hooks/useFamily';
 import Link from 'next/link';
 
 export default function CategoryPage() {
-    const { categories, isLoading, error } = useCategories();
-    
+    const { categories, isLoading, error, refetch } = useCategories();
+    const { showToast } = useToast();
+
+    const {
+        mutateAsync: createCategoryMutation,
+        isPending: isCreating,
+    } = useMutation({
+        mutationFn: useCreateCategory,
+        onSuccess: async () => {
+            await refetch();
+            showToast('分类创建成功', 'success');
+        },
+        onError: (error: Error) => {
+            showToast(`分类创建失败: ${error.message || '请稍后重试'}`, 'error');
+        },
+    });
+
+    const {
+        mutateAsync: updateCategoryMutation,
+        isPending: isUpdating,
+    } = useMutation({
+        mutationFn: ({ id, data }: { id: number; data: any }) => useUpdateCategory(id, data),
+        onSuccess: async () => {
+            await refetch();
+            showToast('分类更新成功', 'success');
+        },
+        onError: (error: Error) => {
+            showToast(`分类更新失败: ${error.message || '请稍后重试'}`, 'error');
+        },
+    });
+
+    const {
+        mutateAsync: deleteCategoryMutation,
+        isPending: isDeleting,
+    } = useMutation({
+        mutationFn: (id: number) => useDeleteCategory(id),
+        onSuccess: async () => {
+            await refetch();
+            showToast('分类已删除', 'success');
+        },
+        onError: (error: Error) => {
+            showToast(`删除分类失败: ${error.message || '请稍后重试'}`, 'error');
+        },
+    });
+
+    const mutationInProgress = isCreating || isUpdating;
+
     // Split categories into default and custom
     const defaultCategories = categories.filter(cat => cat.is_default);
     const customCategories = categories.filter(cat => !cat.is_default);
-    
-    // TODO: Implement proper React Query hooks for category mutations
-    const createCategory = async (data: any) => {
-        // Implementation needed
-    };
-    const updateCategory = async (data: any) => {
-        // Implementation needed  
-    };
-    const deleteCategory = async (id: number) => {
-        // Implementation needed
-    };
 
     // 使用单独的状态管理模态框的显示状态，避免使用useDisclosure可能存在的问题
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -61,7 +96,6 @@ export default function CategoryPage() {
         icon: '',
         type: 'expense'
     });
-    const { showToast } = useToast();
     const { user, isGuest } = useAuth();
     const { families = [], currentFamily, setCurrentFamily } = useFamily();
 
@@ -102,7 +136,7 @@ export default function CategoryPage() {
     console.log('自定义分类:', customCategories);
     console.log('用户信息:', user);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!formData.name || !formData.icon || !formData.type) {
             showToast('请填写完整信息', 'error');
             return;
@@ -114,13 +148,28 @@ export default function CategoryPage() {
                 showToast('只有管理员可以修改默认分类', 'error');
                 return;
             }
+            const categoryId = typeof selectedCategory.id === 'string'
+                ? Number.parseInt(selectedCategory.id, 10)
+                : selectedCategory.id;
 
-            updateCategory({
-                ...selectedCategory,
-                name: formData.name,
-                icon: formData.icon,
-                type: formData.type as 'income' | 'expense'
-            });
+            if (Number.isNaN(categoryId)) {
+                showToast('分类信息缺失，无法更新', 'error');
+                return;
+            }
+
+            try {
+                await updateCategoryMutation({
+                    id: categoryId,
+                    data: {
+                        ...selectedCategory,
+                        name: formData.name,
+                        icon: formData.icon,
+                        type: formData.type as 'income' | 'expense',
+                    },
+                });
+            } catch (_) {
+                return;
+            }
         } else {
             if (!currentFamily && !formData.is_default) {
                 showToast('请先选择一个家庭', 'error');
@@ -135,14 +184,20 @@ export default function CategoryPage() {
 
             // 创建分类
             if (formData.name && formData.icon && formData.type) {
-                createCategory({
-                    name: formData.name,
-                    icon: formData.icon,
-                    type: formData.type,
-                    is_default: formData.is_default || false
-                });
+                try {
+                    await createCategoryMutation({
+                        name: formData.name,
+                        icon: formData.icon,
+                        type: formData.type,
+                        is_default: formData.is_default || false,
+                        family_id: currentFamily?.id,
+                    });
+                } catch (_) {
+                    return;
+                }
             } else {
                 showToast('请填写完整信息', 'error');
+                return;
             }
         }
 
@@ -188,12 +243,27 @@ export default function CategoryPage() {
         setIsDeleteModalOpen(true);
     };
 
-    const handleDeleteConfirm = () => {
-        if (selectedCategory) {
-            deleteCategory(typeof selectedCategory.id === 'string' ? parseInt(selectedCategory.id) : selectedCategory.id!);
+    const handleDeleteConfirm = async () => {
+        if (!selectedCategory) {
+            return;
         }
-        setIsDeleteModalOpen(false);
-        setSelectedCategory(null);
+
+        const categoryId = typeof selectedCategory.id === 'string'
+            ? Number.parseInt(selectedCategory.id, 10)
+            : selectedCategory.id;
+
+        if (Number.isNaN(categoryId)) {
+            showToast('分类信息缺失，无法删除', 'error');
+            return;
+        }
+
+        try {
+            await deleteCategoryMutation(categoryId);
+            setIsDeleteModalOpen(false);
+            setSelectedCategory(null);
+        } catch (_) {
+            // 错误已在 mutation 中处理
+        }
     };
 
     // 渲染单元格（默认分类）
@@ -580,6 +650,7 @@ export default function CategoryPage() {
                                 variant="bordered"
                                 onPress={() => setIsFormOpen(false)}
                                 className="min-w-[80px]"
+                                isDisabled={mutationInProgress}
                             >
                                 取消
                             </Button>
@@ -587,6 +658,8 @@ export default function CategoryPage() {
                                 color="primary"
                                 onPress={handleSubmit}
                                 className="min-w-[80px]"
+                                isLoading={mutationInProgress}
+                                isDisabled={mutationInProgress}
                             >
                                 确定
                             </Button>
@@ -631,6 +704,7 @@ export default function CategoryPage() {
                                 variant="bordered"
                                 onPress={() => setIsDeleteModalOpen(false)}
                                 className="min-w-[80px]"
+                                isDisabled={isDeleting}
                             >
                                 取消
                             </Button>
@@ -638,6 +712,8 @@ export default function CategoryPage() {
                                 color="danger"
                                 onPress={handleDeleteConfirm}
                                 className="min-w-[80px]"
+                                isLoading={isDeleting}
+                                isDisabled={isDeleting}
                             >
                                 删除
                             </Button>

@@ -43,7 +43,6 @@ import StatisticsCard from '@/components/dashboard/StatisticsCard';
 import IncomeExpenseChart from '@/components/dashboard/IncomeExpenseChart';
 import CategoryPieChart from '@/components/dashboard/CategoryPieChart';
 import RecentTransactions from '@/components/dashboard/RecentTransactions';
-import dynamic from 'next/dynamic';
 import { WalletIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { useToast } from '@/hooks/useToast';
 import { useFamily } from '@/hooks/useFamily';
@@ -51,14 +50,9 @@ import { Logo, LoadingScreen } from '@/components';
 import { motion } from 'framer-motion';
 import AdminActionButton from '@/components/dashboard/AdminActionButton';
 import TransactionModal from '@/components/transactions/TransactionModal';
+import PageLayout from '@/components/PageLayout';
 import ExpenseSummary from '../../components/dashboard/ExpenseSummary';
 import AccountsSummary from '../../components/dashboard/AccountsSummary';
-
-// 使用动态导入并禁用SSR
-const DashboardBackground = dynamic(
-    () => import('@/components/dashboard/DashboardBackground'),
-    { ssr: false }
-);
 
 // getTransactions方法实现
 const getTransactions = async (params?: Record<string, string>, options?: { pageSize?: number }) => {
@@ -438,121 +432,124 @@ export default function DashboardPage() {
         return <LoadingScreen />;
     }
 
-    return (
-        <div className="relative min-h-screen" suppressHydrationWarning>
-            {/* 背景效果 */}
-            <DashboardBackground />
+    const headerTitle = (
+        <div className="flex items-center gap-3">
+            <Logo variant="default" showText={false} />
+            <span>仪表盘</span>
+            {currentRoute?.name && currentRoute.name !== '仪表盘' && (
+                <span className="text-base text-default-500">/ {currentRoute.name}</span>
+            )}
+        </div>
+    );
 
-            <div className="container mx-auto px-4 py-8">
-                <motion.div
-                    className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
+    const headerDescription = (
+        <span>
+            {user ? `${greeting}，${user.username}` : '欢迎使用喵呜记账'}
+            {isPersonalMode && <span className="ml-2 text-primary font-medium">(个人模式)</span>}
+            {!isPersonalMode && currentFamily && <span className="ml-2 text-success font-medium">({currentFamily.name})</span>}
+        </span>
+    );
+
+    const headerActions = (
+        <div className="flex flex-wrap items-center gap-2">
+            <Dropdown>
+                <DropdownTrigger>
+                    <Button
+                        color="primary"
+                        variant="shadow"
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 border-0"
+                        endContent={<ChevronDown size={16} />}
+                        startContent={<Plus size={18} />}
+                        radius="full"
+                        size="md"
+                    >
+                        添加交易
+                    </Button>
+                </DropdownTrigger>
+                <DropdownMenu aria-label="交易操作">
+                    <DropdownItem
+                        key="add-expense"
+                        description="记录新的支出"
+                        startContent={<ArrowDownRight className="text-danger" size={18} />}
+                        onPress={() => handleAddTransaction('expense')}
+                    >
+                        添加支出
+                    </DropdownItem>
+                    <DropdownItem
+                        key="add-income"
+                        description="记录新的收入"
+                        startContent={<ArrowUpRight className="text-success" size={18} />}
+                        onPress={() => handleAddTransaction('income')}
+                    >
+                        添加收入
+                    </DropdownItem>
+                </DropdownMenu>
+            </Dropdown>
+
+            {user?.role === 'admin' && (
+                <AdminActionButton
+                    variant="shadow"
+                    className="bg-gradient-to-r from-purple-500 to-purple-600 border-0"
+                />
+            )}
+
+            <NextUITooltip content="切换主题">
+                <Button
+                    isIconOnly
+                    variant="light"
+                    aria-label="切换主题"
+                    radius="full"
+                    className="bg-default-100"
+                    onPress={() => {
+                        document.documentElement.classList.toggle('dark');
+                        localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+                    }}
                 >
-                    <div className="flex items-center gap-3">
-                        <Logo variant="default" showText={false} />
-                        <div>
-                            <h1 className="text-2xl font-bold flex items-center gap-2">
-                                <span>仪表盘</span>
-                                {currentRoute?.name && currentRoute.name !== '仪表盘' && (
-                                    <span className="text-default-500">- {currentRoute.name}</span>
-                                )}
-                            </h1>
-                            <p className="text-sm text-default-500">
-                                {user ? `${greeting}，${user.username}` : '欢迎使用喵呜记账'}
-                                {isPersonalMode && <span className="ml-2 text-primary font-medium">(个人模式)</span>}
-                                {!isPersonalMode && currentFamily && <span className="ml-2 text-success font-medium">({currentFamily.name})</span>}
-                            </p>
-                        </div>
-                    </div>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="1em"
+                        height="1em"
+                        viewBox="0 0 24 24"
+                        className="hidden dark:block text-yellow-300"
+                        fill="currentColor"
+                    >
+                        <path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" />
+                    </svg>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="1em"
+                        height="1em"
+                        viewBox="0 0 24 24"
+                        className="block dark:hidden text-blue-900"
+                        fill="currentColor"
+                    >
+                        <path d="M10 6C10 10.4183 13.5817 14 18 14C19.4386 14 20.7885 13.6203 21.9549 12.9556C21.4738 18.0175 17.1419 22 12 22C6.47715 22 2 17.5228 2 12C2 6.85808 5.98249 2.5262 11.0444 2.04506C10.3797 3.21152 10 4.56142 10 6ZM4 12C4 16.4183 7.58172 20 12 20C14.9654 20 17.5757 18.3788 18.9571 15.9546C18.6407 15.9848 18.3212 16 18 16C12.4772 16 8 11.5228 8 6C8 5.67879 8.01524 5.35933 8.04536 5.04293C5.62119 6.42426 4 9.03458 4 12Z" />
+                    </svg>
+                </Button>
+            </NextUITooltip>
 
-                    <div className="flex flex-wrap gap-2 items-center">
-                        {/* 简化操作按钮组 - 只保留添加交易和后台管理 */}
-                        <div className="flex items-center gap-3">
-                            <Dropdown>
-                                <DropdownTrigger>
-                                    <Button
-                                        color="primary"
-                                        variant="shadow"
-                                        className="bg-gradient-to-r from-blue-500 to-blue-600 border-0"
-                                        endContent={<ChevronDown size={16} />}
-                                        startContent={<Plus size={18} />}
-                                        radius="full"
-                                        size="md"
-                                    >
-                                        添加交易
-                                    </Button>
-                                </DropdownTrigger>
-                                <DropdownMenu aria-label="交易操作">
-                                    <DropdownItem
-                                        key="add-expense"
-                                        description="记录新的支出"
-                                        startContent={<ArrowDownRight className="text-danger" size={18} />}
-                                        onPress={() => handleAddTransaction('expense')}
-                                    >
-                                        添加支出
-                                    </DropdownItem>
-                                    <DropdownItem
-                                        key="add-income"
-                                        description="记录新的收入"
-                                        startContent={<ArrowUpRight className="text-success" size={18} />}
-                                        onPress={() => handleAddTransaction('income')}
-                                    >
-                                        添加收入
-                                    </DropdownItem>
-                                </DropdownMenu>
-                            </Dropdown>
+            <Button
+                isIconOnly
+                variant="light"
+                aria-label="刷新数据"
+                onPress={refreshAllData}
+                radius="full"
+            >
+                <RefreshCw className="h-4 w-4" />
+            </Button>
+        </div>
+    );
 
-                            {/* 管理员操作按钮 */}
-                            {user?.role === 'admin' && (
-                                <AdminActionButton
-                                    variant="shadow"
-                                    className="bg-gradient-to-r from-purple-500 to-purple-600 border-0"
-                                />
-                            )}
-
-                            {/* 主题切换按钮 */}
-                            <NextUITooltip content="切换主题">
-                                <Button
-                                    isIconOnly
-                                    variant="light"
-                                    aria-label="切换主题"
-                                    radius="full"
-                                    className="bg-default-100"
-                                    onPress={() => {
-                                        document.documentElement.classList.toggle('dark');
-                                        localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-                                    }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"
-                                        className="hidden dark:block text-yellow-300" fill="currentColor">
-                                        <path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z"></path>
-                                    </svg>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"
-                                        className="block dark:hidden text-blue-900" fill="currentColor">
-                                        <path d="M10 6C10 10.4183 13.5817 14 18 14C19.4386 14 20.7885 13.6203 21.9549 12.9556C21.4738 18.0175 17.1419 22 12 22C6.47715 22 2 17.5228 2 12C2 6.85808 5.98249 2.5262 11.0444 2.04506C10.3797 3.21152 10 4.56142 10 6ZM4 12C4 16.4183 7.58172 20 12 20C14.9654 20 17.5757 18.3788 18.9571 15.9546C18.6407 15.9848 18.3212 16 18 16C12.4772 16 8 11.5228 8 6C8 5.67879 8.01524 5.35933 8.04536 5.04293C5.62119 6.42426 4 9.03458 4 12Z"></path>
-                                    </svg>
-                                </Button>
-                            </NextUITooltip>
-
-                            {/* 刷新按钮移到右侧 */}
-                            <Button
-                                isIconOnly
-                                variant="light"
-                                aria-label="刷新数据"
-                                onPress={refreshAllData}
-                                radius="full"
-                                className="ml-auto"
-                            >
-                                <RefreshCw className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* 控制面板卡片 - 添加在统计卡片前，包含原来顶部的控件 */}
-                <div className="mb-6">
+    return (
+        <PageLayout
+            title={headerTitle}
+            description={headerDescription}
+            actions={headerActions}
+            backgroundVariant="default"
+            padding="lg"
+        >
+            <>
+                <div className="space-y-6">
                     <Card className="bg-content1/70 backdrop-blur-sm">
                         <CardBody className="py-4">
                             <div className="flex flex-wrap justify-between items-center gap-4">
@@ -651,163 +648,159 @@ export default function DashboardPage() {
                             </div>
                         </CardBody>
                     </Card>
-                </div>
 
-                {/* 统计卡片 */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <AccountsSummary
-                        transactions={transactions}
-                        isPersonalMode={isPersonalMode}
-                        isLoading={isLoading}
-                    />
-                    <ExpenseSummary
-                        transactions={transactions}
-                        isPersonalMode={isPersonalMode}
-                        isLoading={isLoading}
-                    />
-                    <Card className="overflow-hidden h-full border border-default-100">
-                        <CardHeader className="flex gap-3 items-center">
-                            <div className="p-2 rounded-full bg-blue-500/10">
-                                <TrendingUp size={20} className="text-blue-500" />
-                            </div>
-                            <div className="flex flex-col">
-                                <p className="text-md font-semibold">{isPersonalMode ? "个人结余" : "家庭结余"}</p>
-                                <p className="text-small text-default-500">{isPersonalMode ? "本月收支差额" : "本月收支统计"}</p>
-                            </div>
-                        </CardHeader>
-                        <CardBody className="py-2">
-                            {statsLoading ? (
-                                <Spinner size="sm" />
-                            ) : (
-                                <>
-                                    <p className="text-3xl font-bold text-blue-500">
-                                        {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-4 mt-4">
-                                        <div>
-                                            <p className="text-sm text-default-500">{timeRange === 'month' ? '本月' : timeRange === 'quarter' ? '本季度' : '今年'}</p>
-                                            <p className="text-xl font-semibold text-blue-500">
-                                                {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
-                                            </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <AccountsSummary
+                            transactions={transactions}
+                            isPersonalMode={isPersonalMode}
+                            isLoading={isLoading}
+                        />
+                        <ExpenseSummary
+                            transactions={transactions}
+                            isPersonalMode={isPersonalMode}
+                            isLoading={isLoading}
+                        />
+                        <Card className="overflow-hidden h-full border border-default-100">
+                            <CardHeader className="flex gap-3 items-center">
+                                <div className="p-2 rounded-full bg-blue-500/10">
+                                    <TrendingUp size={20} className="text-blue-500" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <p className="text-md font-semibold">{isPersonalMode ? "个人结余" : "家庭结余"}</p>
+                                    <p className="text-small text-default-500">{isPersonalMode ? "本月收支差额" : "本月收支统计"}</p>
+                                </div>
+                            </CardHeader>
+                            <CardBody className="py-2">
+                                {statsLoading ? (
+                                    <Spinner size="sm" />
+                                ) : (
+                                    <>
+                                        <p className="text-3xl font-bold text-blue-500">
+                                            {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-4 mt-4">
+                                            <div>
+                                                <p className="text-sm text-default-500">{timeRange === 'month' ? '本月' : timeRange === 'quarter' ? '本季度' : '今年'}</p>
+                                                <p className="text-xl font-semibold text-blue-500">
+                                                    {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-default-500">{isPersonalMode ? "个人" : `${currentFamily?.name || '家庭'}`}</p>
+                                                <p className="text-xl font-semibold text-blue-500">
+                                                    {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm text-default-500">{isPersonalMode ? "个人" : `${currentFamily?.name || '家庭'}`}</p>
-                                            <p className="text-xl font-semibold text-blue-500">
-                                                {formatAmount((statistics?.total_income || 0) - (statistics?.total_expense || 0))}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </CardBody>
-                    </Card>
-                </div>
+                                    </>
+                                )}
+                            </CardBody>
+                        </Card>
+                    </div>
 
-                {/* 图表和最近交易 */}
-                <motion.div
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                >
-                    <IncomeExpenseChart
-                        statistics={statistics}
-                        isLoading={statsLoading}
-                        timeRange={timeRange}
-                    />
+                    <motion.div
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                    >
+                        <IncomeExpenseChart
+                            statistics={statistics}
+                            isLoading={statsLoading}
+                            timeRange={timeRange}
+                        />
 
-                    <Card className="overflow-hidden border border-default-100">
-                        <CardHeader className="pb-0 pt-4 px-4 flex-col items-start">
-                            <h4 className="font-bold text-large">支出分类占比</h4>
-                            <p className="text-tiny text-default-500">
-                                {timeRange === 'month' ? '本月' : timeRange === 'quarter' ? '本季度' : '本年'}支出分类比例
-                            </p>
-                        </CardHeader>
-                        <CardBody className="py-5 h-80">
-                            <CategoryPieChart
-                                data={categoryStats ? [
-                                    {
-                                        type: 'expense',
-                                        categories: categoryStats
-                                            .filter(stat => stat.type === 'expense')
-                                            .map(stat => ({
-                                                id: stat.id || 0,
-                                                name: stat.name || '未分类',
-                                                amount: stat.amount || 0,
-                                                count: 1,
-                                                color: stat.color
-                                            }))
-                                    }
-                                ] : null}
-                                isLoading={categoryLoading}
-                            />
-                        </CardBody>
-                    </Card>
-                </motion.div>
-
-                {/* 最近交易 */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                >
-                    <Card className="overflow-hidden border border-default-100">
-                        <CardHeader className="pb-0 pt-4 px-4 flex justify-between items-center">
-                            <div>
-                                <h4 className="font-bold text-large">
-                                    {isPersonalMode ? "我的最近交易" : `${currentFamily?.name || '家庭'}最近交易`}
-                                </h4>
-                                <p className="text-tiny text-default-500">最近的5笔交易记录</p>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    color="default"
-                                    variant="light"
-                                    onPress={fetchTransactions}
-                                    startContent={<RefreshCw size={14} />}
-                                >
-                                    刷新
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    color="secondary"
-                                    variant="flat"
-                                    onPress={handleViewMoreTransactions}
-                                >
-                                    查看全部
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    color="primary"
-                                    variant="flat"
-                                    onPress={() => {
-                                        // 验证在家庭模式下是否有选中的家庭
-                                        if (!isPersonalMode && (!currentFamily || !families || families.length === 0)) {
-                                            showToast('请先创建或加入一个家庭', 'error');
-                                            return;
+                        <Card className="overflow-hidden border border-default-100">
+                            <CardHeader className="pb-0 pt-4 px-4 flex-col items-start">
+                                <h4 className="font-bold text-large">支出分类占比</h4>
+                                <p className="text-tiny text-default-500">
+                                    {timeRange === 'month' ? '本月' : timeRange === 'quarter' ? '本季度' : '本年'}支出分类比例
+                                </p>
+                            </CardHeader>
+                            <CardBody className="py-5 h-80">
+                                <CategoryPieChart
+                                    data={categoryStats ? [
+                                        {
+                                            type: 'expense',
+                                            categories: categoryStats
+                                                .filter(stat => stat.type === 'expense')
+                                                .map(stat => ({
+                                                    id: stat.id || 0,
+                                                    name: stat.name || '未分类',
+                                                    amount: stat.amount || 0,
+                                                    count: 1,
+                                                    color: stat.color
+                                                }))
                                         }
-                                        setIsAddTransactionModalOpen(true);
-                                    }}
-                                    startContent={<Plus size={14} />}
-                                >
-                                    添加交易
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardBody>
-                            <RecentTransactions
-                                transactions={transactions}
-                                isLoading={isLoading}
-                                onEdit={handleEditTransaction}
-                                onDelete={handleDeleteTransaction}
-                                isPersonalMode={isPersonalMode}
-                                userId={user?.id}
-                                onViewMore={handleViewMoreTransactions}
-                            />
-                        </CardBody>
-                    </Card>
-                </motion.div>
+                                    ] : null}
+                                    isLoading={categoryLoading}
+                                />
+                            </CardBody>
+                        </Card>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                    >
+                        <Card className="overflow-hidden border border-default-100">
+                            <CardHeader className="pb-0 pt-4 px-4 flex justify-between items-center">
+                                <div>
+                                    <h4 className="font-bold text-large">
+                                        {isPersonalMode ? "我的最近交易" : `${currentFamily?.name || '家庭'}最近交易`}
+                                    </h4>
+                                    <p className="text-tiny text-default-500">最近的5笔交易记录</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        color="default"
+                                        variant="light"
+                                        onPress={fetchTransactions}
+                                        startContent={<RefreshCw size={14} />}
+                                    >
+                                        刷新
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        color="secondary"
+                                        variant="flat"
+                                        onPress={handleViewMoreTransactions}
+                                    >
+                                        查看全部
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        color="primary"
+                                        variant="flat"
+                                        onPress={() => {
+                                            if (!isPersonalMode && (!currentFamily || !families || families.length === 0)) {
+                                                showToast('请先创建或加入一个家庭', 'error');
+                                                return;
+                                            }
+                                            setIsAddTransactionModalOpen(true);
+                                        }}
+                                        startContent={<Plus size={14} />}
+                                    >
+                                        添加交易
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardBody>
+                                <RecentTransactions
+                                    transactions={transactions}
+                                    isLoading={isLoading}
+                                    onEdit={handleEditTransaction}
+                                    onDelete={handleDeleteTransaction}
+                                    isPersonalMode={isPersonalMode}
+                                    userId={user?.id}
+                                    onViewMore={handleViewMoreTransactions}
+                                />
+                            </CardBody>
+                        </Card>
+                    </motion.div>
+                </div>
 
                 {/* 交易详情模态框 */}
                 <Modal isOpen={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -1016,7 +1009,7 @@ export default function DashboardPage() {
                     type={transactionType}
                     familyId={!isPersonalMode && currentFamily ? currentFamily.id.toString() : undefined}
                 />
-            </div>
-        </div>
+            </>
+        </PageLayout>
     );
 }

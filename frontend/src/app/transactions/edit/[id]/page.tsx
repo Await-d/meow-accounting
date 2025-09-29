@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardBody, CardHeader, Button, Breadcrumbs, BreadcrumbItem, Spinner } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import PageLayout from '@/components/PageLayout';
 import { TransactionForm } from '@/components';
 import { ArrowLeft } from 'lucide-react';
 import { useUpdateTransaction } from '@/hooks/useTransactions';
@@ -42,61 +43,61 @@ export default function EditTransactionPage({ params }: EditTransactionPageProps
     }, [isLoading, transaction, router]);
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="mb-6">
+        <PageLayout
+            title="编辑交易"
+            description="更新已有交易的详情信息。"
+            backgroundVariant="minimal"
+        >
+            <div className="space-y-6">
                 <Breadcrumbs>
                     <BreadcrumbItem onClick={() => router.push('/dashboard')}>仪表盘</BreadcrumbItem>
                     <BreadcrumbItem onClick={() => router.push('/transactions')}>交易记录</BreadcrumbItem>
                     <BreadcrumbItem>编辑交易</BreadcrumbItem>
                 </Breadcrumbs>
-            </div>
 
-            <Card>
-                <CardHeader className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <Button
-                            isIconOnly
-                            variant="light"
-                            onClick={handleBack}
-                        >
-                            <ArrowLeft size={20} />
-                        </Button>
-                        <h1 className="text-2xl font-bold">编辑交易</h1>
-                    </div>
-                </CardHeader>
-                <CardBody>
-                    {isLoading ? (
-                        <div className="flex justify-center items-center h-64">
-                            <Spinner />
-                        </div>
-                    ) : transaction ? (
-                        <>
-                            {error && (
-                                <div className="bg-red-100 text-red-800 p-3 rounded-lg mb-4">
-                                    {error}
-                                </div>
-                            )}
-                            <TransactionForm
-                                isOpen={true}
-                                onClose={() => router.push('/transactions')}
-                                transaction={transaction}
-                            />
-                        </>
-                    ) : (
-                        <div className="text-center py-8">
-                            <p className="text-gray-500">交易不存在或您没有权限编辑</p>
-                            <Button
-                                color="primary"
-                                variant="flat"
-                                className="mt-4"
-                                onClick={() => router.push('/transactions')}
-                            >
-                                返回交易列表
+                <Card className="border border-default-100 bg-background/70 backdrop-blur">
+                    <CardHeader className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <Button isIconOnly variant="light" onClick={handleBack}>
+                                <ArrowLeft size={20} />
                             </Button>
+                            <h1 className="text-2xl font-bold">编辑交易</h1>
                         </div>
-                    )}
-                </CardBody>
-            </Card>
-        </div>
+                    </CardHeader>
+                    <CardBody>
+                        {isLoading ? (
+                            <div className="flex justify-center items-center h-64">
+                                <Spinner />
+                            </div>
+                        ) : transaction ? (
+                            <>
+                                {error && (
+                                    <div className="bg-danger-50 text-danger p-3 rounded-lg mb-4">
+                                        {error}
+                                    </div>
+                                )}
+                                <TransactionForm
+                                    isOpen={true}
+                                    onClose={() => router.push('/transactions')}
+                                    transaction={transaction}
+                                />
+                            </>
+                        ) : (
+                            <div className="text-center py-8">
+                                <p className="text-default-500">交易不存在或您没有权限编辑</p>
+                                <Button
+                                    color="primary"
+                                    variant="flat"
+                                    className="mt-4"
+                                    onClick={() => router.push('/transactions')}
+                                >
+                                    返回交易列表
+                                </Button>
+                            </div>
+                        )}
+                    </CardBody>
+                </Card>
+            </div>
+        </PageLayout>
     );
 } 

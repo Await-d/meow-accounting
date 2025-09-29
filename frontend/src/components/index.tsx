@@ -22,4 +22,5 @@ export { default as BackgroundEffect } from './BackgroundEffect';
 export { default as FeatureCard } from './FeatureCard';
 export { default as AnimatedTitle } from './AnimatedTitle';
 export { default as DashboardBackground } from './dashboard/DashboardBackground';
+export { default as PageLayout } from './PageLayout';
 // 其他组件导出...

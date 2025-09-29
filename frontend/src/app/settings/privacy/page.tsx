@@ -11,21 +11,19 @@ import {
 } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/Toast';
-import { useUpdatePrivacySettings } from '@/lib/api';
+import { usePrivacySettingsMutation } from '@/hooks/usePrivacySettings';
 
 export default function PrivacyPage() {
     const { user, updateUser } = useAuth();
-    // TODO: Implement proper privacy settings mutation hook
-    const updatePrivacy = async (data: any) => {
-        // Implementation needed
-    };
+    const {
+        mutateAsync: updatePrivacy,
+        isPending: isUpdating,
+    } = usePrivacySettingsMutation();
     const { showToast } = useToast();
     const [guestPassword, setGuestPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
 
     const handlePrivacyModeChange = async () => {
         try {
-            setIsLoading(true);
             await updatePrivacy({
                 privacy_mode: !user?.privacy_mode,
                 guest_password: user?.privacy_mode ? undefined : guestPassword,
@@ -41,13 +39,11 @@ export default function PrivacyPage() {
             setGuestPassword('');
         } catch (error) {
             showToast('设置失败', 'error');
-        } finally {
-            setIsLoading(false);
         }
     };
 
     return (
-        <Card>
+        <Card className="border border-default-100 bg-background/70 backdrop-blur">
             <CardBody className="space-y-6">
                 <div>
                     <h2 className="text-xl font-semibold mb-4">隐私设置</h2>
@@ -71,7 +67,7 @@ export default function PrivacyPage() {
                         <Switch
                             isSelected={user?.privacy_mode}
                             onValueChange={handlePrivacyModeChange}
-                            isDisabled={isLoading}
+                            isDisabled={isUpdating}
                         />
                     </div>
 
@@ -88,8 +84,8 @@ export default function PrivacyPage() {
                             <Button
                                 color="primary"
                                 onPress={handlePrivacyModeChange}
-                                isDisabled={!guestPassword || isLoading}
-                                isLoading={isLoading}
+                                isDisabled={!guestPassword || isUpdating}
+                                isLoading={isUpdating}
                             >
                                 开启隐私模式
                             </Button>

@@ -18,6 +18,7 @@ import { DataTable } from '@/components/DataTable';
 import { RouteOptimizationModal } from './components/RouteOptimizationModal';
 import { ExportReportModal } from './components/ExportReportModal';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import PageLayout from '@/components/PageLayout';
 
 // 模拟路由性能数据
 const mockPerformanceData = [
@@ -190,91 +191,91 @@ export default function RoutesPage() {
         }
     };
 
+    const headerActions = (
+        <div className="flex flex-wrap items-center gap-2">
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            <Button
+                color="primary"
+                variant="shadow"
+                startContent={<FileText size={16} />}
+                onPress={onExportOpen}
+            >
+                导出报告
+            </Button>
+        </div>
+    );
+
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">路由管理</h1>
-                <div className="flex gap-2">
-                    <DateRangePicker
-                        value={dateRange}
-                        onChange={setDateRange}
-                    />
-                    <Button
-                        color="primary"
-                        variant="shadow"
-                        startContent={<FileText size={16} />}
-                        onPress={onExportOpen}
-                    >
-                        导出报告
-                    </Button>
-                </div>
+        <PageLayout
+            title="路由管理"
+            description="分析路由访问表现，生成预测与优化建议。"
+            actions={headerActions}
+            backgroundVariant="minimal"
+        >
+            <div className="space-y-6">
+                <Card>
+                    <CardHeader className="flex gap-3 px-6 py-4">
+                        <ArrowRightLeft size={24} className="text-primary" />
+                        <div>
+                            <h2 className="text-xl font-bold">路由预测</h2>
+                            <p className="text-sm text-default-500">基于用户行为的路由访问预测</p>
+                        </div>
+                    </CardHeader>
+                    <CardBody>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {isPredictionsLoading ? (
+                                <div className="col-span-3 text-center py-4">加载中...</div>
+                            ) : (
+                                (predictions?.topRoutes || Array(3).fill({})).map((prediction: any, index: number) => (
+                                    <RoutePredictionCard
+                                        key={index}
+                                        prediction={prediction}
+                                        isLoading={isPredictionsLoading}
+                                    />
+                                ))
+                            )}
+                        </div>
+                    </CardBody>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex gap-3 px-6 py-4">
+                        <BarChart3 size={24} className="text-primary" />
+                        <div>
+                            <h2 className="text-xl font-bold">路由性能</h2>
+                            <p className="text-sm text-default-500">监控路由加载时间和错误率</p>
+                        </div>
+                    </CardHeader>
+                    <CardBody>
+                        <Tabs>
+                            <Tab key="table" title="表格视图">
+                                <DataTable
+                                    columns={performanceColumns}
+                                    data={visualizationData?.data || mockPerformanceData}
+                                    isLoading={isVisualizationLoading}
+                                />
+                            </Tab>
+                            <Tab key="chart" title="图表视图">
+                                <div className="w-full h-80">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={visualizationData?.data || mockPerformanceData}
+                                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="name" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Bar dataKey="loadTime" name="加载时间 (ms)" fill="#8884d8" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </Tab>
+                        </Tabs>
+                    </CardBody>
+                </Card>
             </div>
 
-            {/* 路由预测 */}
-            <Card>
-                <CardHeader className="flex gap-3 px-6 py-4">
-                    <ArrowRightLeft size={24} className="text-primary" />
-                    <div>
-                        <h2 className="text-xl font-bold">路由预测</h2>
-                        <p className="text-sm text-default-500">基于用户行为的路由访问预测</p>
-                    </div>
-                </CardHeader>
-                <CardBody>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {isPredictionsLoading ? (
-                            <div className="col-span-3 text-center py-4">加载中...</div>
-                        ) : (
-                            (predictions?.topRoutes || Array(3).fill({})).map((prediction: any, index: number) => (
-                                <RoutePredictionCard
-                                    key={index}
-                                    prediction={prediction}
-                                    isLoading={isPredictionsLoading}
-                                />
-                            ))
-                        )}
-                    </div>
-                </CardBody>
-            </Card>
-
-            {/* 性能监控 */}
-            <Card>
-                <CardHeader className="flex gap-3 px-6 py-4">
-                    <BarChart3 size={24} className="text-primary" />
-                    <div>
-                        <h2 className="text-xl font-bold">路由性能</h2>
-                        <p className="text-sm text-default-500">监控路由加载时间和错误率</p>
-                    </div>
-                </CardHeader>
-                <CardBody>
-                    <Tabs>
-                        <Tab key="table" title="表格视图">
-                            <DataTable
-                                columns={performanceColumns}
-                                data={visualizationData?.data || mockPerformanceData}
-                                isLoading={isVisualizationLoading}
-                            />
-                        </Tab>
-                        <Tab key="chart" title="图表视图">
-                            <div className="w-full h-80">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart
-                                        data={visualizationData?.data || mockPerformanceData}
-                                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                                    >
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey="loadTime" name="加载时间 (ms)" fill="#8884d8" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </Tab>
-                    </Tabs>
-                </CardBody>
-            </Card>
-
-            {/* 优化建议弹窗 */}
             <RouteOptimizationModal
                 isOpen={isOptimizationOpen}
                 onClose={onOptimizationClose}
@@ -282,7 +283,6 @@ export default function RoutesPage() {
                 fetchSuggestions={getRouteOptimizationSuggestions}
             />
 
-            {/* 导出报告弹窗 */}
             <ExportReportModal
                 isOpen={isExportOpen}
                 onClose={onExportClose}
@@ -290,6 +290,6 @@ export default function RoutesPage() {
                 dateRange={dateRange}
                 setDateRange={setDateRange}
             />
-        </div>
+        </PageLayout>
     );
-} 
+}

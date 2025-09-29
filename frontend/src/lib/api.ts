@@ -396,7 +396,7 @@ export async function changePassword(passwordData: any) {
 }
 
 // Privacy API
-export async function useUpdatePrivacySettings(settingsData: any) {
+export async function updatePrivacySettings(settingsData: any) {
     return fetchAPI('/users/privacy', {
         method: 'PUT',
         body: JSON.stringify(settingsData)

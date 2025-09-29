@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { Card, CardBody, Input, Button, Link } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
+import PageLayout from '@/components/PageLayout';
 
 export default function RegisterPage() {
     const [username, setUsername] = useState('');
@@ -43,12 +44,18 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-100 to-purple-100 p-4">
-            <Card className="w-full max-w-md">
+        <PageLayout
+            title="注册喵呜记账"
+            description="创建新账号，与家人一起管理财务。"
+            backgroundVariant="default"
+            maxWidth="lg"
+            padding="lg"
+        >
+            <Card className="w-full max-w-md mx-auto border border-default-100 bg-background/80 backdrop-blur">
                 <CardBody className="gap-4">
-                    <div className="text-center mb-4">
+                    <div className="text-center mb-2">
                         <h1 className="text-2xl font-bold">注册账号</h1>
-                        <p className="text-default-500">创建一个新账号</p>
+                        <p className="text-default-500">填写以下信息创建新账户</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -101,6 +108,6 @@ export default function RegisterPage() {
                     </form>
                 </CardBody>
             </Card>
-        </div>
+        </PageLayout>
     );
 }
