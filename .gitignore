@@ -72,4 +72,5 @@ media/*.woff2
 TODO.md
 NOTES.md
 /backend/database/bill.db
-/*/pnpm-lock.yaml
+# pnpm-lock.yaml 文件对Docker构建和CI/CD很重要，需要被跟踪
+# /*/pnpm-lock.yaml  # 注释掉，允许跟踪锁文件
