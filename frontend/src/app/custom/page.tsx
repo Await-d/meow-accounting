@@ -1,16 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { Card, CardBody, CardHeader } from '@nextui-org/react';
-import { useAuth } from '@/hooks/useAuth';
+import { Card, CardBody } from '@nextui-org/react';
 import { useRoute } from '@/hooks/useRoute';
 import PageLayout from '@/components/PageLayout';
 
 export default function CustomPage() {
-    const { user } = useAuth();
     const { currentRoute } = useRoute();
-
-    const description = currentRoute
+    const description = currentRoute?.path
         ? `当前路由：${currentRoute.path}`
         : '这是一个自定义页面，您可以根据需要配置内容。';
 
