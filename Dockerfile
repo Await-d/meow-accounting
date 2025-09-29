@@ -16,7 +16,8 @@ ENV NODE_ENV=production
 RUN echo "Building with NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL"
 
 # 复制包管理文件
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/package.json ./
+COPY frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # 复制源码并构建
@@ -35,7 +36,8 @@ WORKDIR /app/backend
 RUN npm install -g pnpm
 
 # 复制包管理文件
-COPY backend/package.json backend/pnpm-lock.yaml ./
+COPY backend/package.json ./
+COPY backend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # 复制源码并构建
@@ -54,8 +56,8 @@ RUN mkdir -p /app/data
 
 # 复制后端构建产物和依赖信息
 COPY --from=backend-builder /app/backend/dist /app/backend/dist
-COPY --from=backend-builder /app/backend/package.json /app/backend/
-COPY --from=backend-builder /app/backend/pnpm-lock.yaml /app/backend/
+COPY --from=backend-builder /app/backend/package.json /app/backend/package.json
+COPY --from=backend-builder /app/backend/pnpm-lock.yaml /app/backend/pnpm-lock.yaml
 
 # 安装后端生产依赖
 WORKDIR /app/backend
@@ -64,9 +66,9 @@ RUN pnpm install --prod --frozen-lockfile
 # 复制前端构建产物和依赖信息
 COPY --from=frontend-builder /app/frontend/.next /app/frontend/.next
 COPY --from=frontend-builder /app/frontend/public /app/frontend/public
-COPY --from=frontend-builder /app/frontend/package.json /app/frontend/
-COPY --from=frontend-builder /app/frontend/pnpm-lock.yaml /app/frontend/
-COPY --from=frontend-builder /app/frontend/next.config.js /app/frontend/
+COPY --from=frontend-builder /app/frontend/package.json /app/frontend/package.json
+COPY --from=frontend-builder /app/frontend/pnpm-lock.yaml /app/frontend/pnpm-lock.yaml
+COPY --from=frontend-builder /app/frontend/next.config.js /app/frontend/next.config.js
 
 # 安装前端生产依赖
 WORKDIR /app/frontend
