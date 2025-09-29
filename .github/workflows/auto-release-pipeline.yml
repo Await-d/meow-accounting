@@ -230,7 +230,15 @@ jobs:
         EOF
 
         # 只添加必要的文件，排除缓存和大文件
-        git add --all -- ':!node_modules' ':!.next/cache' ':!*.pack' ':!*.woff2' ':!*.woff' ':!*.ttf' ':!*.eot'
+        # 使用 find 和 grep 进行更精确的文件选择
+        find . -type f \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.json" -o -name "*.md" -o -name "*.txt" \) \
+          -not -path "./node_modules/*" \
+          -not -path "./.next/cache/*" \
+          -not -name "*.pack" \
+          -not -name "*.woff*" \
+          -not -name "*.ttf" \
+          -not -name "*.eot" \
+          | xargs -r git add
         git commit -m "chore: update frontend build for v${{ steps.next_version.outputs.new_version }} [skip ci]"
         git push origin web-dist --force
 
