@@ -802,6 +802,7 @@ jobs:
           fi
 
           # 生成验证报告
+          mkdir -p ../.github/validation-reports
           cat > "../.github/validation-reports/web-dist-validation.md" << EOF
         # Web-Dist Branch Validation Report
 
