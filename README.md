@@ -67,6 +67,8 @@ docker run -d \
   -p 3000:3000 \
   -p 3001:3001 \
   -v $(pwd)/data:/app/data \
+  # 如需启用Redis缓存，可为容器提供可访问的Redis地址
+  # -e REDIS_URL=redis://host.docker.internal:6379 \
   -e JWT_SECRET=your_strong_jwt_secret \
   await2719/meow-accounting:latest
 ```
@@ -82,6 +84,8 @@ services:
   meow-accounting:
     image: await2719/meow-accounting:latest
     container_name: meow-accounting
+    depends_on:
+      - redis
     ports:
       - "3000:3000"  # 前端端口
       - "3001:3001"  # 后端API端口
@@ -92,6 +96,7 @@ services:
       - NODE_ENV=production
       - JWT_SECRET=your_strong_jwt_secret_change_this
       - DATABASE_URL=file:/app/data/sqlite.db
+      - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=info
     restart: unless-stopped
     healthcheck:
@@ -100,6 +105,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: meow-accounting-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-data:/data
+    command: ["redis-server", "--save", "60", "1"]
 ```
 
 启动服务：
@@ -126,6 +140,8 @@ docker-compose down
 | `JWT_SECRET` | - | JWT密钥（必须设置） |
 | `JWT_EXPIRES_IN` | `24h` | JWT过期时间 |
 | `LOG_LEVEL` | `info` | 日志级别 |
+| `REDIS_URL` | - | Redis连接地址（启用缓存时设置） |
+| `REDIS_PASSWORD` | - | Redis密码（如实例启用认证） |
 
 ### 本地开发
 
