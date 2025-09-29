@@ -898,6 +898,7 @@ jobs:
           echo "📏 构建大小: $BUILD_SIZE"
 
           # 生成Next.js验证报告
+          mkdir -p .github/validation-reports
           cat > ".github/validation-reports/nextjs-build-validation.md" << EOF
         # Next.js Build Validation Report
 
@@ -933,6 +934,7 @@ jobs:
         fi
 
         # 创建综合验证摘要
+        mkdir -p .github/validation-reports
         cat > ".github/validation-reports/validation-summary.md" << EOF
         # Comprehensive Validation Summary
 
