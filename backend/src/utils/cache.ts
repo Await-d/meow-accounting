@@ -29,15 +29,28 @@ class ConnectionPool {
     }
 
     private createConnection(): Redis {
+        const retryStrategy = (times: number) => {
+            const delay = Math.min(times * 50, 2000);
+            return delay;
+        };
+
+        const password = process.env.REDIS_PASSWORD || undefined;
+        const db = process.env.REDIS_DB ? parseInt(process.env.REDIS_DB, 10) : undefined;
+
+        if (process.env.REDIS_URL) {
+            return new Redis(process.env.REDIS_URL, {
+                retryStrategy,
+                password,
+                db,
+            });
+        }
+
         return new Redis({
             host: process.env.REDIS_HOST || 'localhost',
-            port: parseInt(process.env.REDIS_PORT || '6379'),
-            password: process.env.REDIS_PASSWORD,
-            db: parseInt(process.env.REDIS_DB || '0'),
-            retryStrategy: (times) => {
-                const delay = Math.min(times * 50, 2000);
-                return delay;
-            }
+            port: parseInt(process.env.REDIS_PORT || '6379', 10),
+            password,
+            db: db ?? 0,
+            retryStrategy,
         });
     }
 

@@ -142,8 +142,11 @@ docker-compose down
 | `JWT_SECRET` | - | JWT密钥（必须设置） |
 | `JWT_EXPIRES_IN` | `24h` | JWT过期时间 |
 | `LOG_LEVEL` | `info` | 日志级别 |
-| `REDIS_URL` | - | Redis连接地址（启用缓存时设置） |
-| `REDIS_PASSWORD` | - | Redis密码（如实例启用认证，格式 `redis://user:password@host:port` 亦可在 `REDIS_URL` 中直接携带） |
+| `REDIS_URL` | - | Redis连接地址（启用缓存时设置，支持在URL中携带账号密码） |
+| `REDIS_PASSWORD` | - | Redis密码（如实例启用认证，或在 `REDIS_URL` 中直接包含） |
+| `REDIS_HOST` | `localhost` | Redis主机，未设置 `REDIS_URL` 时可选 |
+| `REDIS_PORT` | `6379` | Redis端口，未设置 `REDIS_URL` 时可选 |
+| `REDIS_DB` | `0` | Redis数据库索引，未设置 `REDIS_URL` 时可选 |
 
 ### 本地开发
 
