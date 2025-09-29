@@ -162,8 +162,28 @@ jobs:
         TEMP_DIR=$(mktemp -d)
         echo "Using temp directory: $TEMP_DIR"
 
-        # 复制构建产物到临时目录
-        cp -r frontend/out/* "$TEMP_DIR/" 2>/dev/null || cp -r frontend/.next/static/* "$TEMP_DIR/" 2>/dev/null || cp -r frontend/dist/* "$TEMP_DIR/" 2>/dev/null || echo "No build output found"
+        # 复制构建产物到临时目录（只复制静态资源，避免缓存文件）
+        if [ -d "frontend/out" ]; then
+          echo "Using Next.js export output"
+          cp -r frontend/out/* "$TEMP_DIR/" 2>/dev/null || echo "No out files"
+        elif [ -d "frontend/.next/standalone" ]; then
+          echo "Using Next.js standalone output"
+          cp -r frontend/.next/standalone/* "$TEMP_DIR/" 2>/dev/null || echo "No standalone files"
+          # 复制静态资源（排除缓存）
+          if [ -d "frontend/.next/static" ]; then
+            mkdir -p "$TEMP_DIR/.next"
+            cp -r frontend/.next/static "$TEMP_DIR/.next/" 2>/dev/null || echo "No static files"
+          fi
+        elif [ -d "frontend/dist" ]; then
+          echo "Using dist output"
+          cp -r frontend/dist/* "$TEMP_DIR/" 2>/dev/null || echo "No dist files"
+        else
+          echo "No suitable build output found, using basic static files"
+          # 只复制必要的静态文件
+          if [ -d "frontend/public" ]; then
+            cp -r frontend/public/* "$TEMP_DIR/" 2>/dev/null || echo "No public files"
+          fi
+        fi
 
         # 检查 web-dist 分支是否存在
         if git ls-remote --heads origin web-dist | grep -q web-dist; then
@@ -195,16 +215,22 @@ jobs:
         Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
         EOF
 
-        # 创建 .gitignore 文件以排除 node_modules
+        # 创建 .gitignore 文件以排除大文件和缓存
         cat > .gitignore << EOF
         node_modules/
+        .next/cache/
         *.log
         .DS_Store
         .env
+        *.pack
+        *.woff2
+        *.woff
+        *.ttf
+        *.eot
         EOF
 
-        # 只添加必要的文件，排除 node_modules
-        git add --all -- ':!node_modules'
+        # 只添加必要的文件，排除缓存和大文件
+        git add --all -- ':!node_modules' ':!.next/cache' ':!*.pack' ':!*.woff2' ':!*.woff' ':!*.ttf' ':!*.eot'
         git commit -m "chore: update frontend build for v${{ steps.next_version.outputs.new_version }} [skip ci]"
         git push origin web-dist --force
 

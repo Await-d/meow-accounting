@@ -13,6 +13,10 @@ out/
 build/
 dist/
 
+# Next.js 缓存文件（避免提交大文件）
+.next/cache/
+*.pack
+
 # 环境变量文件（保护敏感信息）
 .env
 .env.local
@@ -56,6 +60,13 @@ public/workbox-*.js.map
 .vercel
 *.tsbuildinfo
 next-env.d.ts
+
+# 大文件和字体文件（避免 GitHub 限制）
+*.woff2
+*.woff
+*.ttf
+*.eot
+media/*.woff2
 
 # 本地文件
 TODO.md
