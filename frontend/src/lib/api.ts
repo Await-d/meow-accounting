@@ -12,17 +12,22 @@ const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const { protocol, hostname, port } = window.location;
 
-    // 如果是通过3000端口访问（前端端口），API在3001端口
-    if (port === '3000' || port === '') {
+    // 生产环境下，优先使用相对路径（通过Nginx代理）
+    if (port === '80' || port === '443' || port === '') {
+      return '/api';
+    }
+
+    // 开发环境：如果是通过3000端口访问（前端端口），API在3001端口
+    if (port === '3000') {
       return `${protocol}//${hostname}:3001/api`;
     }
 
-    // 如果是其他端口，假设是反向代理，API在同一地址的/api路径
-    return `${protocol}//${hostname}${port ? `:${port}` : ''}/api`;
+    // 其他情况，假设是反向代理
+    return '/api';
   }
 
   // 服务端渲染时的默认值
-  return process.env.BACKEND_URL ? `${process.env.BACKEND_URL}/api` : 'http://localhost:3001/api';
+  return process.env.BACKEND_URL ? `${process.env.BACKEND_URL}/api` : '/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

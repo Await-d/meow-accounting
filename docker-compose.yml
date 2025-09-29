@@ -5,9 +5,10 @@ services:
   meow-accounting:
     image: await2719/meow-accounting:latest
     container_name: meow-accounting
-    ports:
-      - "3000:3000"  # 前端端口
-      - "3001:3001"  # 后端API端口
+    # 移除端口暴露，通过nginx代理访问
+    expose:
+      - "3000"  # 前端端口（仅内部网络）
+      - "3001"  # 后端API端口（仅内部网络）
     volumes:
       - ./data:/app/data  # 数据持久化
       - ./logs:/app/logs  # 日志目录
@@ -18,7 +19,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - BACKEND_URL=${BACKEND_URL:-http://localhost:3001}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api}
       - REDIS_HOST=${REDIS_HOST:-192.168.123.5}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-bdtdhc6DizYQYbEZ}
@@ -67,7 +68,7 @@ services:
     profiles:
       - with-postgres
 
-  # Nginx反向代理（可选）
+  # Nginx反向代理
   nginx:
     image: nginx:alpine
     container_name: meow-nginx
@@ -75,15 +76,13 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./logs/nginx:/var/log/nginx
     depends_on:
       - meow-accounting
     restart: unless-stopped
     networks:
       - meow-network
-    profiles:
-      - with-nginx
 
   # 监控服务 - Prometheus（可选）
   prometheus:

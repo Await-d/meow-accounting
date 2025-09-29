@@ -151,12 +151,17 @@ export function useExportTransactions() {
                 }
                 if (typeof window !== 'undefined') {
                     const { protocol, hostname, port } = window.location;
-                    if (port === '3000' || port === '') {
+                    // 生产环境使用相对路径
+                    if (port === '80' || port === '443' || port === '') {
+                        return '/api';
+                    }
+                    // 开发环境
+                    if (port === '3000') {
                         return `${protocol}//${hostname}:3001/api`;
                     }
-                    return `${protocol}//${hostname}${port ? `:${port}` : ''}/api`;
+                    return '/api';
                 }
-                return 'http://localhost:3001/api';
+                return '/api';
             };
 
             // For blob exports, we need to use fetch directly

@@ -47,37 +47,49 @@ pnpm run lint         # Run ESLint
 
 ### Docker Operations
 
-#### 使用Docker Compose（推荐）
+#### 使用Docker Compose + Nginx（推荐）
 ```bash
 # 1. 复制环境变量配置文件
 cp .env.docker .env
 
 # 2. 根据实际部署环境修改 .env 文件中的配置
 # 特别注意修改以下变量：
-# - NEXT_PUBLIC_API_URL: 前端访问的API地址
-# - FRONTEND_URL: 前端访问地址
-# - BACKEND_URL: 后端访问地址
 # - JWT_SECRET: JWT密钥（生产环境必须修改）
+# - REDIS_*: Redis配置（如果使用Redis）
 
-# 3. 启动服务
+# 3. 启动服务（包含Nginx反向代理）
 docker-compose up -d
 
 # 4. 查看日志
 docker-compose logs -f
 
-# 5. 停止服务
+# 5. 访问应用
+# 访问 http://your-server-ip 即可使用应用
+# 前端和API都通过同一端口访问，解决跨域问题
+
+# 6. 停止服务
 docker-compose down
 ```
 
-#### 生产环境API地址配置
+#### 生产环境部署架构
+```
+用户 → Nginx(80端口) → 前端(3000) + API代理(/api → 3001)
+                    ↓
+               应用容器(meow-accounting)
+                    ↓
+               Redis + SQLite
+```
+
+#### API地址配置说明
 ```bash
-# 本地开发环境
+# 使用Nginx反向代理（推荐）
+NEXT_PUBLIC_API_URL=/api
+
+# 直接暴露端口（开发环境）
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
 
-# 生产环境示例（请根据实际情况修改）
-NEXT_PUBLIC_API_URL=http://your-server-ip:3001/api
-# 或使用域名
-NEXT_PUBLIC_API_URL=https://your-domain.com/api
+# 使用域名（生产环境无Nginx）
+NEXT_PUBLIC_API_URL=https://your-domain.com:3001/api
 ```
 
 #### 使用Docker直接构建
