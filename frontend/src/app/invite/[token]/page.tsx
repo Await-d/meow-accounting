@@ -39,7 +39,7 @@ export default function InvitePage({ params }: { params: { token: string } }) {
         const fetchInvitation = async () => {
             try {
                 const data = await fetchAPI<InvitationInfo>(`/families/invitations/${token}`);
-                setInvitation(data);
+                setInvitation(data.data);
                 setLoading(false);
             } catch (error: any) {
                 console.error('获取邀请信息失败:', error);

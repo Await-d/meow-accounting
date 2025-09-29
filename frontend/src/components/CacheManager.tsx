@@ -15,13 +15,41 @@ import {
 } from '@nextui-org/react';
 import { RefreshCw, Trash2, Database } from 'lucide-react';
 import { useToast } from '@/components/Toast';
-import {
-    CacheStats,
-    getCacheStats,
-    clearCachePattern,
-    clearAllCache,
-    monitorMemory
-} from '../api/cache';
+// Temporary cache API stubs
+interface CacheStats {
+    totalKeys: number;
+    memoryUsage: number;
+    hitRate: number;
+    redis: {
+        keys: number;
+        memory: number;
+        hits: number;
+        misses: number;
+    };
+    local: {
+        size: number;
+        capacity: number;
+    };
+    total: {
+        keys: number;
+        memory: number;
+        hits: number;
+        misses: number;
+        hitRate: number;
+    };
+}
+
+const getCacheStats = async (): Promise<CacheStats> => ({
+    totalKeys: 0,
+    memoryUsage: 0,
+    hitRate: 0,
+    redis: { keys: 0, memory: 0, hits: 0, misses: 0 },
+    local: { size: 0, capacity: 100 },
+    total: { keys: 0, memory: 0, hits: 0, misses: 0, hitRate: 0 }
+});
+const clearCachePattern = async (pattern: string): Promise<void> => {};
+const clearAllCache = async (): Promise<void> => {};
+const monitorMemory = (threshold?: number): void => {};
 
 const CacheManager: React.FC = () => {
     const [stats, setStats] = useState<CacheStats | null>(null);

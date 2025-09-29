@@ -15,12 +15,12 @@
 2. **代码格式检查**：
    如果有eslint配置：
    ```bash
-   npm run lint
+   pnpm run lint
    ```
 
 3. **测试运行**：
    ```bash
-   npm test
+   pnpm test
    ```
 
 4. **手动测试API**：
@@ -36,12 +36,12 @@
 
 2. **代码格式检查**：
    ```bash
-   npm run lint
+   pnpm run lint
    ```
 
 3. **构建验证**：
    ```bash
-   npm run build
+   pnpm run build
    ```
 
 4. **浏览器测试**：

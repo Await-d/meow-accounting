@@ -137,11 +137,11 @@ export async function validateParams(
                         return false;
                     }
 
-                    if (range.min !== undefined && value < range.min) {
+                    if (range && typeof range === 'object' && 'min' in range && range.min !== undefined && typeof range.min === 'number' && value < range.min) {
                         return false;
                     }
 
-                    if (range.max !== undefined && value > range.max) {
+                    if (range && typeof range === 'object' && 'max' in range && range.max !== undefined && typeof range.max === 'number' && value > range.max) {
                         return false;
                     }
                 }

@@ -6,7 +6,7 @@
  * @Description: 请填写简介
  */
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../db';
+import { db } from '../config/database';
 
 // 检查用户是否具有管理员角色
 export const checkAdminRole = async (req: Request, res: Response, next: NextFunction) => {
@@ -17,10 +17,7 @@ export const checkAdminRole = async (req: Request, res: Response, next: NextFunc
 
         const userId = typeof req.user.id === 'string' ? parseInt(req.user.id) : req.user.id;
 
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { role: true }
-        });
+        const user = await db.findOne<{ role: string }>('SELECT role FROM users WHERE id = ?', [userId]);
 
         if (!user || user.role !== 'ADMIN') {
             return res.status(403).json({ message: '权限不足，需要管理员权限' });

@@ -9,7 +9,7 @@ import { Request, Response } from 'express';
 import { routeModel, Route } from '../models/route';
 import * as familyModel from '../models/family';
 import { RoutePermission } from '../types';
-import { APIError } from '../middlewares/error';
+import { APIError } from '../middleware/error';
 
 // 创建路由
 export async function createRoute(req: Request, res: Response) {

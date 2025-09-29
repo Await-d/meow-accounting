@@ -52,16 +52,16 @@ export function RouteStats({ isOpen, onClose, route }: RouteStatsProps) {
 
     if (!route) return null;
 
-    const accessData = stats?.accessHistory?.map((item: { timestamp: string; loadTime: number; errorCount: number }) => ({
+    const accessData = (stats as any)?.data?.accessHistory?.map((item: { timestamp: string; loadTime: number; errorCount: number }) => ({
         time: new Date(item.timestamp).toLocaleString(),
         loadTime: item.loadTime,
         errorCount: item.errorCount
     })) || [];
 
     const pieData = [
-        { name: '成功访问', value: stats?.totalAccesses || 0 },
-        { name: '缓存命中', value: stats?.cacheHits || 0 },
-        { name: '错误次数', value: stats?.totalErrors || 0 }
+        { name: '成功访问', value: (stats as any)?.data?.totalAccesses || 0 },
+        { name: '缓存命中', value: (stats as any)?.data?.cacheHits || 0 },
+        { name: '错误次数', value: (stats as any)?.data?.totalErrors || 0 }
     ];
 
     return (
@@ -80,7 +80,7 @@ export function RouteStats({ isOpen, onClose, route }: RouteStatsProps) {
                                     <CardBody>
                                         <div className="text-center">
                                             <div className="text-sm text-gray-500">总访问次数</div>
-                                            <div className="text-2xl font-bold">{stats?.totalAccesses || 0}</div>
+                                            <div className="text-2xl font-bold">{(stats as any)?.data?.totalAccesses || 0}</div>
                                         </div>
                                     </CardBody>
                                 </Card>
@@ -88,7 +88,7 @@ export function RouteStats({ isOpen, onClose, route }: RouteStatsProps) {
                                     <CardBody>
                                         <div className="text-center">
                                             <div className="text-sm text-gray-500">平均加载时间</div>
-                                            <div className="text-2xl font-bold">{stats?.averageLoadTime?.toFixed(2) || 0}ms</div>
+                                            <div className="text-2xl font-bold">{(stats as any)?.data?.averageLoadTime?.toFixed(2) || 0}ms</div>
                                         </div>
                                     </CardBody>
                                 </Card>
@@ -97,7 +97,7 @@ export function RouteStats({ isOpen, onClose, route }: RouteStatsProps) {
                                         <div className="text-center">
                                             <div className="text-sm text-gray-500">错误率</div>
                                             <div className="text-2xl font-bold">
-                                                {((stats?.totalErrors || 0) / (stats?.totalAccesses || 1) * 100).toFixed(2)}%
+                                                {(((stats as any)?.data?.totalErrors || 0) / ((stats as any)?.data?.totalAccesses || 1) * 100).toFixed(2)}%
                                             </div>
                                         </div>
                                     </CardBody>

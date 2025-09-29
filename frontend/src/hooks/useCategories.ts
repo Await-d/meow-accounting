@@ -39,8 +39,8 @@ export function useCategories() {
                     // 否则获取用户的个人分类
                     url += `?userId=${user.id}`;
                 }
-                const data = await fetchAPI<Category[]>(url);
-                setCategories(data);
+                const response = await fetchAPI<Category[]>(url);
+                setCategories(response.data);
                 setError(null);
             } catch (err) {
                 console.error('获取分类失败', err);

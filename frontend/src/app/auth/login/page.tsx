@@ -7,13 +7,13 @@
  */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Card, CardBody, Input, Button, Link } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/Toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+function LoginForm() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [redirectPath, setRedirectPath] = useState('');
@@ -92,5 +92,13 @@ export default function LoginPage() {
                 </CardBody>
             </Card>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">加载中...</div>}>
+            <LoginForm />
+        </Suspense>
     );
 } 

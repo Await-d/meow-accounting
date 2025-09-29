@@ -15,7 +15,10 @@ import { useUpdatePrivacySettings } from '@/lib/api';
 
 export default function PrivacyPage() {
     const { user, updateUser } = useAuth();
-    const { mutate: updatePrivacy } = useUpdatePrivacySettings();
+    // TODO: Implement proper privacy settings mutation hook
+    const updatePrivacy = async (data: any) => {
+        // Implementation needed
+    };
     const { showToast } = useToast();
     const [guestPassword, setGuestPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);

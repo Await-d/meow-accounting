@@ -7,7 +7,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import * as userModel from '../models/user';
 import { validateEmail, validatePassword, validateUsername } from '../utils/validation';
 import { getSecretKey, jwtConfig } from '../config/auth';

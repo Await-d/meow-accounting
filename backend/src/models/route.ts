@@ -116,6 +116,34 @@ export class RouteModel extends BaseModel<Route> {
     async checkRouteAccess(routeId: number, userId: number): Promise<boolean> {
         return this.canAccessRoute(routeId, userId, null);
     }
+
+    async getRouteStats(routeId: number): Promise<any> {
+        try {
+            // 获取路由统计信息
+            const statsQuery = `
+                SELECT
+                    COUNT(*) as access_count,
+                    AVG(load_time) as avg_load_time,
+                    MAX(load_time) as max_load_time,
+                    MIN(load_time) as min_load_time
+                FROM route_stats
+                WHERE route_id = ?
+            `;
+
+            const stats = await db.findOne(statsQuery, [routeId]);
+
+            return {
+                routeId,
+                accessCount: stats?.access_count || 0,
+                avgLoadTime: stats?.avg_load_time || 0,
+                maxLoadTime: stats?.max_load_time || 0,
+                minLoadTime: stats?.min_load_time || 0
+            };
+        } catch (error) {
+            console.error('获取路由统计失败:', error);
+            throw error;
+        }
+    }
 }
 
 export const routeModel = new RouteModel();

@@ -9,19 +9,19 @@
 cd backend
 
 # 安装依赖
-npm install
+pnpm install
 
 # 启动开发服务器（自动重载）
-npm run dev
+pnpm run dev
 
 # 构建项目
-npm run build
+pnpm run build
 
 # 运行生产版本
-npm start
+pnpm start
 
 # 运行测试
-npm test
+pnpm test
 ```
 
 ### 前端开发命令
@@ -31,19 +31,19 @@ npm test
 cd frontend
 
 # 安装依赖
-npm install
+pnpm install
 
 # 启动开发服务器
-npm run dev
+pnpm run dev
 
 # 构建项目
-npm run build
+pnpm run build
 
 # 运行生产版本
-npm start
+pnpm start
 
 # 运行代码检查
-npm run lint
+pnpm run lint
 ```
 
 ## Docker 相关命令

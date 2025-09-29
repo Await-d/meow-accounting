@@ -192,7 +192,7 @@ export default function BackupPage() {
                             items={backups || []}
                             emptyContent={isLoading ? <Spinner label="加载中..." /> : "暂无备份数据"}
                         >
-                            {(item) => (
+                            {(item: any) => (
                                 <TableRow key={item.id}>
                                     <TableCell>{item.name}</TableCell>
                                     <TableCell>

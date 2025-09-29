@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  # 主应用服务
+  meow-accounting:
+    image: await2719/meow-accounting:latest
+    container_name: meow-accounting
+    ports:
+      - "3000:3000"  # 前端端口
+      - "3001:3001"  # 后端API端口
+    volumes:
+      - ./data:/app/data  # 数据持久化
+      - ./logs:/app/logs  # 日志目录
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-your_strong_jwt_secret_change_this}
+      - DATABASE_URL=file:/app/data/sqlite.db
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - FRONTEND_URL=http://localhost:3000
+      - BACKEND_URL=http://localhost:3001
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - meow-network
+
+  # Redis缓存服务（可选）
+  redis:
+    image: redis:7-alpine
+    container_name: meow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-defaultpassword}
+    restart: unless-stopped
+    networks:
+      - meow-network
+    profiles:
+      - with-redis
+
+  # PostgreSQL数据库（可选，替代SQLite）
+  postgres:
+    image: postgres:15-alpine
+    container_name: meow-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-meow_accounting}
+      - POSTGRES_USER=${POSTGRES_USER:-meow}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-meow_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - meow-network
+    profiles:
+      - with-postgres
+
+  # Nginx反向代理（可选）
+  nginx:
+    image: nginx:alpine
+    container_name: meow-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - meow-accounting
+    restart: unless-stopped
+    networks:
+      - meow-network
+    profiles:
+      - with-nginx
+
+  # 监控服务 - Prometheus（可选）
+  prometheus:
+    image: prom/prometheus
+    container_name: meow-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - meow-network
+    profiles:
+      - monitoring
+
+  # 监控服务 - Grafana（可选）
+  grafana:
+    image: grafana/grafana
+    container_name: meow-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - meow-network
+    profiles:
+      - monitoring
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  meow-network:
+    driver: bridge

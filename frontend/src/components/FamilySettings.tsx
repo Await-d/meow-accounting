@@ -4,9 +4,18 @@ import { useEffect, useState } from 'react';
 import { Card, CardBody, Button, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@nextui-org/react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { useFamily, FamilyMember as FamilyMemberType, FamilyInvitation } from '@/hooks/useFamily';
+import {
+    useFamily,
+    FamilyMember as FamilyMemberType,
+    FamilyInvitation,
+    useFamilyInvitations,
+    useAddFamilyMember,
+    useRemoveFamilyMember,
+    useUpdateMemberRole,
+    useDeleteInvitation
+} from '@/hooks/useFamily';
 import { fetchAPI } from '@/lib/api';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 
 interface FamilyMember {
     id: number;
@@ -29,33 +38,28 @@ export default function FamilySettings() {
     const { user } = useAuth();
     const { isOpen, onOpen, onClose } = useDisclosure();
     const [members, setMembers] = useState<FamilyMember[]>([]);
-    const [invitations, setInvitations] = useState<Invitation[]>([]);
     const [newMemberEmail, setNewMemberEmail] = useState('');
     const [newMemberRole, setNewMemberRole] = useState<'admin' | 'member'>('member');
     const [isLoading, setIsLoading] = useState(false);
-    const {
-        currentFamily,
-        useFamilyInvitations,
-        useAddFamilyMember,
-        useRemoveFamilyMember,
-        useUpdateMemberRole,
-        useDeleteInvitation
-    } = useFamily();
+    const { currentFamily } = useFamily();
 
-    const { data: familyMembers } = useQuery(['familyMembers', currentFamily?.id],
-        async () => {
+    // Use individual hooks
+    const { data: invitations } = useFamilyInvitations(currentFamily?.id);
+    const { mutate: addMember } = useAddFamilyMember();
+    const { mutate: removeMember } = useRemoveFamilyMember();
+    const { mutate: updateMemberRole } = useUpdateMemberRole();
+    const { mutate: deleteInvitation } = useDeleteInvitation();
+
+    const { data: familyMembers } = useQuery({
+        queryKey: ['familyMembers', currentFamily?.id],
+        queryFn: async () => {
             if (!currentFamily?.id) return [];
             const response = await fetchAPI<FamilyMemberType[]>(`/families/${currentFamily.id}/members`);
             return response.data;
         },
-        { enabled: !!currentFamily?.id }
-    );
+        enabled: !!currentFamily?.id
+    });
 
-    const { data: familyInvitations } = useFamilyInvitations(currentFamily?.id);
-    const addMemberMutation = useAddFamilyMember();
-    const removeMemberMutation = useRemoveFamilyMember();
-    const updateRoleMutation = useUpdateMemberRole();
-    const deleteInvitationMutation = useDeleteInvitation();
 
     // 加载家庭成员
     useEffect(() => {
@@ -70,19 +74,7 @@ export default function FamilySettings() {
         }
     }, [familyMembers]);
 
-    // 加载邀请记录
-    useEffect(() => {
-        if (familyInvitations) {
-            setInvitations(familyInvitations.map((invitation: FamilyInvitation) => ({
-                id: invitation.id,
-                email: invitation.email,
-                role: invitation.role,
-                status: 'pending',
-                expires_at: invitation.expiresAt,
-                created_at: invitation.createdAt
-            })));
-        }
-    }, [familyInvitations]);
+    // Invitations are now handled by the hook
 
     // 邀请新成员
     const handleInvite = async () => {
@@ -98,7 +90,7 @@ export default function FamilySettings() {
 
         setIsLoading(true);
         try {
-            await addMemberMutation.mutateAsync({
+            addMember({
                 familyId: currentFamily.id,
                 data: {
                     email: newMemberEmail,
@@ -122,7 +114,7 @@ export default function FamilySettings() {
         if (!currentFamily?.id) return;
 
         try {
-            await removeMemberMutation.mutateAsync({
+            removeMember({
                 familyId: currentFamily.id,
                 memberId
             });
@@ -139,7 +131,7 @@ export default function FamilySettings() {
         if (!currentFamily?.id) return;
 
         try {
-            await updateRoleMutation.mutateAsync({
+            updateMemberRole({
                 familyId: currentFamily.id,
                 memberId,
                 role: newRole
@@ -160,12 +152,11 @@ export default function FamilySettings() {
         if (!currentFamily?.id) return;
 
         try {
-            await deleteInvitationMutation.mutateAsync({
+            deleteInvitation({
                 familyId: currentFamily.id,
                 invitationId
             });
 
-            setInvitations(invitations.filter(inv => inv.id !== invitationId));
             toast.success('邀请已取消');
         } catch (error) {
             toast.error('取消邀请失败');
@@ -238,26 +229,23 @@ export default function FamilySettings() {
                             <TableColumn>操作</TableColumn>
                         </TableHeader>
                         <TableBody>
-                            {invitations.map((invitation) => (
+                            {(invitations || []).map((invitation) => (
                                 <TableRow key={invitation.id}>
                                     <TableCell>{invitation.email}</TableCell>
                                     <TableCell>{invitation.role === 'admin' ? '管理员' : '成员'}</TableCell>
                                     <TableCell>
-                                        {invitation.status === 'pending' ? '等待接受' :
-                                            invitation.status === 'accepted' ? '已接受' : '已拒绝'}
+                                        等待接受
                                     </TableCell>
-                                    <TableCell>{new Date(invitation.expires_at).toLocaleDateString()}</TableCell>
+                                    <TableCell>{new Date(invitation.expiresAt).toLocaleDateString()}</TableCell>
                                     <TableCell>
-                                        {invitation.status === 'pending' && (
-                                            <Button
-                                                size="sm"
-                                                color="danger"
-                                                variant="light"
-                                                onPress={() => handleCancelInvitation(invitation.id)}
-                                            >
-                                                取消
-                                            </Button>
-                                        )}
+                                        <Button
+                                            size="sm"
+                                            color="danger"
+                                            variant="light"
+                                            onPress={() => handleCancelInvitation(invitation.id)}
+                                        >
+                                            取消
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             ))}

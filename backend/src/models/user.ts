@@ -6,7 +6,7 @@
  * @Description: 用户模型
  */
 import { db } from '../config/database';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { passwordConfig } from '../config/auth';
 
 // 用户接口
@@ -17,6 +17,7 @@ export interface User {
     password: string;
     role: string;
     avatar?: string;
+    nickname?: string;
     created_at: string;
     updated_at?: string;
 }
@@ -202,6 +203,18 @@ export async function searchUsers(query: string): Promise<User[]> {
         return users;
     } catch (error) {
         console.error('搜索用户失败:', error);
+        throw error;
+    }
+}
+
+// 按邮箱搜索用户
+export async function searchUsersByEmail(email: string): Promise<User[]> {
+    try {
+        const sql = 'SELECT id, username, email, role, avatar, created_at, updated_at FROM users WHERE email LIKE ?';
+        const users = await db.findMany<User>(sql, [`%${email}%`]);
+        return users;
+    } catch (error) {
+        console.error('按邮箱搜索用户失败:', error);
         throw error;
     }
 }

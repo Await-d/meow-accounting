@@ -36,8 +36,8 @@ export function useMembers(familyId?: string) {
             try {
                 setIsLoading(true);
                 const url = `/families/${familyId}/members`;
-                const data = await fetchAPI<Member[]>(url);
-                setMembers(data);
+                const response = await fetchAPI<Member[]>(url);
+                setMembers(response.data);
                 setError(null);
             } catch (err) {
                 console.error('获取家庭成员失败', err);

@@ -39,6 +39,7 @@ import {
     useRemoveFamilyMember,
     useDeleteInvitation,
     useFamilyInvitations,
+    useUserInvitations,
     Family,
     FamilyMember,
     FamilyInvitation
@@ -55,7 +56,6 @@ import InvitationList from '@/components/InvitationList';
 export default function FamilyPage() {
     const { families, members, isLoading, currentFamily, setCurrentFamily } = useFamily();
     const { data: familyInvitations, isLoading: isLoadingInvitations } = useFamilyInvitations(currentFamily?.id);
-    const { data: userInvitations, isLoading: isLoadingUserInvitations, refetch: refetchUserInvitations } = useFamily().userInvitations;
     const { mutate: createFamily } = useCreateFamily();
     const { mutate: updateFamily } = useUpdateFamily();
     const { mutate: deleteFamily } = useDeleteFamily();
@@ -89,6 +89,7 @@ export default function FamilyPage() {
     });
     const { showToast } = useToast();
     const { user } = useAuth();
+    const { data: userInvitations, isLoading: isLoadingUserInvitations, refetch: refetchUserInvitations } = useUserInvitations(user?.id);
     const [inviteLink, setInviteLink] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<string>("members");
     const [mainTab, setMainTab] = useState<string>("families");
@@ -106,7 +107,7 @@ export default function FamilyPage() {
 
         // 检查成员列表中的角色
         const currentMember = members?.find(m => m.user_id === user.id);
-        return currentMember?.role === 'admin' || currentMember?.role === 'owner';
+        return currentMember?.role === 'admin';
     }, [currentFamily, user, members]);
 
     // 在组件加载时刷新用户邀请
@@ -125,8 +126,8 @@ export default function FamilyPage() {
 
     // 当获取到设置时更新表单
     useEffect(() => {
-        if (familySettings) {
-            setSettingsForm(familySettings);
+        if (familySettings && typeof familySettings === 'object') {
+            setSettingsForm(familySettings as unknown as FamilySettings);
         }
     }, [familySettings]);
 
@@ -152,8 +153,8 @@ export default function FamilyPage() {
 
         if (selectedFamily) {
             updateFamily({
-                ...selectedFamily,
-                ...formData,
+                familyId: selectedFamily.id,
+                data: formData
             });
         } else {
             createFamily(formData as { name: string; description: string });
@@ -188,13 +189,12 @@ export default function FamilyPage() {
 
         addMember({
             familyId: currentFamily.id,
-            email: memberData.email,
-            role: memberData.role,
-            isGeneric: memberData.isGeneric,
-            expiresInHours: memberData.expiresInHours,
-            maxUses: memberData.maxUses
+            data: {
+                email: memberData.email,
+                role: memberData.role
+            }
         }, {
-            onSuccess: (data) => {
+            onSuccess: (data: any) => {
                 // 显示邀请链接
                 if (data && data.inviteLink) {
                     setInviteLink(data.inviteLink);
@@ -343,8 +343,8 @@ export default function FamilyPage() {
                     permissions: data.permissions.map(code => ({
                         id: 0, // 这个ID会被后端忽略
                         code,
-                        name: permissions?.find(p => p.code === code)?.name || '',
-                        description: permissions?.find(p => p.code === code)?.description || ''
+                        name: (permissions as any)?.find((p: any) => p.code === code)?.name || '',
+                        description: (permissions as any)?.find((p: any) => p.code === code)?.description || ''
                     }))
                 }
             });
@@ -364,7 +364,7 @@ export default function FamilyPage() {
     );
 
     if (isLoading) {
-        return <Skeleton type="table" />;
+        return <Skeleton className="h-64 rounded-lg" />;
     }
 
     return (
@@ -429,7 +429,7 @@ export default function FamilyPage() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <Chip color="primary" variant="flat" size="sm">
-                                                        {family.member_count || 0} 人
+                                                        {family.members?.length || 0} 人
                                                     </Chip>
                                                 </TableCell>
                                                 <TableCell>
@@ -597,13 +597,13 @@ export default function FamilyPage() {
                                                     {(member) => (
                                                         <TableRow key={member.id} className="h-14">
                                                             <TableCell>
-                                                                <div className="font-medium">{member.username}</div>
+                                                                <div className="font-medium">{member.name}</div>
                                                             </TableCell>
                                                             <TableCell>
                                                                 <div className="text-default-500">{member.email}</div>
                                                             </TableCell>
                                                             <TableCell>
-                                                                {member.role === 'owner' ? (
+                                                                {currentFamily?.owner_id === member.user_id ? (
                                                                     <Chip color="warning" variant="flat" size="sm">创建者</Chip>
                                                                 ) : member.role === 'admin' ? (
                                                                     <Chip color="primary" variant="flat" size="sm">管理员</Chip>
@@ -613,7 +613,7 @@ export default function FamilyPage() {
                                                             </TableCell>
                                                             <TableCell>
                                                                 <div className="flex items-center gap-2">
-                                                                    {member.role !== 'owner' && currentFamily?.owner_id === user?.id && (
+                                                                    {currentFamily?.owner_id !== member.user_id && currentFamily?.owner_id === user?.id && (
                                                                         <Select
                                                                             aria-label="修改角色"
                                                                             selectedKeys={[member.role]}
@@ -641,7 +641,7 @@ export default function FamilyPage() {
                                                                         variant="light"
                                                                         onPress={() => handleRemoveMember(member)}
                                                                         isDisabled={
-                                                                            member.role === 'owner' ||
+                                                                            currentFamily?.owner_id === member.user_id ||
                                                                             currentFamily?.owner_id !== user?.id
                                                                         }
                                                                         className="rounded-full"
@@ -662,7 +662,7 @@ export default function FamilyPage() {
                                                 <Skeleton className="h-64" />
                                             ) : (
                                                 <InvitationList
-                                                    invitations={familyInvitations || []}
+                                                    invitations={familyInvitations as any || []}
                                                     type="sent"
                                                     onDelete={isAdmin ? handleDeleteInvitation : undefined}
                                                 />
@@ -693,7 +693,7 @@ export default function FamilyPage() {
 
                                                         {isLoadingRoles ? renderLoadingSkeleton() : (
                                                             <div className="space-y-4">
-                                                                {roles?.map((role) => (
+                                                                {(roles as any)?.map((role: any) => (
                                                                     <div key={role.id} className="border rounded-lg p-4">
                                                                         <div className="flex justify-between items-start mb-3">
                                                                             <div>
@@ -726,7 +726,7 @@ export default function FamilyPage() {
                                                                             )}
                                                                         </div>
                                                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                                                            {role.permissions.map((permission) => (
+                                                                            {role.permissions.map((permission: any) => (
                                                                                 <Chip
                                                                                     key={permission.code}
                                                                                     color={role.isSystem ? "warning" : "primary"}
@@ -1188,7 +1188,7 @@ export default function FamilyPage() {
                             {selectedFamily ? (
                                 <>确定要删除 <span className="font-bold">{selectedFamily.name}</span> 家庭吗？</>
                             ) : (
-                                <>确定要移除 <span className="font-bold">{selectedMember?.username}</span> 成员吗？</>
+                                <>确定要移除 <span className="font-bold">{selectedMember?.name}</span> 成员吗？</>
                             )}
                         </p>
                         <p className="text-center text-default-500 text-sm mt-2">
@@ -1212,7 +1212,7 @@ export default function FamilyPage() {
                                     console.log('确认移除成员:', selectedMember, '家庭ID:', currentFamily.id);
                                     removeMember({
                                         familyId: currentFamily.id,
-                                        memberId: selectedMember.user_id // 使用user_id而不是id
+                                        memberId: selectedMember.user_id! // 使用user_id而不是id
                                     });
                                     onCloseDelete();
                                     setSelectedMember(null);
@@ -1232,7 +1232,7 @@ export default function FamilyPage() {
                 onClose={onCloseRoleModal}
                 onSubmit={handleRoleSubmit}
                 role={selectedRole}
-                permissions={permissions}
+                permissions={permissions as any}
                 isLoading={isLoadingRoles}
             />
         </div>

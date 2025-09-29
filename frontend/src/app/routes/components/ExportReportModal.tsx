@@ -12,7 +12,7 @@ import {
     Select,
     SelectItem
 } from '@nextui-org/react';
-import { FileText, FileSpreadsheet, FilePieChart2 } from 'lucide-react';
+import { FileText, FileSpreadsheet, PieChart } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 
 interface ExportReportModalProps {
@@ -67,7 +67,7 @@ export function ExportReportModal({
         {
             value: 'csv',
             label: 'CSV数据',
-            icon: <FilePieChart2 size={16} />,
+            icon: <PieChart size={16} />,
             description: '生成CSV格式的原始数据'
         }
     ];
@@ -123,9 +123,11 @@ export function ExportReportModal({
                                             key={option.value}
                                             value={option.value}
                                             description={option.description}
-                                            startContent={option.icon}
                                         >
-                                            {option.label}
+                                            <div className="flex items-center gap-2">
+                                                {option.icon}
+                                                {option.label}
+                                            </div>
                                         </Radio>
                                     ))}
                                 </RadioGroup>

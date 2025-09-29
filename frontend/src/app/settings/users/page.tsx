@@ -69,15 +69,17 @@ export default function UsersPage() {
     });
 
     // 获取所有用户
-    const { data: users, isLoading } = useQuery({
+    const { data: usersResponse, isLoading } = useQuery({
         queryKey: ['users'],
         queryFn: getAllUsers,
         enabled: isAdmin
     });
 
+    const users = (usersResponse as any)?.data || [];
+
     // 更新用户
     const updateMutation = useMutation({
-        mutationFn: updateUser,
+        mutationFn: ({ id, data }: { id: number; data: any }) => updateUser(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
             toast.success('用户更新成功');
@@ -260,32 +262,34 @@ export default function UsersPage() {
                             <TableColumn>操作</TableColumn>
                         </TableHeader>
                         <TableBody items={items} emptyContent="暂无用户数据">
-                            {(item) => (
-                                <TableRow key={item.id}>
-                                    <TableCell>{item.username}</TableCell>
-                                    <TableCell>{item.email}</TableCell>
+                            {(item) => {
+                                const user = item as User;
+                                return (
+                                <TableRow key={user.id}>
+                                    <TableCell>{user.username}</TableCell>
+                                    <TableCell>{user.email}</TableCell>
                                     <TableCell>
                                         <Chip
-                                            color={item.role === 'admin' ? 'primary' : item.role === 'owner' ? 'secondary' : 'default'}
+                                            color={user.role === 'admin' ? 'primary' : user.role === 'owner' ? 'secondary' : 'default'}
                                             variant="flat"
                                             size="sm"
                                         >
-                                            {item.role === 'admin' ? '管理员' : item.role === 'owner' ? '所有者' : '普通用户'}
+                                            {user.role === 'admin' ? '管理员' : user.role === 'owner' ? '所有者' : '普通用户'}
                                         </Chip>
                                     </TableCell>
                                     <TableCell>
                                         <Chip
-                                            color={item.is_frozen ? 'danger' : 'success'}
+                                            color={user.is_frozen ? 'danger' : 'success'}
                                             variant="flat"
                                             size="sm"
                                         >
-                                            {item.is_frozen ? '已冻结' : '正常'}
+                                            {user.is_frozen ? '已冻结' : '正常'}
                                         </Chip>
                                     </TableCell>
                                     <TableCell>
                                         <div className="text-xs">
-                                            <div>可创建: {item.maxFamilies || 1}个家庭</div>
-                                            <div>可加入: {item.maxFamilyJoins || 2}个家庭</div>
+                                            <div>可创建: {user.maxFamilies || 1}个家庭</div>
+                                            <div>可加入: {user.maxFamilyJoins || 2}个家庭</div>
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -293,23 +297,23 @@ export default function UsersPage() {
                                             <Button
                                                 size="sm"
                                                 variant="light"
-                                                onPress={() => handleEditUser(item)}
+                                                onPress={() => handleEditUser(user)}
                                             >
                                                 编辑
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                color={item.is_frozen ? 'success' : 'warning'}
+                                                color={user.is_frozen ? 'success' : 'warning'}
                                                 variant="light"
-                                                onPress={() => handleToggleFreeze(item)}
+                                                onPress={() => handleToggleFreeze(user)}
                                             >
-                                                {item.is_frozen ? '解冻' : '冻结'}
+                                                {user.is_frozen ? '解冻' : '冻结'}
                                             </Button>
                                             <Button
                                                 size="sm"
                                                 color="primary"
                                                 variant="light"
-                                                onPress={() => handleSetLimits(item)}
+                                                onPress={() => handleSetLimits(user)}
                                             >
                                                 限制
                                             </Button>
@@ -317,15 +321,16 @@ export default function UsersPage() {
                                                 size="sm"
                                                 color="danger"
                                                 variant="light"
-                                                onPress={() => handleDeleteUser(item)}
-                                                isDisabled={item.role === 'owner'}
+                                                onPress={() => handleDeleteUser(user)}
+                                                isDisabled={user.role === 'owner'}
                                             >
                                                 删除
                                             </Button>
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            )}
+                            );
+                            }}
                         </TableBody>
                     </Table>
                 </CardBody>

@@ -7,7 +7,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import * as userModel from '../models/user';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getSecretKey, passwordConfig } from '../config/auth';
 
@@ -65,17 +65,26 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
         }
 
         // 更新用户资料
-        const updatedUser = await userModel.updateUser(userId, {
+        const updateResult = await userModel.updateUser(userId, {
             username,
             email,
             avatar,
             nickname
         });
 
-        // 剔除敏感信息
-        const { password, ...userProfile } = updatedUser;
-
-        res.json(userProfile);
+        if (updateResult) {
+            // 获取更新后的用户信息
+            const updatedUser = await userModel.getUserById(userId);
+            if (updatedUser) {
+                // 剔除敏感信息
+                const { password, ...userProfile } = updatedUser;
+                res.json(userProfile);
+            } else {
+                res.status(404).json({ error: '用户不存在' });
+            }
+        } else {
+            res.status(500).json({ error: '更新失败' });
+        }
     } catch (error) {
         console.error('更新用户个人资料失败:', error);
         next(error);

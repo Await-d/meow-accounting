@@ -26,7 +26,7 @@ export function useRoles(familyId?: number) {
         queryKey: ['roles', familyId],
         queryFn: async () => {
             if (!familyId) return [];
-            const response = await fetchAPI(`/families/${familyId}/roles`);
+            const response = await fetchAPI<Role[]>(`/families/${familyId}/roles`);
             return response.data;
         },
         enabled: !!familyId
@@ -36,7 +36,7 @@ export function useRoles(familyId?: number) {
     const { data: permissions } = useQuery<Permission[]>({
         queryKey: ['permissions'],
         queryFn: async () => {
-            const response = await fetchAPI('/permissions');
+            const response = await fetchAPI<Permission[]>('/permissions');
             return response.data;
         }
     });

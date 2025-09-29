@@ -303,4 +303,16 @@ export function useDeleteInvitation() {
             showToast(`删除失败: ${error.message}`, 'error');
         }
     });
+}
+
+export function useUserInvitations(userId?: number) {
+    return useQuery({
+        queryKey: ['userInvitations', userId],
+        queryFn: async () => {
+            if (!userId) return [];
+            const response = await fetchAPI<any[]>(`/users/${userId}/invitations`);
+            return response.data || [];
+        },
+        enabled: !!userId
+    });
 } 

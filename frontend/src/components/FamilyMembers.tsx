@@ -21,16 +21,20 @@ import {
     useDisclosure,
     Input
 } from '@nextui-org/react';
-import { useFamily } from '@/hooks/useFamily';
+import { useFamily, useAddFamilyMember, useUpdateMemberRole, useRemoveFamilyMember } from '@/hooks/useFamily';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/Toast';
 import { findUserByEmail } from '@/lib/api';
-import type { FamilyMember } from '@/lib/types';
+import type { FamilyMember as FamilyMemberType } from '@/lib/types';
+import type { FamilyMember } from '@/hooks/useFamily';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function FamilyMembers() {
-    const { currentFamily, members, isLoading, addMember, updateRole, removeMember, isAdmin } = useFamily();
+    const { currentFamily, members, isLoading, isAdmin } = useFamily();
+    const { mutate: addMember } = useAddFamilyMember();
+    const { mutate: updateRole } = useUpdateMemberRole();
+    const { mutate: removeMember } = useRemoveFamilyMember();
     const { isOpen, onOpen, onClose } = useDisclosure();
     const { showToast } = useToast();
     const { user } = useAuth();
@@ -78,7 +82,7 @@ export default function FamilyMembers() {
             }
 
             // 添加成员
-            await addMember(currentFamily.id, { userId: foundUser.id, role: selectedRole });
+            addMember({ familyId: currentFamily.id, data: { email: foundUser.email, role: selectedRole } });
             onClose();
             setNewMemberEmail('');
             setSelectedRole('member');
@@ -95,22 +99,22 @@ export default function FamilyMembers() {
         }
     };
 
-    const handleUpdateRole = async (userId: number, newRole: 'admin' | 'member') => {
+    const handleUpdateRole = (userId: number, newRole: 'admin' | 'member') => {
         if (!currentFamily) return;
 
         try {
-            await updateRole(currentFamily.id, userId, newRole);
+            updateRole({ familyId: currentFamily.id, memberId: userId, role: newRole });
             showToast('角色更新成功', 'success');
         } catch (error) {
             showToast('更新角色失败', 'error');
         }
     };
 
-    const handleRemoveMember = async () => {
+    const handleRemoveMember = () => {
         if (!currentFamily || !memberToDelete) return;
 
         try {
-            await removeMember(currentFamily.id, memberToDelete.id);
+            removeMember({ familyId: currentFamily.id, memberId: memberToDelete.id });
             showToast('成员移除成功', 'success');
         } catch (error) {
             showToast('移除成员失败', 'error');
@@ -140,9 +144,9 @@ export default function FamilyMembers() {
     const renderCell = React.useCallback((member: FamilyMember, columnKey: React.Key) => {
         switch (columnKey.toString()) {
             case 'role':
-                return member.role === 'owner' ? '所有者' : member.role === 'admin' ? '管理员' : '成员';
+                return (member.role as any) === 'owner' ? '所有者' : member.role === 'admin' ? '管理员' : '成员';
             case 'actions':
-                if (isAdmin() && member.user_id !== user?.id && member.role !== 'owner') {
+                if (isAdmin() && member.user_id !== user?.id && (member.role as any) !== 'owner') {
                     return (
                         <div className="flex gap-2">
                             <Dropdown>
@@ -154,7 +158,7 @@ export default function FamilyMembers() {
                                 <DropdownMenu
                                     aria-label="角色选择"
                                     onAction={(key) => {
-                                        handleUpdateRole(member.user_id, key as 'admin' | 'member');
+                                        if (member.user_id) handleUpdateRole(member.user_id, key as 'admin' | 'member');
                                     }}
                                 >
                                     <DropdownItem key="admin">管理员</DropdownItem>
@@ -165,7 +169,7 @@ export default function FamilyMembers() {
                                 size="sm"
                                 color="danger"
                                 variant="bordered"
-                                onPress={() => openDeleteConfirm(member.user_id, member.username)}
+                                onPress={() => member.user_id && openDeleteConfirm(member.user_id, member.name)}
                             >
                                 移除
                             </Button>
@@ -210,7 +214,7 @@ export default function FamilyMembers() {
                         <TableRow key={member.id}>
                             {(columnKey) => (
                                 <TableCell>
-                                    {renderCell(member, columnKey)}
+                                    {renderCell(member as any, columnKey)}
                                 </TableCell>
                             )}
                         </TableRow>

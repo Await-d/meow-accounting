@@ -7,7 +7,7 @@
  */
 import {Router} from 'express';
 import {cache} from '../utils/cache';
-import {authenticate, isAdmin} from '../middlewares/auth';
+import {authenticate, isAdmin} from '../middleware/auth';
 
 const router = Router();
 

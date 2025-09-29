@@ -6,6 +6,7 @@
  * @Description: 交易记录模型
  */
 import { db } from '../config/database';
+import { Transaction } from '../types';
 
 // 创建事务表
 export async function createTransactionTable() {
@@ -643,6 +644,51 @@ export async function getTransactionCategoryStats(params: CategoryStatsParams): 
         ];
     } catch (error) {
         console.error('获取分类统计数据失败:', error);
+        throw error;
+    }
+}
+
+// 批量插入交易记录
+export async function bulkInsertTransactions(transactions: Transaction[]): Promise<number[]> {
+    try {
+        const insertedIds: number[] = [];
+
+        // 开始事务
+        await db.beginTransaction();
+
+        try {
+            for (const transaction of transactions) {
+                const sql = `
+                    INSERT INTO transactions (
+                        amount, type, category_id, description,
+                        date, user_id, family_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                `;
+
+                const params = [
+                    transaction.amount,
+                    transaction.type,
+                    transaction.category_id,
+                    transaction.description || '',
+                    transaction.date || new Date().toISOString().split('T')[0],
+                    transaction.user_id,
+                    transaction.family_id || null
+                ];
+
+                const insertId = await db.insert(sql, params);
+                insertedIds.push(insertId);
+            }
+
+            // 提交事务
+            await db.commit();
+            return insertedIds;
+        } catch (error) {
+            // 回滚事务
+            await db.rollback();
+            throw error;
+        }
+    } catch (error) {
+        console.error('批量插入交易记录失败:', error);
         throw error;
     }
 }

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/components/Toast';
 import { fetchAPI } from '@/lib/api';
-import { CategoryStats } from '@/lib/types';
+import { CategoryStats, TimeRange } from '@/lib/types';
 import { handleQueryError } from '@/lib/api';
 
 export function useCategoryStats(
-    timeRange: 'month' | 'quarter' | 'year' = 'month',
+    timeRange: TimeRange = 'month',
     userId?: number,
     familyId?: number
 ) {

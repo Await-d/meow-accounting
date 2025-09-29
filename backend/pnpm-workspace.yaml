@@ -1,0 +1,5 @@
+ignoredBuiltDependencies:
+  - '@prisma/client'
+  - '@scarf/scarf'
+  - bcrypt
+  - sqlite3

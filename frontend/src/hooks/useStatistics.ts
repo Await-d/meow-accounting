@@ -17,10 +17,11 @@ export function useStatistics(
     familyId?: number
 ) {
     const [data, setData] = useState<Statistics>({
-        totalIncome: 0,
-        totalExpense: 0,
+        total_income: 0,
+        total_expense: 0,
         balance: 0,
-        chartData: []
+        chart: [],
+        details: []
     });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);

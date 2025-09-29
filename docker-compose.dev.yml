@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # 开发环境后端
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: meow-backend-dev
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET:-dev_secret_key}
+      - DATABASE_URL=file:/app/data/sqlite.db
+      - LOG_LEVEL=debug
+    command: npm run dev
+    restart: unless-stopped
+    networks:
+      - meow-dev-network
+
+  # 开发环境前端
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: meow-frontend-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    command: npm run dev
+    depends_on:
+      - backend-dev
+    restart: unless-stopped
+    networks:
+      - meow-dev-network
+
+  # 开发环境数据库
+  dev-postgres:
+    image: postgres:15-alpine
+    container_name: meow-dev-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=meow_accounting_dev
+      - POSTGRES_USER=dev
+      - POSTGRES_PASSWORD=dev_password
+    volumes:
+      - dev_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - meow-dev-network
+
+  # 开发环境Redis
+  dev-redis:
+    image: redis:7-alpine
+    container_name: meow-dev-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - dev_redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - meow-dev-network
+
+volumes:
+  dev_postgres_data:
+    driver: local
+  dev_redis_data:
+    driver: local
+
+networks:
+  meow-dev-network:
+    driver: bridge

@@ -257,3 +257,137 @@ export async function getRouteVisualizationData(params: {
 
     return response.data;
 }
+
+// Categories API
+export async function useCategories() {
+    return fetchAPI<any[]>('/categories');
+}
+
+export async function useCreateCategory(categoryData: any) {
+    return fetchAPI('/categories', {
+        method: 'POST',
+        body: JSON.stringify(categoryData)
+    });
+}
+
+export async function useUpdateCategory(id: number, categoryData: any) {
+    return fetchAPI(`/categories/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(categoryData)
+    });
+}
+
+export async function useDeleteCategory(id: number) {
+    return fetchAPI(`/categories/${id}`, {
+        method: 'DELETE'
+    });
+}
+
+// Transactions API
+export async function useCreateTransaction(transactionData: any) {
+    return fetchAPI('/transactions', {
+        method: 'POST',
+        body: JSON.stringify(transactionData)
+    });
+}
+
+export async function useTransactionById(id: number) {
+    return fetchAPI(`/transactions/${id}`);
+}
+
+export async function useUpdateTransaction(id: number, transactionData: any) {
+    return fetchAPI(`/transactions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(transactionData)
+    });
+}
+
+// Routes API
+export async function getAllRoutes() {
+    return fetchAPI('/routes');
+}
+
+export async function createRoute(routeData: any) {
+    return fetchAPI('/routes', {
+        method: 'POST',
+        body: JSON.stringify(routeData)
+    });
+}
+
+export async function updateRoute(id: number, routeData: any) {
+    return fetchAPI(`/routes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(routeData)
+    });
+}
+
+export async function deleteRoute(id: number) {
+    return fetchAPI(`/routes/${id}`, {
+        method: 'DELETE'
+    });
+}
+
+export async function toggleRouteActive(id: number) {
+    return fetchAPI(`/routes/${id}/toggle`, {
+        method: 'POST'
+    });
+}
+
+export async function getRouteStats(id: number) {
+    return fetchAPI(`/routes/${id}/stats`);
+}
+
+// Users API
+export async function getAllUsers() {
+    return fetchAPI('/users');
+}
+
+export async function updateUser(id: number, userData: any) {
+    return fetchAPI(`/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(userData)
+    });
+}
+
+export async function deleteUser(id: number) {
+    return fetchAPI(`/users/${id}`, {
+        method: 'DELETE'
+    });
+}
+
+export async function freezeUser(id: number) {
+    return fetchAPI(`/users/${id}/freeze`, {
+        method: 'POST'
+    });
+}
+
+export async function unfreezeUser(id: number) {
+    return fetchAPI(`/users/${id}/unfreeze`, {
+        method: 'POST'
+    });
+}
+
+export async function findUserByEmail(email: string) {
+    const response = await fetchAPI(`/users/search?email=${encodeURIComponent(email)}`);
+    const users = (response as any)?.data || [];
+    if (users.length === 0) {
+        throw new Error('未找到该邮箱对应的用户');
+    }
+    return users[0]; // 返回第一个匹配的用户
+}
+
+// Security API
+export async function changePassword(passwordData: any) {
+    return fetchAPI('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify(passwordData)
+    });
+}
+
+// Privacy API
+export async function useUpdatePrivacySettings(settingsData: any) {
+    return fetchAPI('/users/privacy', {
+        method: 'PUT',
+        body: JSON.stringify(settingsData)
+    });
+}

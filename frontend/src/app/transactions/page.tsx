@@ -90,13 +90,13 @@ export default function TransactionsPage() {
                         </Button>
                     </div>
                 </CardHeader>
-                {showFilter && (
-                    <div className="px-6 pb-2">
-                        <TransactionFilter onApply={applyFilter} />
-                    </div>
-                )}
+                <TransactionFilter
+                    isOpen={showFilter}
+                    onClose={() => setShowFilter(false)}
+                    onApply={applyFilter}
+                />
                 <CardBody>
-                    <TransactionList filter={filter} />
+                    <TransactionList />
                 </CardBody>
             </Card>
         </div>

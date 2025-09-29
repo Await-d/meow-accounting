@@ -13,48 +13,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { TransactionForm } from '@/components';
 import { ArrowLeft } from 'lucide-react';
-import { useCreateTransaction } from '@/lib/api';
+import { useCreateTransaction } from '@/hooks/useTransactions';
 import { Transaction } from '@/lib/types';
 
 export default function NewTransactionPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const { mutate: createTransaction, isPending } = useCreateTransaction();
     const [error, setError] = useState<string | null>(null);
 
     // 处理返回
     const handleBack = () => {
         router.back();
-    };
-
-    // 处理提交
-    const handleSubmit = (data: Omit<Transaction, 'id'>) => {
-        // 确保必需字段存在
-        if (!data.category_id) {
-            setError('分类不能为空');
-            return;
-        }
-
-        // 将数据转换为CreateTransactionData类型
-        const transactionData = {
-            type: data.type,
-            amount: data.amount,
-            category_id: data.category_id,
-            description: data.description,
-            date: data.date,
-            category_name: data.category_name,
-            category_icon: data.category_icon,
-            familyId: data.familyId
-        };
-
-        createTransaction(transactionData, {
-            onSuccess: () => {
-                router.push('/transactions');
-            },
-            onError: (error) => {
-                setError(error.message || '创建交易失败');
-            }
-        });
     };
 
     return (

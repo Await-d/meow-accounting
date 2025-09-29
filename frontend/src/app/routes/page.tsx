@@ -224,7 +224,7 @@ export default function RoutesPage() {
                         {isPredictionsLoading ? (
                             <div className="col-span-3 text-center py-4">加载中...</div>
                         ) : (
-                            (predictions?.topRoutes || Array(3).fill({})).map((prediction, index) => (
+                            (predictions?.topRoutes || Array(3).fill({})).map((prediction: any, index: number) => (
                                 <RoutePredictionCard
                                     key={index}
                                     prediction={prediction}

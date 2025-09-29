@@ -13,12 +13,16 @@ out/
 build/
 dist/
 
-# 生产环境
+# 环境变量文件（保护敏感信息）
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# 数据和日志
+data/
+logs/
 
 # 调试日志
 npm-debug.log*

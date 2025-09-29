@@ -67,6 +67,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState<TransactionFormData>(initialFormState);
 
+    // Declare the mutation hooks
+    const { mutate: createTransaction } = useCreateTransaction();
+    const { mutate: updateTransaction } = useUpdateTransaction();
+
     // 稳定化familyId引用，避免不必要的API调用
     const stableFamilyId = useMemo(() => familyId, [familyId]);
 
@@ -151,16 +155,16 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             };
 
             if (transaction?.id) {
-                await useUpdateTransaction(transaction.id, {
-                    ...data,
-                    id: transaction.id
+                updateTransaction({
+                    ...transaction,
+                    ...data
                 });
                 toast({
                     title: '交易已更新',
                     variant: 'success'
                 });
             } else {
-                await useCreateTransaction(data);
+                createTransaction(data);
                 toast({
                     title: '交易已创建',
                     variant: 'success'
@@ -265,7 +269,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                                 placeholder="添加备注信息"
                                 startContent={<FileText size={16} />}
                                 value={formData.note || ''}
-                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('note', e.target.value)}
+                                onChange={(e) => handleInputChange('note', e.target.value)}
                             />
                         </ModalBody>
                         <ModalFooter>

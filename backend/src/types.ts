@@ -57,12 +57,16 @@ export interface FamilyMember {
 }
 
 export interface Transaction {
-    id: number;
+    id?: number;
     amount: number;
     type: 'income' | 'expense';
     category_id: number;
     description?: string;
     date: string;
+    user_id: number;
+    family_id?: number;
+    created_at?: string;
+    updated_at?: string;
 }
 
 // 账户接口

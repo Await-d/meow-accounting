@@ -128,3 +128,14 @@ export const checkRole = (roles: string[]) => {
         next();
     };
 };
+
+// 兼容性导出 - 为了兼容原来的 middlewares/auth.ts
+export const authenticate = authMiddleware;
+
+// 管理员权限检查中间件
+export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({error: '需要管理员权限'});
+    }
+    next();
+};

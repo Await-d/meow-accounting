@@ -7,7 +7,7 @@
  */
 'use client';
 
-import {createContext, useContext, useState, useEffect, useCallback} from 'react';
+import {createContext, useContext, useState, useEffect, useCallback, Suspense} from 'react';
 import {useRouter, usePathname, useSearchParams} from 'next/navigation';
 import {useAuth} from './useAuth';
 import {Route, RouteType, RoutePermission, CreateRouteData, UpdateRouteData, RouteParams, RouteConfig} from '@/lib/types';
@@ -90,7 +90,7 @@ interface RouteContextType {
 
 const RouteContext = createContext<RouteContextType | undefined>(undefined);
 
-export function RouteProvider({children}: { children: React.ReactNode }) {
+function RouteProviderInner({children}: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -458,6 +458,16 @@ export function RouteProvider({children}: { children: React.ReactNode }) {
         <RouteContext.Provider value={value}>
             {children}
         </RouteContext.Provider>
+    );
+}
+
+export function RouteProvider({children}: { children: React.ReactNode }) {
+    return (
+        <Suspense fallback={<div>Loading routes...</div>}>
+            <RouteProviderInner>
+                {children}
+            </RouteProviderInner>
+        </Suspense>
     );
 }
 

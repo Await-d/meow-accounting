@@ -34,7 +34,7 @@ export default function SecurityPage() {
                 throw new Error('新密码必须至少包含8个字符');
             }
 
-            await changePassword(currentPassword, newPassword);
+            await changePassword({ currentPassword, newPassword });
             showToast('密码修改成功', 'success');
 
             // 清空表单

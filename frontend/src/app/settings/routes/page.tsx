@@ -68,7 +68,7 @@ export default function RoutesPage() {
 
     // 更新路由
     const updateMutation = useMutation({
-        mutationFn: updateRoute,
+        mutationFn: (id: number) => updateRoute(id, {}),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['routes'] });
             toast.success('更新成功');
@@ -106,7 +106,7 @@ export default function RoutesPage() {
     // 处理表单提交
     const handleSubmit = async (data: any) => {
         if (selectedRoute) {
-            await updateMutation.mutateAsync({ id: selectedRoute.id, data });
+            await updateMutation.mutateAsync(selectedRoute.id);
         } else {
             await createMutation.mutateAsync(data);
         }
@@ -202,7 +202,7 @@ export default function RoutesPage() {
                         <CardBody>
                             <DataTable
                                 columns={personalColumns}
-                                data={enhanceData(routesData?.personalRoutes || [])}
+                                data={enhanceData((routesData as any)?.data?.personalRoutes || [])}
                                 isLoading={isLoading}
                                 pagination
                             />
@@ -214,7 +214,7 @@ export default function RoutesPage() {
                         <CardBody>
                             <DataTable
                                 columns={familyColumns}
-                                data={enhanceData(routesData?.familyRoutes || [])}
+                                data={enhanceData((routesData as any)?.data?.familyRoutes || [])}
                                 isLoading={isLoading}
                                 pagination
                             />

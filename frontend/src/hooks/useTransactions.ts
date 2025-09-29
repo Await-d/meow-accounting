@@ -144,29 +144,37 @@ export function useExportTransactions() {
             params.append('startDate', startDate);
             params.append('endDate', endDate);
 
-            const response = await fetchAPI<Blob>(`/transactions/export?${params.toString()}`, {
+            // For blob exports, we need to use fetch directly
+            const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/transactions/export?${params.toString()}`;
+            const token = localStorage.getItem('token');
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     Accept: 'application/octet-stream',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
-                responseType: 'blob',
             });
 
+            if (!response.ok) {
+                throw new Error('导出失败');
+            }
+
+            const blob = await response.blob();
             // 创建下载链接
-            const url = window.URL.createObjectURL(response.data);
+            const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             const filename = `交易记录_${startDate}_${endDate}.csv`;
 
-            link.href = url;
+            link.href = downloadUrl;
             link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
 
             // 清理
             document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            window.URL.revokeObjectURL(downloadUrl);
 
-            return response.data;
+            return blob;
         },
         onSuccess: () => {
             showToast('导出成功', 'success');

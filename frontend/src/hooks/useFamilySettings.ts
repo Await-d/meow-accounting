@@ -23,11 +23,11 @@ export function useFamilySettings(familyId?: number) {
     const { showToast } = useToast();
 
     // 获取家庭设置
-    const { data: settings, isLoading } = useQuery<FamilySettings>({
+    const { data: settings, isLoading } = useQuery<FamilySettings | null>({
         queryKey: ['familySettings', familyId],
         queryFn: async () => {
             if (!familyId) return null;
-            const response = await fetchAPI(`/families/${familyId}/settings`);
+            const response = await fetchAPI<FamilySettings>(`/families/${familyId}/settings`);
             return response.data;
         },
         enabled: !!familyId

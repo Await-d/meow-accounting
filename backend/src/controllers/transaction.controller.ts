@@ -2,19 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import * as transactionModel from '../models/transaction';
 import * as categoryModel from '../models/category';
 import { validateTransaction } from '../utils/validation';
+import { Transaction } from '../types';
 import dayjs from 'dayjs';
-import { RequestHandler } from 'express-serve-static-core';
-
-interface Transaction {
-    id: number;
-    amount: number;
-    category_id: number;
-    description: string;
-    date: string;
-    type: string;
-    user_id: number;
-    family_id: number;
-}
+// RequestHandler类型已经在express中导出，不需要单独导入
 
 // 扩展Request类型以包含file属性
 interface MulterRequest extends Request {
@@ -312,13 +302,13 @@ export const importTransactions = async (req: MulterRequest, res: Response, next
                         category_id: parseInt(data.category_id),
                         description: data.description || '',
                         date: data.date || dayjs().format('YYYY-MM-DD'),
-                        type: data.type === '支出' ? 'expense' : data.type === '收入' ? 'income' : data.type,
-                        user_id: req.user?.id || 0,
+                        type: (data.type === '支出' ? 'expense' : data.type === '收入' ? 'income' : data.type) as 'income' | 'expense',
+                        user_id: req.user!.id,
                         family_id: parseInt(data.family_id) || 0
                     };
 
                     // 验证必填字段
-                    if (isNaN(transaction.amount) || !transaction.type || isNaN(transaction.category_id) || isNaN(transaction.family_id)) {
+                    if (isNaN(transaction.amount) || !transaction.type || isNaN(transaction.category_id) || (transaction.family_id !== undefined && isNaN(transaction.family_id))) {
                         errors.push(`行 ${processedCount + 1}: 缺少必要字段或格式错误`);
                     } else {
                         results.push(transaction);

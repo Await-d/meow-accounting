@@ -6,7 +6,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { TransactionForm } from '@/components';
 import { ArrowLeft } from 'lucide-react';
-import { useUpdateTransaction, useTransactionById } from '@/lib/api';
+import { useUpdateTransaction } from '@/hooks/useTransactions';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/lib/api';
 import { Transaction } from '@/lib/types';
 
 interface EditTransactionPageProps {
@@ -19,28 +21,17 @@ export default function EditTransactionPage({ params }: EditTransactionPageProps
     const { id } = params;
     const { user } = useAuth();
     const router = useRouter();
-    const { data: transaction, isLoading } = useTransactionById(Number(id));
-    const { mutate: updateTransaction, isPending } = useUpdateTransaction();
+    const { data: transactionResponse, isLoading } = useQuery({
+        queryKey: ['transaction', id],
+        queryFn: () => fetchAPI<Transaction>(`/transactions/${id}`)
+    });
+
+    const transaction = (transactionResponse as any)?.data;
     const [error, setError] = useState<string | null>(null);
 
     // 处理返回
     const handleBack = () => {
         router.back();
-    };
-
-    // 处理提交
-    const handleSubmit = (data: Omit<Transaction, 'id'>) => {
-        updateTransaction(
-            { id: Number(id), ...data },
-            {
-                onSuccess: () => {
-                    router.push('/transactions');
-                },
-                onError: (error) => {
-                    setError(error.message || '更新交易失败');
-                }
-            }
-        );
     };
 
     // 如果交易不存在或不属于当前用户，重定向到交易列表
@@ -86,10 +77,9 @@ export default function EditTransactionPage({ params }: EditTransactionPageProps
                                 </div>
                             )}
                             <TransactionForm
-                                initialData={transaction}
-                                onSubmit={handleSubmit}
-                                isSubmitting={isPending}
-                                isEditing
+                                isOpen={true}
+                                onClose={() => router.push('/transactions')}
+                                transaction={transaction}
                             />
                         </>
                     ) : (
