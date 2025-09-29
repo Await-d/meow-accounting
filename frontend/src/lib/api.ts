@@ -32,14 +32,53 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+// API配置验证函数
+export function validateApiConfiguration() {
+    const config = {
+        baseUrl: API_BASE_URL,
+        environment: typeof window !== 'undefined' ? 'client' : 'server',
+        envVariable: process.env.NEXT_PUBLIC_API_URL,
+        isProduction: process.env.NODE_ENV === 'production',
+        timestamp: new Date().toISOString()
+    };
+
+    // 在开发环境下输出配置信息
+    if (process.env.NODE_ENV !== 'production') {
+        console.log('🔧 API Configuration:', config);
+    }
+
+    return config;
+}
+
 // 健康检查函数
 export async function checkApiHealth() {
+    const startTime = Date.now();
     try {
         const response = await fetch(`${API_BASE_URL}/health`);
-        return await response.json();
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+
+        const healthData = await response.json();
+
+        return {
+            ...healthData,
+            status: response.ok ? 'healthy' : 'unhealthy',
+            responseTime,
+            apiUrl: API_BASE_URL,
+            timestamp: new Date().toISOString()
+        };
     } catch (error) {
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+
         console.error('API health check failed:', error);
-        return { status: 'unhealthy', error: error instanceof Error ? error.message : 'Unknown error' };
+        return {
+            status: 'unhealthy',
+            error: error instanceof Error ? error.message : 'Unknown error',
+            responseTime,
+            apiUrl: API_BASE_URL,
+            timestamp: new Date().toISOString()
+        };
     }
 }
 
