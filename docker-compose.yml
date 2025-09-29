@@ -16,8 +16,13 @@ services:
       - JWT_SECRET=${JWT_SECRET:-your_strong_jwt_secret_change_this}
       - DATABASE_URL=file:/app/data/sqlite.db
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - FRONTEND_URL=http://localhost:3000
-      - BACKEND_URL=http://localhost:3001
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - BACKEND_URL=${BACKEND_URL:-http://localhost:3001}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
+      - REDIS_HOST=${REDIS_HOST:-192.168.123.5}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-bdtdhc6DizYQYbEZ}
+      - REDIS_URL=${REDIS_URL:-redis://:bdtdhc6DizYQYbEZ@192.168.123.5:6379}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]

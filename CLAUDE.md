@@ -46,15 +46,47 @@ pnpm run lint         # Run ESLint
 ```
 
 ### Docker Operations
+
+#### 使用Docker Compose（推荐）
+```bash
+# 1. 复制环境变量配置文件
+cp .env.docker .env
+
+# 2. 根据实际部署环境修改 .env 文件中的配置
+# 特别注意修改以下变量：
+# - NEXT_PUBLIC_API_URL: 前端访问的API地址
+# - FRONTEND_URL: 前端访问地址
+# - BACKEND_URL: 后端访问地址
+# - JWT_SECRET: JWT密钥（生产环境必须修改）
+
+# 3. 启动服务
+docker-compose up -d
+
+# 4. 查看日志
+docker-compose logs -f
+
+# 5. 停止服务
+docker-compose down
+```
+
+#### 生产环境API地址配置
+```bash
+# 本地开发环境
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+
+# 生产环境示例（请根据实际情况修改）
+NEXT_PUBLIC_API_URL=http://your-server-ip:3001/api
+# 或使用域名
+NEXT_PUBLIC_API_URL=https://your-domain.com/api
+```
+
+#### 使用Docker直接构建
 ```bash
 # Build and run with Docker
 docker build -t meow-accounting .
-docker run -p 3000:3000 -p 3001:3001 -v ./data:/app/data -d meow-accounting
-
-# Using Docker Compose
-docker-compose up -d
-docker-compose logs -f
-docker-compose down
+docker run -p 3000:3000 -p 3001:3001 \
+  -e NEXT_PUBLIC_API_URL=http://your-server-ip:3001/api \
+  -v ./data:/app/data -d meow-accounting
 ```
 
 ### Database Operations

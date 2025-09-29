@@ -144,8 +144,23 @@ export function useExportTransactions() {
             params.append('startDate', startDate);
             params.append('endDate', endDate);
 
+            // 动态获取API基础URL
+            const getApiBaseUrl = () => {
+                if (process.env.NEXT_PUBLIC_API_URL) {
+                    return process.env.NEXT_PUBLIC_API_URL;
+                }
+                if (typeof window !== 'undefined') {
+                    const { protocol, hostname, port } = window.location;
+                    if (port === '3000' || port === '') {
+                        return `${protocol}//${hostname}:3001/api`;
+                    }
+                    return `${protocol}//${hostname}${port ? `:${port}` : ''}/api`;
+                }
+                return 'http://localhost:3001/api';
+            };
+
             // For blob exports, we need to use fetch directly
-            const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/transactions/export?${params.toString()}`;
+            const url = `${getApiBaseUrl()}/transactions/export?${params.toString()}`;
             const token = localStorage.getItem('token');
             const response = await fetch(url, {
                 method: 'GET',

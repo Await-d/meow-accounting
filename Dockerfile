@@ -1,6 +1,13 @@
 # 构建阶段 - 前端
 FROM node:18-alpine AS frontend-builder
 WORKDIR /app/frontend
+
+# 设置构建时环境变量
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001/api
+ARG BACKEND_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV BACKEND_URL=$BACKEND_URL
+
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
@@ -48,6 +55,7 @@ RUN chmod +x start.sh
 ENV NODE_ENV=production
 ENV FRONTEND_URL=http://localhost:3000
 ENV BACKEND_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_URL=http://localhost:3001/api
 
 # 暴露端口
 EXPOSE 3000

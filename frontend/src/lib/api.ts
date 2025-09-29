@@ -1,7 +1,31 @@
 import { APIError, Transaction, TransactionFilter, } from './types';
 import { getToken, removeToken } from '@/utils/auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// 动态获取API基础URL
+const getApiBaseUrl = () => {
+  // 优先使用环境变量中的API URL
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  // 如果是在浏览器环境中运行
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port } = window.location;
+
+    // 如果是通过3000端口访问（前端端口），API在3001端口
+    if (port === '3000' || port === '') {
+      return `${protocol}//${hostname}:3001/api`;
+    }
+
+    // 如果是其他端口，假设是反向代理，API在同一地址的/api路径
+    return `${protocol}//${hostname}${port ? `:${port}` : ''}/api`;
+  }
+
+  // 服务端渲染时的默认值
+  return process.env.BACKEND_URL ? `${process.env.BACKEND_URL}/api` : 'http://localhost:3001/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // 健康检查函数
 export async function checkApiHealth() {
