@@ -1,8 +1,8 @@
 {
-  "version": "1.0.8",
-  "buildTime": "99",
-  "buildDate": "2025-09-29T13:38:16Z",
-  "gitCommit": "f069ff2d17720b7e218366d82ea36b5c7fe5547b",
+  "version": "1.0.9",
+  "buildTime": "96",
+  "buildDate": "2025-09-29T13:46:29Z",
+  "gitCommit": "cebd35354dd69956958e6ea03685629d57a7d13d",
   "gitBranch": "master",
   "nodeVersion": "v18.20.8",
   "environment": "production"
