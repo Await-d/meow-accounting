@@ -10,7 +10,9 @@ export default function CustomPage() {
     const { user } = useAuth();
     const { currentRoute } = useRoute();
 
-    const description = currentRoute?.description || '这是一个自定义页面，您可以根据需要配置内容。';
+    const description = currentRoute
+        ? `当前路由：${currentRoute.path}`
+        : '这是一个自定义页面，您可以根据需要配置内容。';
 
     return (
         <PageLayout
