@@ -1,0 +1,29 @@
+# 生产构建排除文件
+node_modules/
+*.log
+*.tmp
+.DS_Store
+.env*
+!.env.example
+
+# 开发工具
+.vscode/
+.idea/
+
+# 缓存文件
+.next/cache/
+.cache/
+
+# 大文件（使用Git LFS）
+*.woff2
+*.woff
+*.ttf
+*.eot
+*.mp4
+*.webm
+*.avi
+
+# 临时文件
+*.swp
+*.swo
+*~
