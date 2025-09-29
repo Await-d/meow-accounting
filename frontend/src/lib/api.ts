@@ -237,6 +237,85 @@ export async function fetchAPI<T>(
 
 export type { Transaction, TransactionFilter };
 
+// API性能监控和缓存管理
+export class ApiPerformanceMonitor {
+    private static instance: ApiPerformanceMonitor;
+    private requestTimes: Map<string, number> = new Map();
+    private responseCache: Map<string, { data: any; timestamp: number; ttl: number }> = new Map();
+    private readonly defaultTtl = 5 * 60 * 1000; // 5分钟缓存
+
+    static getInstance(): ApiPerformanceMonitor {
+        if (!ApiPerformanceMonitor.instance) {
+            ApiPerformanceMonitor.instance = new ApiPerformanceMonitor();
+        }
+        return ApiPerformanceMonitor.instance;
+    }
+
+    startRequest(endpoint: string): void {
+        this.requestTimes.set(endpoint, Date.now());
+    }
+
+    endRequest(endpoint: string): number {
+        const startTime = this.requestTimes.get(endpoint);
+        if (!startTime) return 0;
+
+        const duration = Date.now() - startTime;
+        this.requestTimes.delete(endpoint);
+
+        // 记录慢查询
+        if (duration > 3000) {
+            console.warn(`🐌 慢查询检测: ${endpoint} 耗时 ${duration}ms`);
+        }
+
+        return duration;
+    }
+
+    setCache(key: string, data: any, ttl: number = this.defaultTtl): void {
+        this.responseCache.set(key, {
+            data,
+            timestamp: Date.now(),
+            ttl
+        });
+    }
+
+    getCache(key: string): any | null {
+        const cached = this.responseCache.get(key);
+        if (!cached) return null;
+
+        const now = Date.now();
+        if (now - cached.timestamp > cached.ttl) {
+            this.responseCache.delete(key);
+            return null;
+        }
+
+        return cached.data;
+    }
+
+    clearCache(): void {
+        this.responseCache.clear();
+        console.log('🧹 API缓存已清理');
+    }
+
+    getPerformanceStats(): { averageResponseTime: number; cacheHitRate: number; activeCacheCount: number } {
+        const now = Date.now();
+        let validCacheCount = 0;
+
+        for (const [key, cache] of this.responseCache.entries()) {
+            if (now - cache.timestamp <= cache.ttl) {
+                validCacheCount++;
+            } else {
+                this.responseCache.delete(key);
+            }
+        }
+
+        return {
+            averageResponseTime: 0, // 这里可以实现更详细的统计
+            cacheHitRate: 0,
+            activeCacheCount: validCacheCount
+        };
+    }
+}
+
 // 在 React Query 中通用的错误处理
 export const handleQueryError = (error: any, fallbackMessage = '请求失败') => {
     if (error instanceof APIError) {

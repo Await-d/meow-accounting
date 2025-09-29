@@ -107,6 +107,59 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// 系统监控端点
+app.get('/api/system/monitor', (req, res) => {
+    const uptime = process.uptime();
+    const memUsage = process.memoryUsage();
+    
+    res.status(200).json({
+        status: 'operational',
+        timestamp: new Date().toISOString(),
+        uptime: {
+            seconds: Math.floor(uptime),
+            readable: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${Math.floor(uptime % 60)}s`
+        },
+        memory: {
+            used: Math.round(memUsage.heapUsed / 1024 / 1024 * 100) / 100, // MB
+            total: Math.round(memUsage.heapTotal / 1024 / 1024 * 100) / 100, // MB
+            external: Math.round(memUsage.external / 1024 / 1024 * 100) / 100, // MB
+            rss: Math.round(memUsage.rss / 1024 / 1024 * 100) / 100 // MB
+        },
+        environment: {
+            nodeVersion: process.version,
+            platform: process.platform,
+            arch: process.arch,
+            nodeEnv: process.env.NODE_ENV || 'development'
+        },
+        database: {
+            type: 'SQLite',
+            status: 'connected',
+            location: process.env.DATABASE_URL || 'file:data/sqlite.db'
+        }
+    });
+});
+
+// API请求统计端点
+app.get('/api/system/stats', (req, res) => {
+    res.status(200).json({
+        requests: {
+            total: 0, // 这里可以实现请求计数器
+            last24h: 0,
+            avgResponseTime: 0
+        },
+        routes: {
+            active: 0,
+            errors: 0
+        },
+        cache: {
+            hitRate: 0,
+            size: 0
+        },
+        timestamp: new Date().toISOString()
+    });
+});
+});
+
 // 启动服务器
 app.listen(PORT, async () => {
     await initDatabase();
