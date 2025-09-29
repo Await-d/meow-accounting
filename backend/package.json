@@ -1,7 +1,7 @@
 {
   "name": "meow-accounting-backend",
   "version": "1.0.0",
-  "description": "喵呜记账后端服务",
+  "description": "喵呜记账后端服务 - 全栈家庭财务管理应用",
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",
