@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - master
 
 permissions:
   contents: write
@@ -207,8 +208,8 @@ jobs:
         git commit -m "chore: update frontend build for v${{ steps.next_version.outputs.new_version }} [skip ci]"
         git push origin web-dist --force
 
-        # 切换回主分支
-        git checkout main
+        # 切换回原分支
+        git checkout ${{ github.ref_name }}
 
         # 清理临时目录
         rm -rf "$TEMP_DIR"
@@ -244,7 +245,7 @@ jobs:
       run: |
         NEW_TAG="${{ steps.next_version.outputs.new_tag }}"
         git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
-        git push origin HEAD:main "$NEW_TAG"
+        git push origin HEAD:${{ github.ref_name }} "$NEW_TAG"
 
     - name: Create GitHub Release
       if: steps.check.outputs.needs_bump == 'true'
