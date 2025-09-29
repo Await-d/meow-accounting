@@ -97,10 +97,21 @@ async function initDatabase() {
     }
 }
 
+// 健康检查端点
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        service: 'meow-accounting-backend',
+        version: process.env.npm_package_version || '1.0.0'
+    });
+});
+
 // 启动服务器
 app.listen(PORT, async () => {
     await initDatabase();
     console.log(`API文档访问地址: http://localhost:${PORT}/api-docs`);
+    console.log(`健康检查端点: http://localhost:${PORT}/api/health`);
     console.log(`服务器运行在 http://localhost:${PORT}`);
 });
 

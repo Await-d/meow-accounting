@@ -3,6 +3,17 @@ import { getToken, removeToken } from '@/utils/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// 健康检查函数
+export async function checkApiHealth() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/health`);
+        return await response.json();
+    } catch (error) {
+        console.error('API health check failed:', error);
+        return { status: 'unhealthy', error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
 // 全局处理未授权错误
 let globalUnauthorizedHandler: (() => void) | null = null;
 
