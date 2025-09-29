@@ -47,7 +47,21 @@ pnpm run lint         # Run ESLint
 
 ### Docker Operations
 
-#### 使用Docker Compose + Nginx（推荐）
+#### 🚀 快速部署（推荐方式）
+
+**一键部署脚本：**
+```bash
+# 运行自动化构建脚本
+./build-docker.sh
+
+# 脚本会自动：
+# 1. 询问部署方案选择
+# 2. 设置正确的API地址
+# 3. 构建Docker镜像
+# 4. 启动所有服务
+```
+
+**手动部署：**
 ```bash
 # 1. 复制环境变量配置文件
 cp .env.docker .env
@@ -55,19 +69,22 @@ cp .env.docker .env
 # 2. 根据实际部署环境修改 .env 文件中的配置
 # 特别注意修改以下变量：
 # - JWT_SECRET: JWT密钥（生产环境必须修改）
-# - REDIS_*: Redis配置（如果使用Redis）
+# - NEXT_PUBLIC_API_URL: API地址配置
 
-# 3. 启动服务（包含Nginx反向代理）
+# 3. 构建镜像（重要：必须在构建时设置API地址）
+docker-compose build --build-arg NEXT_PUBLIC_API_URL=/api
+
+# 4. 启动服务（包含Nginx反向代理）
 docker-compose up -d
 
-# 4. 查看日志
+# 5. 查看日志
 docker-compose logs -f
 
-# 5. 访问应用
+# 6. 访问应用
 # 访问 http://your-server-ip 即可使用应用
 # 前端和API都通过同一端口访问，解决跨域问题
 
-# 6. 停止服务
+# 7. 停止服务
 docker-compose down
 ```
 
@@ -80,16 +97,92 @@ docker-compose down
                Redis + SQLite
 ```
 
-#### API地址配置说明
+#### API地址配置说明 🔧
+
+**重要：前端API请求地址配置是部署成功的关键！**
+
+##### 方案1：使用Nginx反向代理（🌟推荐）
 ```bash
-# 使用Nginx反向代理（推荐）
+# .env 或 docker-compose.yml 中设置
 NEXT_PUBLIC_API_URL=/api
 
-# 直接暴露端口（开发环境）
-NEXT_PUBLIC_API_URL=http://localhost:3001/api
+# 优势：
+# ✅ 解决跨域问题
+# ✅ 统一端口访问
+# ✅ 更好的安全性
+# ✅ 支持SSL终止
+```
 
-# 使用域名（生产环境无Nginx）
-NEXT_PUBLIC_API_URL=https://your-domain.com:3001/api
+##### 方案2：直接暴露后端端口
+```bash
+# 将 YOUR_SERVER_IP 替换为实际服务器IP
+NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP:3001/api
+
+# 适用场景：
+# - 开发环境测试
+# - 简单部署场景
+# - 不使用反向代理时
+```
+
+##### 方案3：使用自定义域名
+```bash
+# 使用SSL证书的域名
+NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api
+
+# 使用HTTP的域名
+NEXT_PUBLIC_API_URL=http://api.yourdomain.com:3001/api
+```
+
+##### 🚨 常见问题解决
+
+**问题1：请求地址还是 localhost:3001**
+```bash
+# 解决方案：确保环境变量正确设置
+# 检查 .env 文件
+echo $NEXT_PUBLIC_API_URL
+
+# 重启前端服务
+docker-compose restart frontend
+# 或
+pnpm run dev
+```
+
+**问题2：CORS跨域错误**
+```bash
+# 使用Nginx反向代理解决
+NEXT_PUBLIC_API_URL=/api
+
+# 或者配置后端CORS
+# 在backend/src/app.ts中检查CORS设置
+```
+
+**问题3：Docker部署时API地址不正确** 🔥
+```bash
+# ❌ 错误方式：仅设置运行时环境变量（无效）
+environment:
+  - NEXT_PUBLIC_API_URL=/api
+
+# ✅ 正确方式：构建时传递参数
+docker-compose build --build-arg NEXT_PUBLIC_API_URL=/api
+
+# ✅ 或使用提供的构建脚本（推荐）
+./build-docker.sh
+```
+
+**关键说明：** Next.js 的 `NEXT_PUBLIC_*` 环境变量必须在**构建时(build time)**设置，而不是运行时(runtime)。这是因为这些变量会被嵌入到构建产物中。
+
+**问题4：环境变量设置了但仍然不生效**
+```bash
+# 检查构建参数是否正确传递
+docker-compose build --build-arg NEXT_PUBLIC_API_URL=/api --no-cache
+
+# 验证构建结果
+./test-api-config.sh
+
+# 强制重新构建
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
 ```
 
 #### 使用Docker直接构建

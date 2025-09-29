@@ -3,7 +3,13 @@ version: '3.8'
 services:
   # 主应用服务
   meow-accounting:
-    image: await2719/meow-accounting:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+        BACKEND_URL: ${BACKEND_URL:-http://localhost:3001}
+    # image: await2719/meow-accounting:latest  # 改为本地构建
     container_name: meow-accounting
     # 移除端口暴露，通过nginx代理访问
     expose:
