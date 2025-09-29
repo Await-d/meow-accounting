@@ -96,7 +96,9 @@ services:
       - NODE_ENV=production
       - JWT_SECRET=your_strong_jwt_secret_change_this
       - DATABASE_URL=file:/app/data/sqlite.db
-      - REDIS_URL=redis://redis:6379
+            - REDIS_URL=redis://redis:6379
+      # 如果Redis启用了认证，额外提供密码
+      # - REDIS_PASSWORD=your_redis_password
       - LOG_LEVEL=info
     restart: unless-stopped
     healthcheck:
@@ -141,7 +143,7 @@ docker-compose down
 | `JWT_EXPIRES_IN` | `24h` | JWT过期时间 |
 | `LOG_LEVEL` | `info` | 日志级别 |
 | `REDIS_URL` | - | Redis连接地址（启用缓存时设置） |
-| `REDIS_PASSWORD` | - | Redis密码（如实例启用认证） |
+| `REDIS_PASSWORD` | - | Redis密码（如实例启用认证，格式 `redis://user:password@host:port` 亦可在 `REDIS_URL` 中直接携带） |
 
 ### 本地开发
 
