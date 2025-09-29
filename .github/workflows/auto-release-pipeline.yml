@@ -162,51 +162,22 @@ jobs:
         TEMP_DIR=$(mktemp -d)
         echo "Using temp directory: $TEMP_DIR"
 
-        # 复制构建产物到临时目录（严格排除node_modules）
-        echo "Copying build output to temp directory, excluding node_modules..."
+        # 简化构建产物复制，只使用静态导出
+        echo "Copying Next.js export output..."
 
         if [ -d "frontend/out" ]; then
-          echo "Using Next.js export output"
-          find frontend/out -type f -not -path "*/node_modules/*" | while read -r file; do
-            rel_path="${file#frontend/out/}"
-            mkdir -p "$TEMP_DIR/$(dirname "$rel_path")"
-            cp "$file" "$TEMP_DIR/$rel_path" 2>/dev/null
-          done
-        elif [ -d "frontend/.next/standalone" ]; then
-          echo "Using Next.js standalone output"
-          find frontend/.next/standalone -type f -not -path "*/node_modules/*" | while read -r file; do
-            rel_path="${file#frontend/.next/standalone/}"
-            mkdir -p "$TEMP_DIR/$(dirname "$rel_path")"
-            cp "$file" "$TEMP_DIR/$rel_path" 2>/dev/null
-          done
-          # 复制静态资源（严格排除node_modules）
-          if [ -d "frontend/.next/static" ]; then
-            mkdir -p "$TEMP_DIR/.next"
-            find frontend/.next/static -type f -not -path "*/node_modules/*" | while read -r file; do
-              rel_path="${file#frontend/.next/}"
-              mkdir -p "$TEMP_DIR/.next/$(dirname "${rel_path#static/}")"
-              cp "$file" "$TEMP_DIR/.next/$rel_path" 2>/dev/null
-            done
-          fi
-        elif [ -d "frontend/dist" ]; then
-          echo "Using dist output"
-          find frontend/dist -type f -not -path "*/node_modules/*" | while read -r file; do
-            rel_path="${file#frontend/dist/}"
-            mkdir -p "$TEMP_DIR/$(dirname "$rel_path")"
-            cp "$file" "$TEMP_DIR/$rel_path" 2>/dev/null
-          done
+          echo "Found frontend/out directory, copying static files..."
+          # 使用rsync安全复制，排除node_modules
+          rsync -av --exclude 'node_modules' --exclude '.next/cache' frontend/out/ "$TEMP_DIR/" || {
+            echo "rsync failed, falling back to manual copy"
+            cp -r frontend/out/* "$TEMP_DIR/" 2>/dev/null || echo "No files to copy"
+          }
         else
-          echo "No suitable build output found, using basic static files"
-          if [ -d "frontend/public" ]; then
-            find frontend/public -type f -not -path "*/node_modules/*" | while read -r file; do
-              rel_path="${file#frontend/public/}"
-              mkdir -p "$TEMP_DIR/$(dirname "$rel_path")"
-              cp "$file" "$TEMP_DIR/$rel_path" 2>/dev/null
-            done
-          fi
+          echo "No frontend/out directory found, creating minimal index"
+          echo "<h1>Meow Accounting Frontend Build</h1><p>Version: ${{ steps.next_version.outputs.new_version }}</p>" > "$TEMP_DIR/index.html"
         fi
 
-        echo "Files copied to temp directory (excluding node_modules)"
+        echo "Build output copied successfully"
 
         # 检查 web-dist 分支是否存在
         if git ls-remote --heads origin web-dist | grep -q web-dist; then

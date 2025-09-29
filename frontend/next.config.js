@@ -21,8 +21,9 @@ const nextConfig = {
     API_URL: process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:3001/api',
   },
 
-  // 输出配置
-  output: 'standalone',
+  // 输出配置 - 使用静态导出避免构建问题
+  output: 'export',
+  trailingSlash: true,
 
   // 图片优化配置
   images: {
