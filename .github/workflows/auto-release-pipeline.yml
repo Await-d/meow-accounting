@@ -662,15 +662,20 @@ jobs:
         # 高级文件添加系统（分批处理）
         echo "📎 执行高级文件添加..."
 
-        # 分类添加文件（避免大批量操作）
+        # 首先添加 .gitignore 和 README.md (避免冲突)
+        git add .gitignore README.md build-manifest.json 2>/dev/null || true
+
+        # 分类添加其他文件（避免大批量操作）
         find . -maxdepth 3 -type f \
           \( -name "*.html" -o -name "*.css" -o -name "*.js" \) \
           ! -path './.git/*' \
+          ! -name '.gitignore' ! -name 'README.md' ! -name 'build-manifest.json' \
           -exec git add {} + 2>/dev/null || true
 
         find . -maxdepth 3 -type f \
           \( -name "*.json" -o -name "*.md" -o -name "*.txt" \) \
           ! -path './.git/*' \
+          ! -name '.gitignore' ! -name 'README.md' ! -name 'build-manifest.json' \
           -exec git add {} + 2>/dev/null || true
 
         find . -maxdepth 3 -type f \
@@ -720,9 +725,11 @@ jobs:
           fi
         done
 
-        # 返回原分支
+        # 返回原分支（强制清理冲突文件）
         echo "🔄 返回原分支..."
-        git checkout "$CURRENT_BRANCH"
+        git clean -fd  # 清理未跟踪的文件和目录
+        git reset --hard HEAD  # 重置工作目录
+        git checkout "$CURRENT_BRANCH" --force
 
         # 清理临时文件
         echo "🧹 清理临时文件..."
@@ -857,8 +864,10 @@ jobs:
             echo "✅ web-dist分支验证通过"
           fi
 
-          # 返回主分支
-          git checkout ${{ github.ref_name }}
+          # 返回主分支（安全切换）
+          git clean -fd  # 清理冲突文件
+          git reset --hard HEAD
+          git checkout ${{ github.ref_name }} --force
         else
           echo "ℹ️ web-dist分支不存在，跳过验证"
         fi
