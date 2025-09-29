@@ -29,11 +29,10 @@ const nextConfig = {
     unoptimized: true,
   },
 
-  // 实验性功能
-  experimental: {
-    // 支持 app 目录
-    appDir: false,
-  },
+  // 实验性功能 (Next.js 14+ App Router 已稳定)
+  // experimental: {
+  //   // Next.js 14+ 不再需要 appDir 配置
+  // },
 
   // Webpack 配置
   webpack: (config, { isServer }) => {

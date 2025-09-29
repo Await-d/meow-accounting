@@ -300,13 +300,13 @@ export class ApiPerformanceMonitor {
         const now = Date.now();
         let validCacheCount = 0;
 
-        for (const [key, cache] of this.responseCache.entries()) {
+        this.responseCache.forEach((cache, key) => {
             if (now - cache.timestamp <= cache.ttl) {
                 validCacheCount++;
             } else {
                 this.responseCache.delete(key);
             }
-        }
+        });
 
         return {
             averageResponseTime: 0, // 这里可以实现更详细的统计
