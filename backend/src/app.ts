@@ -158,7 +158,6 @@ app.get('/api/system/stats', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-});
 
 // 启动服务器
 app.listen(PORT, async () => {
