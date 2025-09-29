@@ -162,28 +162,51 @@ jobs:
         TEMP_DIR=$(mktemp -d)
         echo "Using temp directory: $TEMP_DIR"
 
-        # 复制构建产物到临时目录（只复制静态资源，避免缓存文件）
+        # 复制构建产物到临时目录（严格排除node_modules）
+        echo "Copying build output to temp directory, excluding node_modules..."
+
         if [ -d "frontend/out" ]; then
           echo "Using Next.js export output"
-          cp -r frontend/out/* "$TEMP_DIR/" 2>/dev/null || echo "No out files"
+          find frontend/out -type f -not -path "*/node_modules/*" | while read -r file; do
+            rel_path="${file#frontend/out/}"
+            mkdir -p "$TEMP_DIR/$(dirname "$rel_path")"
+            cp "$file" "$TEMP_DIR/$rel_path" 2>/dev/null
+          done
         elif [ -d "frontend/.next/standalone" ]; then
           echo "Using Next.js standalone output"
-          cp -r frontend/.next/standalone/* "$TEMP_DIR/" 2>/dev/null || echo "No standalone files"
-          # 复制静态资源（排除缓存）
+          find frontend/.next/standalone -type f -not -path "*/node_modules/*" | while read -r file; do
+            rel_path="${file#frontend/.next/standalone/}"
+            mkdir -p "$TEMP_DIR/$(dirname "$rel_path")"
+            cp "$file" "$TEMP_DIR/$rel_path" 2>/dev/null
+          done
+          # 复制静态资源（严格排除node_modules）
           if [ -d "frontend/.next/static" ]; then
             mkdir -p "$TEMP_DIR/.next"
-            cp -r frontend/.next/static "$TEMP_DIR/.next/" 2>/dev/null || echo "No static files"
+            find frontend/.next/static -type f -not -path "*/node_modules/*" | while read -r file; do
+              rel_path="${file#frontend/.next/}"
+              mkdir -p "$TEMP_DIR/.next/$(dirname "${rel_path#static/}")"
+              cp "$file" "$TEMP_DIR/.next/$rel_path" 2>/dev/null
+            done
           fi
         elif [ -d "frontend/dist" ]; then
           echo "Using dist output"
-          cp -r frontend/dist/* "$TEMP_DIR/" 2>/dev/null || echo "No dist files"
+          find frontend/dist -type f -not -path "*/node_modules/*" | while read -r file; do
+            rel_path="${file#frontend/dist/}"
+            mkdir -p "$TEMP_DIR/$(dirname "$rel_path")"
+            cp "$file" "$TEMP_DIR/$rel_path" 2>/dev/null
+          done
         else
           echo "No suitable build output found, using basic static files"
-          # 只复制必要的静态文件
           if [ -d "frontend/public" ]; then
-            cp -r frontend/public/* "$TEMP_DIR/" 2>/dev/null || echo "No public files"
+            find frontend/public -type f -not -path "*/node_modules/*" | while read -r file; do
+              rel_path="${file#frontend/public/}"
+              mkdir -p "$TEMP_DIR/$(dirname "$rel_path")"
+              cp "$file" "$TEMP_DIR/$rel_path" 2>/dev/null
+            done
           fi
         fi
+
+        echo "Files copied to temp directory (excluding node_modules)"
 
         # 检查 web-dist 分支是否存在
         if git ls-remote --heads origin web-dist | grep -q web-dist; then
@@ -229,16 +252,30 @@ jobs:
         *.eot
         EOF
 
-        # 只添加必要的文件，排除缓存和大文件
-        # 使用 find 和 grep 进行更精确的文件选择
-        find . -type f \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.json" -o -name "*.md" -o -name "*.txt" \) \
-          -not -path "./node_modules/*" \
-          -not -path "./.next/cache/*" \
-          -not -name "*.pack" \
-          -not -name "*.woff*" \
-          -not -name "*.ttf" \
-          -not -name "*.eot" \
-          | xargs -r git add
+        # 只添加必要的文件，严格排除所有危险目录
+        echo "Adding files to git, excluding node_modules and cache..."
+
+        # 先检查是否有任何文件
+        if [ "$(find . -maxdepth 1 -type f | wc -l)" -gt 0 ]; then
+          # 添加当前目录的文件，但排除危险的目录
+          find . -maxdepth 3 -type f \
+            \( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.json" -o -name "*.md" -o -name "*.txt" -o -name "*.ico" -o -name "*.png" -o -name "*.jpg" -o -name "*.svg" \) \
+            -not -path "./node_modules/*" \
+            -not -path "./.next/cache/*" \
+            -not -path "./.git/*" \
+            -not -name "*.pack" \
+            -not -name "*.woff*" \
+            -not -name "*.ttf" \
+            -not -name "*.eot" \
+            -exec git add {} \;
+
+          echo "Files added successfully"
+        else
+          echo "No files found to add"
+          # 创建一个简单的index.html文件确保不是空提交
+          echo "<h1>Meow Accounting v${{ steps.next_version.outputs.new_version }}</h1>" > index.html
+          git add index.html
+        fi
         git commit -m "chore: update frontend build for v${{ steps.next_version.outputs.new_version }} [skip ci]"
         git push origin web-dist --force
 
