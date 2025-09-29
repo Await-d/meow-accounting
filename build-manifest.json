@@ -1,0 +1,9 @@
+{
+  "version": "1.0.7",
+  "buildTime": "101",
+  "buildDate": "2025-09-29T12:35:23Z",
+  "gitCommit": "73294d0ccfdf2ae98139132feaf9a7c0a2f63579",
+  "gitBranch": "master",
+  "nodeVersion": "v18.20.8",
+  "environment": "production"
+}
