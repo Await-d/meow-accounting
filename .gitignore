@@ -1,0 +1,10 @@
+node_modules/
+.next/cache/
+*.log
+.DS_Store
+.env
+*.pack
+*.woff2
+*.woff
+*.ttf
+*.eot
