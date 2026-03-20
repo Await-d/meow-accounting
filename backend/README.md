@@ -95,6 +95,22 @@ npm run build
 npm start
 ```
 
+### SQLite3 原生依赖说明（pnpm）
+
+本项目依赖 `sqlite3` 原生模块。为避免 `node_sqlite3.node` 缺失，`package.json` 已配置：
+
+- `pnpm.onlyBuiltDependencies = ["sqlite3"]`
+
+如果在 CI / 容器中出现原生绑定缺失，请按顺序执行：
+
+```bash
+pnpm install
+pnpm rebuild sqlite3
+pnpm test
+```
+
+如果环境启用了 `ignore-scripts` 或构建脚本审批机制，请先允许 `sqlite3` 的构建脚本后再重装依赖。
+
 ## 项目结构
 
 ```

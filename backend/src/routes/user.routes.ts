@@ -13,7 +13,11 @@ import {
     updatePrivacy,
     verifyGuest,
     getAllUsers,
-    searchUsers
+    searchUsers,
+    updateUserById,
+    deleteUserById,
+    freezeUserById,
+    unfreezeUserById
 } from '../controllers/user.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { checkAdminRole } from '../middleware/admin.middleware';
@@ -40,5 +44,10 @@ router.get('/all', authenticate, checkAdminRole, getAllUsers);
 
 // 通过邮箱查找用户
 router.get('/search', authenticate, searchUsers);
+
+router.put('/:id', authenticate, checkAdminRole, updateUserById);
+router.delete('/:id', authenticate, checkAdminRole, deleteUserById);
+router.post('/:id/freeze', authenticate, checkAdminRole, freezeUserById);
+router.post('/:id/unfreeze', authenticate, checkAdminRole, unfreezeUserById);
 
 export default router;

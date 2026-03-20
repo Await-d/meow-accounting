@@ -33,10 +33,10 @@ const settingsSchema = z.object({
     maintenanceMode: z.boolean()
 });
 
-type Settings = z.infer<typeof settingsSchema>;
+type SystemSettings = z.infer<typeof settingsSchema>;
 
 export default function SystemSettingsPage() {
-    const [settings, setSettings] = React.useState<Settings>({
+    const [settings, setSettings] = React.useState<SystemSettings>({
         siteName: '喵呜记账',
         siteDescription: '简单易用的个人和家庭记账系统',
         adminEmail: 'admin@example.com',
@@ -50,14 +50,13 @@ export default function SystemSettingsPage() {
         maintenanceMode: false
     });
 
-    const [errors, setErrors] = React.useState<Partial<Record<keyof Settings, string>>>({});
+    const [errors, setErrors] = React.useState<Partial<Record<keyof SystemSettings, string>>>({});
 
     // 获取系统设置
-    const { isLoading: isLoadingSettings } = useQuery<Settings>({
+    const { isLoading: isLoadingSettings, data: fetchedSettings } = useQuery<SystemSettings>({
         queryKey: ['systemSettings'],
         queryFn: async () => {
             try {
-                // 实现获取系统设置的API调用
                 const response = await fetch('/api/settings/system', {
                     method: 'GET',
                     headers: {
@@ -70,8 +69,8 @@ export default function SystemSettingsPage() {
                     throw new Error('获取系统设置失败');
                 }
 
-                const data = await response.json();
-                return data;
+                const json = await response.json();
+                return json.data ?? json;
             } catch (error) {
                 toast.error('获取系统设置失败');
                 throw error;
@@ -79,10 +78,15 @@ export default function SystemSettingsPage() {
         }
     });
 
+    React.useEffect(() => {
+        if (fetchedSettings) {
+            setSettings(fetchedSettings);
+        }
+    }, [fetchedSettings]);
+
     // 保存系统设置
     const { mutate: saveSettings, isPending: isSaving } = useMutation({
-        mutationFn: async (data: Settings) => {
-            // 实现保存系统设置的API调用
+        mutationFn: async (data: SystemSettings) => {
             const response = await fetch('/api/settings/system', {
                 method: 'PUT',
                 headers: {
@@ -127,13 +131,12 @@ export default function SystemSettingsPage() {
             setErrors({});
             // 保存设置
             saveSettings(validatedSettings);
-        } catch (error) {
+        } catch (error: unknown) {
             if (error instanceof z.ZodError) {
-                // 处理验证错误
-                const newErrors: Partial<Record<keyof Settings, string>> = {};
+                const newErrors: Partial<Record<keyof SystemSettings, string>> = {};
                 error.errors.forEach((err) => {
                     if (err.path[0]) {
-                        newErrors[err.path[0] as keyof Settings] = err.message;
+                        newErrors[err.path[0] as keyof SystemSettings] = err.message;
                     }
                 });
                 setErrors(newErrors);
@@ -143,7 +146,7 @@ export default function SystemSettingsPage() {
     };
 
     // 处理输入变化
-    const handleChange = (key: keyof Settings, value: any) => {
+    const handleChange = (key: keyof SystemSettings, value: any) => {
         setSettings(prev => ({ ...prev, [key]: value }));
         // 清除对应的错误信息
         if (errors[key]) {

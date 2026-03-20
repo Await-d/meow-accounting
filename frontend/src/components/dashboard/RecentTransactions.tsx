@@ -32,9 +32,6 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({
     limit = 5,
     onViewMore
 }) => {
-    // 检查传入的交易数据
-    console.log('RecentTransactions组件接收到的交易数据:', transactions);
-
     // 格式化日期
     const formatDate = (date: Date | string) => {
         if (!date) return '';
@@ -73,21 +70,16 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({
     // 过滤有效的交易记录，并按日期排序
     const filteredTransactions = useMemo(() => {
         if (!transactions) {
-            console.log('交易数据为null或undefined');
             return [];
         }
 
         if (!Array.isArray(transactions)) {
-            console.log('交易数据不是数组类型:', typeof transactions);
             return [];
         }
 
         if (transactions.length === 0) {
-            console.log('交易数组为空');
             return [];
         }
-
-        console.log('过滤前交易数量:', transactions.length);
 
         // 添加数据完整性检查
         const validTransactions = transactions.filter(t =>
@@ -101,7 +93,7 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({
             console.warn('发现无效交易数据，已过滤');
         }
 
-        const filtered = [...validTransactions]
+        return [...validTransactions]
             .sort((a, b) => {
                 // 安全地处理日期比较
                 try {
@@ -114,29 +106,14 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({
                 }
             })
             .slice(0, limit);
-
-        console.log('过滤后交易数量:', filtered.length);
-        filtered.forEach((item, index) => {
-            console.log(`交易${index + 1}:`, {
-                id: item.id,
-                type: item.type,
-                amount: item.amount,
-                date: item.date,
-                category: item.category_name
-            });
-        });
-
-        return filtered;
     }, [transactions, limit]);
-
-    console.log('过滤后的交易数据:', filteredTransactions);
 
     return (
         <div className="w-full">
             {isLoading ? (
                 <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
-                        <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                        <Skeleton key={`recent-transactions-skeleton-${i + 1}`} className="h-20 w-full rounded-lg" />
                     ))}
                 </div>
             ) : !filteredTransactions.length ? (
@@ -155,11 +132,9 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({
             ) : (
                 <div className="space-y-3">
                     {filteredTransactions.map((transaction, index) => {
-                        // 添加调试输出
-                        console.log('渲染交易项:', index, transaction?.id);
-
+                        const transactionKey = transaction?.id ?? `${transaction?.date ?? 'unknown-date'}-${transaction?.amount ?? 'unknown-amount'}-${transaction?.type ?? 'unknown-type'}`;
                         return (
-                            <Card key={transaction?.id || `trans-${index}`} className="bg-content1/50">
+                            <Card key={transactionKey} className="bg-content1/50">
                                 <CardBody className="p-3">
                                     <div className="flex items-center gap-3">
                                         <div className={`p-2 rounded-full ${transaction?.type === 'income' ? 'bg-success/10' : 'bg-danger/10'

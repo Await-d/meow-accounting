@@ -1,0 +1,352 @@
+# Kubernetes部署配置
+# 喵呜记账 - 生产级集群部署
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: meow-accounting
+  labels:
+    name: meow-accounting
+
+---
+# ConfigMap - 应用配置
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: meow-accounting-config
+  namespace: meow-accounting
+data:
+  NODE_ENV: "production"
+  FRONTEND_PORT: "3000"
+  BACKEND_PORT: "3001"
+  LOG_LEVEL: "info"
+  DATABASE_URL: "file:/app/data/sqlite.db"
+  JWT_EXPIRES_IN: "24h"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+---
+# Secret - 敏感信息
+apiVersion: v1
+kind: Secret
+metadata:
+  name: meow-accounting-secret
+  namespace: meow-accounting
+type: Opaque
+stringData:
+  JWT_SECRET: "your_strong_jwt_secret_change_this_in_production"
+  REDIS_PASSWORD: "your_redis_password"
+
+---
+# PersistentVolumeClaim - 数据持久化
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: meow-accounting-data
+  namespace: meow-accounting
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+# PersistentVolumeClaim - Redis数据
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: meow-accounting
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+
+---
+# Deployment - Redis
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: meow-accounting
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          command:
+            - redis-server
+            - --save
+            - "60"
+            - "1"
+            - --requirepass
+            - $(REDIS_PASSWORD)
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: meow-accounting-secret
+                  key: REDIS_PASSWORD
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data
+
+---
+# Service - Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: meow-accounting
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+  type: ClusterIP
+
+---
+# Deployment - 应用
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meow-accounting
+  namespace: meow-accounting
+  labels:
+    app: meow-accounting
+spec:
+  replicas: 3  # 3个副本实现高可用
+  selector:
+    matchLabels:
+      app: meow-accounting
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: meow-accounting
+    spec:
+      containers:
+        - name: meow-accounting
+          image: await2719/meow-accounting:latest
+          ports:
+            - containerPort: 3000
+              name: frontend
+            - containerPort: 3001
+              name: backend
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: meow-accounting-config
+                  key: NODE_ENV
+            - name: FRONTEND_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: meow-accounting-config
+                  key: FRONTEND_PORT
+            - name: BACKEND_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: meow-accounting-config
+                  key: BACKEND_PORT
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: meow-accounting-config
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: meow-accounting-secret
+                  key: JWT_SECRET
+            - name: JWT_EXPIRES_IN
+              valueFrom:
+                configMapKeyRef:
+                  name: meow-accounting-config
+                  key: JWT_EXPIRES_IN
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: meow-accounting-config
+                  key: LOG_LEVEL
+            - name: REDIS_URL
+              value: "redis://$(REDIS_PASSWORD)@redis-service:6379/0"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: meow-accounting-secret
+                  key: REDIS_PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: logs
+              mountPath: /app/logs
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 40
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: meow-accounting-data
+        - name: logs
+          emptyDir: {}
+
+---
+# Service - 应用
+apiVersion: v1
+kind: Service
+metadata:
+  name: meow-accounting-service
+  namespace: meow-accounting
+  labels:
+    app: meow-accounting
+spec:
+  selector:
+    app: meow-accounting
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: frontend
+    - port: 3001
+      targetPort: 3001
+      protocol: TCP
+      name: backend
+  type: ClusterIP
+
+---
+# HorizontalPodAutoscaler - 自动扩缩容
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: meow-accounting-hpa
+  namespace: meow-accounting
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: meow-accounting
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# Ingress - 流量入口
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: meow-accounting-ingress
+  namespace: meow-accounting
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # 使用Let's Encrypt证书
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  tls:
+    - hosts:
+        - meow-accounting.example.com
+      secretName: meow-accounting-tls
+  rules:
+    - host: meow-accounting.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: meow-accounting-service
+                port:
+                  number: 3001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: meow-accounting-service
+                port:
+                  number: 80

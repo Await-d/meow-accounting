@@ -99,7 +99,7 @@ export default function Statistics() {
                 showToast('获取统计数据失败', 'error');
             }
         }
-    }, [error?.message, handleUnauthorized, showToast]);
+    }, [error, handleUnauthorized, showToast]);
 
     // 导出CSV
     const exportToCSV = () => {
@@ -148,7 +148,7 @@ export default function Statistics() {
     }
 
     const chartData = {
-        labels: statistics.chart.map((item: ChartItem) => {
+        labels: (statistics.chart || []).map((item: ChartItem) => {
             // 根据时间范围格式化日期标签
             const date = dayjs(item.date);
             if (timeRange === 'month') {
@@ -162,7 +162,7 @@ export default function Statistics() {
         datasets: [
             {
                 label: '收入',
-                data: statistics.chart.map((item: ChartItem) => item.income),
+                data: (statistics.chart || []).map((item: ChartItem) => item.income),
                 borderColor: CHART_COLORS.income.main,
                 backgroundColor: chartType === 'line' ? CHART_COLORS.income.bg : CHART_COLORS.income.main,
                 tension: 0.4,
@@ -171,7 +171,7 @@ export default function Statistics() {
             },
             {
                 label: '支出',
-                data: statistics.chart.map((item: ChartItem) => item.expense),
+                data: (statistics.chart || []).map((item: ChartItem) => item.expense),
                 borderColor: CHART_COLORS.expense.main,
                 backgroundColor: chartType === 'line' ? CHART_COLORS.expense.bg : CHART_COLORS.expense.main,
                 tension: 0.4,
@@ -271,15 +271,15 @@ export default function Statistics() {
         return Math.round((value / total) * 100);
     };
 
-    const incomeTrend = statistics.chart.map((item: ChartItem) => item.income);
-    const expenseTrend = statistics.chart.map((item: ChartItem) => item.expense);
+    const incomeTrend = (statistics.chart || []).map((item: ChartItem) => item.income);
+    const expenseTrend = (statistics.chart || []).map((item: ChartItem) => item.expense);
 
     const avgIncome = incomeTrend.reduce((sum: number, val: number) => sum + val, 0) / incomeTrend.length || 0;
     const avgExpense = expenseTrend.reduce((sum: number, val: number) => sum + val, 0) / expenseTrend.length || 0;
 
     // 计算收支比率
-    const incomePercentage = calculatePercentage(statistics.total_income, statistics.total_income + statistics.total_expense);
-    const expensePercentage = calculatePercentage(statistics.total_expense, statistics.total_income + statistics.total_expense);
+    const incomePercentage = calculatePercentage(statistics.total_income || 0, (statistics.total_income || 0) + (statistics.total_expense || 0));
+    const expensePercentage = calculatePercentage(statistics.total_expense || 0, (statistics.total_income || 0) + (statistics.total_expense || 0));
 
     return (
         <div className="space-y-6">
@@ -289,10 +289,10 @@ export default function Statistics() {
                         <div className="text-sm text-default-600">总收入</div>
                         <div className="text-2xl font-bold text-success flex items-center gap-1">
                             <span className="text-lg">¥</span>
-                            {statistics.total_income.toFixed(2)}
+                            {(statistics.total_income || 0).toFixed(2)}
                         </div>
                         <div className="text-xs text-default-400 flex items-center gap-1">
-                            <span>平均: ¥{avgIncome.toFixed(2)}</span>
+                            <span>平均: ¥{(avgIncome || 0).toFixed(2)}</span>
                             <div className="w-full bg-default-100 rounded-full h-1 ml-2">
                                 <div
                                     className="bg-success h-1 rounded-full"
@@ -308,10 +308,10 @@ export default function Statistics() {
                         <div className="text-sm text-default-600">总支出</div>
                         <div className="text-2xl font-bold text-danger flex items-center gap-1">
                             <span className="text-lg">¥</span>
-                            {statistics.total_expense.toFixed(2)}
+                            {(statistics.total_expense || 0).toFixed(2)}
                         </div>
                         <div className="text-xs text-default-400 flex items-center gap-1">
-                            <span>平均: ¥{avgExpense.toFixed(2)}</span>
+                            <span>平均: ¥{(avgExpense || 0).toFixed(2)}</span>
                             <div className="w-full bg-default-100 rounded-full h-1 ml-2">
                                 <div
                                     className="bg-danger h-1 rounded-full"
@@ -325,19 +325,19 @@ export default function Statistics() {
                 <Card className="w-full bg-gradient-to-br from-primary/5 to-primary/20 shadow-sm transform transition-all hover:scale-105 hover:shadow-md">
                     <CardBody className="space-y-2 p-4">
                         <div className="text-sm text-default-600">结余</div>
-                        <div className={`text-2xl font-bold flex items-center gap-1 ${statistics.balance >= 0 ? 'text-success' : 'text-danger'}`}>
+                        <div className={`text-2xl font-bold flex items-center gap-1 ${(statistics.balance || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
                             <span className="text-lg">¥</span>
-                            {statistics.balance.toFixed(2)}
+                            {(statistics.balance || 0).toFixed(2)}
                         </div>
                         <div className="text-xs text-default-400 flex items-center gap-1">
                             <span>收支比: </span>
                             <div className="w-full bg-default-100 rounded-full h-1 ml-2">
                                 <div
                                     className="bg-primary h-1 rounded-full"
-                                    style={{ width: `${statistics.balance >= 0 ? 100 : 100 - Math.abs(calculatePercentage(statistics.balance, statistics.total_expense))}%` }}
+                                    style={{ width: `${(statistics.balance || 0) >= 0 ? 100 : 100 - Math.abs(calculatePercentage(statistics.balance || 0, statistics.total_expense || 1))}%` }}
                                 ></div>
                             </div>
-                            <span>{statistics.balance >= 0 ? '盈余' : '赤字'}</span>
+                            <span>{(statistics.balance || 0) >= 0 ? '盈余' : '赤字'}</span>
                         </div>
                     </CardBody>
                 </Card>

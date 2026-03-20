@@ -60,7 +60,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
     // 创建一个简易的toast函数
     const toast = useCallback((message: { title: string; variant?: string }) => {
-        console.log(message.title);
+        void message;
         // 这里可以集成实际的toast系统
     }, []);
 

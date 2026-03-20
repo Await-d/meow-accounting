@@ -29,7 +29,7 @@ export function useMembers(familyId?: string) {
             }
 
             // 如果已经请求过并失败，不再重复请求
-            if (requestAttempted.current && error) {
+            if (requestAttempted.current) {
                 return;
             }
 

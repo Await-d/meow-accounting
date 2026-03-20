@@ -1,11 +1,3 @@
-/*
- * @Author: Await
- * @Date: 2025-03-04 19:18:13
- * @LastEditors: Await
- * @LastEditTime: 2025-09-29 16:50:00
- * @Description: Next.js configuration for meow accounting
- */
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -29,12 +21,7 @@ const nextConfig = {
     unoptimized: true,
   },
 
-  // 实验性功能 (Next.js 14+ App Router 已稳定)
-  // experimental: {
-  //   // Next.js 14+ 不再需要 appDir 配置
-  // },
-
-  // Webpack 配置
+  // Webpack 配置 - 移除CSS相关配置，使用Next.js内置处理
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

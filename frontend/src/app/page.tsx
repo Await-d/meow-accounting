@@ -27,6 +27,7 @@ import {
 } from '@/components';
 import {useAuth} from '@/hooks/useAuth';
 import Link from 'next/link';
+import Image from 'next/image';
 import {motion} from 'framer-motion';
 import {useRouter} from 'next/navigation';
 import {BarChart3, PieChart, Users, Wallet, Sparkles, ArrowRight, Clock, Download} from 'lucide-react';
@@ -125,16 +126,23 @@ export default function Home() {
                             </Button>
                         ) : (
                             <div className="flex gap-2">
-                                <Link href="/auth/login">
-                                    <Button variant="flat" size="lg">
-                                        登录
-                                    </Button>
-                                </Link>
-                                <Link href="/auth/register">
-                                    <Button color="primary" size="lg" className="bg-gradient-to-r from-primary to-secondary border-0">
-                                        注册
-                                    </Button>
-                                </Link>
+                                <Button 
+                                    as={Link}
+                                    href="/auth/login"
+                                    variant="flat" 
+                                    size="lg"
+                                >
+                                    登录
+                                </Button>
+                                <Button 
+                                    as={Link}
+                                    href="/auth/register"
+                                    color="primary" 
+                                    size="lg" 
+                                    className="bg-gradient-to-r from-primary to-secondary border-0"
+                                >
+                                    注册
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -161,25 +169,25 @@ export default function Home() {
                             </p>
 
                             <div className="flex flex-wrap gap-4 mt-8">
-                                <Link href="/auth/register">
-                                    <Button
-                                        color="primary"
-                                        size="lg"
-                                        className="bg-gradient-to-r from-primary to-secondary border-0 px-8"
-                                        endContent={<ArrowRight size={16}/>}
-                                    >
-                                        立即开始
-                                    </Button>
-                                </Link>
-                                <Link href="/dashboard">
-                                    <Button
-                                        variant="bordered"
-                                        size="lg"
-                                        className="border-default-200"
-                                    >
-                                        了解更多
-                                    </Button>
-                                </Link>
+                                <Button
+                                    as={Link}
+                                    href="/auth/register"
+                                    color="primary"
+                                    size="lg"
+                                    className="bg-gradient-to-r from-primary to-secondary border-0 px-8"
+                                    endContent={<ArrowRight size={16}/>}
+                                >
+                                    立即开始
+                                </Button>
+                                <Button
+                                    as={Link}
+                                    href="/dashboard"
+                                    variant="bordered"
+                                    size="lg"
+                                    className="border-default-200"
+                                >
+                                    了解更多
+                                </Button>
                             </div>
 
                             <div className="flex items-center gap-2 mt-6">
@@ -207,13 +215,13 @@ export default function Home() {
 
                             <Card className="overflow-hidden border border-default-100">
                                 <CardBody className="p-0">
-                                    <img
+                                    <Image
                                         src="/icons/icon-192x192.png"
                                         alt="喵呜记账应用展示"
+                                        width={800}
+                                        height={400}
                                         className="w-full h-auto object-cover aspect-video bg-default-100 p-8"
-                                        onError={(e) => {
-                                            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25' viewBox='0 0 800 400'%3E%3Cdefs%3E%3ClinearGradient id='a' gradientUnits='userSpaceOnUse' x1='400' y1='50' x2='400' y2='350'%3E%3Cstop offset='0' stop-color='%23777' stop-opacity='0.7'/%3E%3Cstop offset='1' stop-color='%23444' stop-opacity='0.4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23a)' width='800' height='400'/%3E%3Cg fill-opacity='0.4'%3E%3Ccircle fill='%23FFF' cx='400' cy='200' r='150'/%3E%3Ccircle fill='%23DDD' cx='400' cy='200' r='100'/%3E%3Ccircle fill='%23999' cx='400' cy='200' r='50'/%3E%3C/g%3E%3Ctext x='400' y='220' font-family='Arial' font-size='40' text-anchor='middle' fill='%23FFFFFF'%3E喵呜记账%3C/text%3E%3C/svg%3E";
-                                        }}
+                                        priority
                                     />
                                 </CardBody>
                             </Card>
@@ -311,24 +319,24 @@ export default function Home() {
                                     </p>
                                 </div>
                                 <div className="flex gap-4">
-                                    <Link href="/auth/register">
-                                        <Button
-                                            color="primary"
-                                            size="lg"
-                                            className="bg-gradient-to-r from-primary to-secondary border-0 px-8"
-                                        >
-                                            免费注册
-                                        </Button>
-                                    </Link>
-                                    <Link href="/auth/login">
-                                        <Button
-                                            variant="flat"
-                                            size="lg"
-                                            className="bg-background/20 backdrop-blur-md"
-                                        >
-                                            登录账号
-                                        </Button>
-                                    </Link>
+                                    <Button
+                                        as={Link}
+                                        href="/auth/register"
+                                        color="primary"
+                                        size="lg"
+                                        className="bg-gradient-to-r from-primary to-secondary border-0 px-8"
+                                    >
+                                        免费注册
+                                    </Button>
+                                    <Button
+                                        as={Link}
+                                        href="/auth/login"
+                                        variant="flat"
+                                        size="lg"
+                                        className="bg-background/20 backdrop-blur-md"
+                                    >
+                                        登录账号
+                                    </Button>
                                 </div>
                             </div>
                         </CardBody>

@@ -25,7 +25,11 @@ import {
 } from '@nextui-org/react';
 import { PlusIcon, PencilIcon, TrashIcon, InboxIcon } from '@heroicons/react/24/outline';
 import { useCategories } from '@/hooks/useCategories';
-import { useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/lib/api';
+import {
+    useCreateCategory as createCategoryRequest,
+    useUpdateCategory as updateCategoryRequest,
+    useDeleteCategory as deleteCategoryRequest,
+} from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import { Category } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,7 +46,7 @@ export default function CategoryPage() {
         mutateAsync: createCategoryMutation,
         isPending: isCreating,
     } = useMutation({
-        mutationFn: useCreateCategory,
+        mutationFn: createCategoryRequest,
         onSuccess: async () => {
             await refetch();
             showToast('分类创建成功', 'success');
@@ -56,7 +60,7 @@ export default function CategoryPage() {
         mutateAsync: updateCategoryMutation,
         isPending: isUpdating,
     } = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: any }) => useUpdateCategory(id, data),
+        mutationFn: ({ id, data }: { id: number; data: any }) => updateCategoryRequest(id, data),
         onSuccess: async () => {
             await refetch();
             showToast('分类更新成功', 'success');
@@ -70,7 +74,7 @@ export default function CategoryPage() {
         mutateAsync: deleteCategoryMutation,
         isPending: isDeleting,
     } = useMutation({
-        mutationFn: (id: number) => useDeleteCategory(id),
+        mutationFn: (id: number) => deleteCategoryRequest(id),
         onSuccess: async () => {
             await refetch();
             showToast('分类已删除', 'success');
@@ -121,7 +125,7 @@ export default function CategoryPage() {
         ];
 
         return cols;
-    }, [isAdmin]);
+    }, []);
 
     // 构建自定义分类表头列
     const customColumns = useMemo(() => [
@@ -130,11 +134,6 @@ export default function CategoryPage() {
         { key: 'type', label: '类型' },
         { key: 'actions', label: '操作' }
     ], []);
-
-    console.log('分类数据:', categories);
-    console.log('默认分类:', defaultCategories);
-    console.log('自定义分类:', customCategories);
-    console.log('用户信息:', user);
 
     const handleSubmit = async () => {
         if (!formData.name || !formData.icon || !formData.type) {
@@ -157,17 +156,17 @@ export default function CategoryPage() {
                 return;
             }
 
-            try {
-                await updateCategoryMutation({
-                    id: categoryId,
-                    data: {
-                        ...selectedCategory,
-                        name: formData.name,
-                        icon: formData.icon,
-                        type: formData.type as 'income' | 'expense',
-                    },
-                });
-            } catch (_) {
+            const updated = await updateCategoryMutation({
+                id: categoryId,
+                data: {
+                    ...selectedCategory,
+                    name: formData.name,
+                    icon: formData.icon,
+                    type: formData.type as 'income' | 'expense',
+                },
+            }).then(() => true).catch(() => false);
+
+            if (!updated) {
                 return;
             }
         } else {
@@ -184,15 +183,15 @@ export default function CategoryPage() {
 
             // 创建分类
             if (formData.name && formData.icon && formData.type) {
-                try {
-                    await createCategoryMutation({
-                        name: formData.name,
-                        icon: formData.icon,
-                        type: formData.type,
-                        is_default: formData.is_default || false,
-                        family_id: currentFamily?.id,
-                    });
-                } catch (_) {
+                const created = await createCategoryMutation({
+                    name: formData.name,
+                    icon: formData.icon,
+                    type: formData.type,
+                    is_default: formData.is_default || false,
+                    family_id: currentFamily?.id,
+                }).then(() => true).catch(() => false);
+
+                if (!created) {
                     return;
                 }
             } else {
@@ -207,7 +206,6 @@ export default function CategoryPage() {
     };
 
     const handleEdit = (category: Category) => {
-        console.log('handleEdit被调用，category:', category);
         if (isGuest) {
             showToast('访客模式下无法编辑', 'error');
             return;
@@ -221,13 +219,10 @@ export default function CategoryPage() {
 
         setSelectedCategory(category);
         setFormData(category);
-        console.log('准备打开模态框');
         setIsFormOpen(true);
-        console.log('模态框应该已打开');
     };
 
     const handleDelete = (category: Category) => {
-        console.log('handleDelete被调用，category:', category);
         if (isGuest) {
             showToast('访客模式下无法删除', 'error');
             return;
@@ -257,12 +252,10 @@ export default function CategoryPage() {
             return;
         }
 
-        try {
-            await deleteCategoryMutation(categoryId);
+        const deleted = await deleteCategoryMutation(categoryId).then(() => true).catch(() => false);
+        if (deleted) {
             setIsDeleteModalOpen(false);
             setSelectedCategory(null);
-        } catch (_) {
-            // 错误已在 mutation 中处理
         }
     };
 
@@ -367,9 +360,217 @@ export default function CategoryPage() {
         }
     };
 
+    const renderDefaultCategorySection = () => (
+        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+            <CardBody className="p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-primary">默认分类</h2>
+                        <p className="text-sm text-default-500 mt-1">
+                            系统预设的分类{isAdmin ? '，管理员可以修改' : ''}
+                        </p>
+                    </div>
+                    {isAdmin && (
+                        <Button
+                            color="primary"
+                            startContent={<PlusIcon className="h-5 w-5" />}
+                            onPress={handleAddDefaultCategory}
+                            isDisabled={isGuest}
+                            size="md"
+                            className="min-w-[140px]"
+                        >
+                            添加默认分类
+                        </Button>
+                    )}
+                </div>
+
+                {defaultCategories.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <Table
+                            aria-label="默认分类列表"
+                            classNames={{
+                                base: 'min-w-full',
+                                table: 'min-w-full',
+                                thead: 'bg-default-50',
+                                th: 'text-default-700 font-semibold',
+                                tr: 'hover:bg-default-50 transition-colors border-b border-default-100',
+                            }}
+                        >
+                            <TableHeader>
+                                {columns.map(col => (
+                                    <TableColumn key={col.key} className="text-sm">{col.label}</TableColumn>
+                                ))}
+                            </TableHeader>
+                            <TableBody items={defaultCategories} emptyContent="暂无默认分类">
+                                {(category) => (
+                                    <TableRow key={category.id} className="h-14">
+                                        {columns.map(column => (
+                                            <TableCell key={column.key}>
+                                                {renderCell(category, column.key)}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center bg-default-50 rounded-lg">
+                        <div className="text-default-300 mb-4">
+                            <InboxIcon className="h-16 w-16" />
+                        </div>
+                        <p className="text-default-600 font-medium mb-2">暂无默认分类</p>
+                        {isAdmin && (
+                            <p className="text-default-400 text-sm">点击上方&quot;添加默认分类&quot;按钮创建</p>
+                        )}
+                    </div>
+                )}
+            </CardBody>
+        </Card>
+    );
+
+    const renderCategoryModals = () => (
+        <>
+            <Modal
+                isOpen={isFormOpen}
+                onClose={() => setIsFormOpen(false)}
+                classNames={{
+                    base: 'max-w-md mx-auto',
+                    header: 'border-b border-default-100 pb-2',
+                    body: 'py-6',
+                    footer: 'border-t border-default-100 pt-2'
+                }}
+                backdrop="blur"
+            >
+                <ModalContent>
+                    <ModalHeader className="flex flex-col gap-1">
+                        <h3 className="text-xl font-bold">{selectedCategory ? '编辑分类' : '添加分类'}</h3>
+                        <p className="text-sm text-default-500">
+                            {selectedCategory ? '修改分类信息' : '创建新的分类'}
+                        </p>
+                    </ModalHeader>
+                    <ModalBody>
+                        <div className="space-y-6">
+                            <Input
+                                label="名称"
+                                placeholder="请输入分类名称"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                variant="bordered"
+                                labelPlacement="outside"
+                                isRequired
+                                startContent={
+                                    <div className="pointer-events-none flex items-center">
+                                        <span className="text-default-400 text-sm">名称</span>
+                                    </div>
+                                }
+                            />
+                            <Input
+                                label="图标"
+                                placeholder="请输入分类图标"
+                                value={formData.icon}
+                                onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                                variant="bordered"
+                                labelPlacement="outside"
+                                isRequired
+                                startContent={
+                                    <div className="pointer-events-none flex items-center">
+                                        <span className="text-default-400 text-sm">图标</span>
+                                    </div>
+                                }
+                            />
+                            <Select
+                                label="类型"
+                                selectedKeys={formData.type ? [formData.type] : []}
+                                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' })}
+                                variant="bordered"
+                                labelPlacement="outside"
+                                isRequired
+                            >
+                                <SelectItem key="expense" value="expense">支出</SelectItem>
+                                <SelectItem key="income" value="income">收入</SelectItem>
+                            </Select>
+                        </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button
+                            variant="bordered"
+                            onPress={() => setIsFormOpen(false)}
+                            className="min-w-[80px]"
+                            isDisabled={mutationInProgress}
+                        >
+                            取消
+                        </Button>
+                        <Button
+                            color="primary"
+                            onPress={handleSubmit}
+                            className="min-w-[80px]"
+                            isLoading={mutationInProgress}
+                            isDisabled={mutationInProgress}
+                        >
+                            确定
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            <Modal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                classNames={{
+                    base: 'max-w-md mx-auto',
+                    header: 'border-b border-default-100 pb-2',
+                    body: 'py-6',
+                    footer: 'border-t border-default-100 pt-2'
+                }}
+                backdrop="blur"
+            >
+                <ModalContent>
+                    <ModalHeader className="flex flex-col gap-1">
+                        <h3 className="text-xl font-bold">确认删除</h3>
+                        <p className="text-sm text-default-500">
+                            此操作不可撤销
+                        </p>
+                    </ModalHeader>
+                    <ModalBody>
+                        <div className="flex items-center justify-center py-4">
+                            <div className="bg-danger-50 p-4 rounded-full mb-4">
+                                <TrashIcon className="h-8 w-8 text-danger" />
+                            </div>
+                        </div>
+                        <p className="text-center">
+                            确定要删除 <span className="font-bold">{selectedCategory?.name}</span> 分类吗？
+                        </p>
+                        <p className="text-center text-default-500 text-sm mt-2">
+                            删除后无法恢复，相关的交易记录将失去分类关联。
+                        </p>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button
+                            variant="bordered"
+                            onPress={() => setIsDeleteModalOpen(false)}
+                            className="min-w-[80px]"
+                            isDisabled={isDeleting}
+                        >
+                            取消
+                        </Button>
+                        <Button
+                            color="danger"
+                            onPress={handleDeleteConfirm}
+                            className="min-w-[80px]"
+                            isLoading={isDeleting}
+                            isDisabled={isDeleting}
+                        >
+                            删除
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+        </>
+    );
+
     // 在默认分类卡片中的添加按钮
     const handleAddDefaultCategory = () => {
-        console.log('handleAddDefaultCategory被调用');
         setSelectedCategory(null);
         setFormData({
             name: '',
@@ -515,211 +716,8 @@ export default function CategoryPage() {
                     </CardBody>
                 </Card>
 
-                {/* 默认分类 - 不需要选择家庭 */}
-                <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
-                    <CardBody className="p-6">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                            <div>
-                                <h2 className="text-2xl font-bold text-primary">默认分类</h2>
-                                <p className="text-sm text-default-500 mt-1">
-                                    系统预设的分类{isAdmin ? '，管理员可以修改' : ''}
-                                </p>
-                            </div>
-                            {isAdmin && (
-                                <Button
-                                    color="primary"
-                                    startContent={<PlusIcon className="h-5 w-5" />}
-                                    onPress={handleAddDefaultCategory}
-                                    isDisabled={isGuest}
-                                    size="md"
-                                    className="min-w-[140px]"
-                                >
-                                    添加默认分类
-                                </Button>
-                            )}
-                        </div>
-
-                        {defaultCategories.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <Table
-                                    aria-label="默认分类列表"
-                                    classNames={{
-                                        base: "min-w-full",
-                                        table: "min-w-full",
-                                        thead: "bg-default-50",
-                                        th: "text-default-700 font-semibold",
-                                        tr: "hover:bg-default-50 transition-colors border-b border-default-100",
-                                    }}
-                                >
-                                    <TableHeader>
-                                        {columns.map(col => (
-                                            <TableColumn key={col.key} className="text-sm">{col.label}</TableColumn>
-                                        ))}
-                                    </TableHeader>
-                                    <TableBody items={defaultCategories} emptyContent="暂无默认分类">
-                                        {(category) => (
-                                            <TableRow key={category.id} className="h-14">
-                                                {columns.map(column => (
-                                                    <TableCell key={column.key}>
-                                                        {renderCell(category, column.key)}
-                                                    </TableCell>
-                                                ))}
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-12 text-center bg-default-50 rounded-lg">
-                                <div className="text-default-300 mb-4">
-                                    <InboxIcon className="h-16 w-16" />
-                                </div>
-                                <p className="text-default-600 font-medium mb-2">暂无默认分类</p>
-                                {isAdmin && (
-                                    <p className="text-default-400 text-sm">点击上方"添加默认分类"按钮创建</p>
-                                )}
-                            </div>
-                        )}
-                    </CardBody>
-                </Card>
-
-                {/* 编辑/添加模态框 */}
-                <Modal
-                    isOpen={isFormOpen}
-                    onClose={() => setIsFormOpen(false)}
-                    classNames={{
-                        base: "max-w-md mx-auto",
-                        header: "border-b border-default-100 pb-2",
-                        body: "py-6",
-                        footer: "border-t border-default-100 pt-2"
-                    }}
-                    backdrop="blur"
-                >
-                    <ModalContent>
-                        <ModalHeader className="flex flex-col gap-1">
-                            <h3 className="text-xl font-bold">{selectedCategory ? '编辑分类' : '添加分类'}</h3>
-                            <p className="text-sm text-default-500">
-                                {selectedCategory ? '修改分类信息' : '创建新的分类'}
-                            </p>
-                        </ModalHeader>
-                        <ModalBody>
-                            <div className="space-y-6">
-                                <Input
-                                    label="名称"
-                                    placeholder="请输入分类名称"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    variant="bordered"
-                                    labelPlacement="outside"
-                                    isRequired
-                                    startContent={
-                                        <div className="pointer-events-none flex items-center">
-                                            <span className="text-default-400 text-sm">名称</span>
-                                        </div>
-                                    }
-                                />
-                                <Input
-                                    label="图标"
-                                    placeholder="请输入分类图标"
-                                    value={formData.icon}
-                                    onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                                    variant="bordered"
-                                    labelPlacement="outside"
-                                    isRequired
-                                    startContent={
-                                        <div className="pointer-events-none flex items-center">
-                                            <span className="text-default-400 text-sm">图标</span>
-                                        </div>
-                                    }
-                                />
-                                <Select
-                                    label="类型"
-                                    selectedKeys={formData.type ? [formData.type] : []}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' })}
-                                    variant="bordered"
-                                    labelPlacement="outside"
-                                    isRequired
-                                >
-                                    <SelectItem key="expense" value="expense">支出</SelectItem>
-                                    <SelectItem key="income" value="income">收入</SelectItem>
-                                </Select>
-                            </div>
-                        </ModalBody>
-                        <ModalFooter>
-                            <Button
-                                variant="bordered"
-                                onPress={() => setIsFormOpen(false)}
-                                className="min-w-[80px]"
-                                isDisabled={mutationInProgress}
-                            >
-                                取消
-                            </Button>
-                            <Button
-                                color="primary"
-                                onPress={handleSubmit}
-                                className="min-w-[80px]"
-                                isLoading={mutationInProgress}
-                                isDisabled={mutationInProgress}
-                            >
-                                确定
-                            </Button>
-                        </ModalFooter>
-                    </ModalContent>
-                </Modal>
-
-                {/* 删除确认框 */}
-                <Modal
-                    isOpen={isDeleteModalOpen}
-                    onClose={() => setIsDeleteModalOpen(false)}
-                    classNames={{
-                        base: "max-w-md mx-auto",
-                        header: "border-b border-default-100 pb-2",
-                        body: "py-6",
-                        footer: "border-t border-default-100 pt-2"
-                    }}
-                    backdrop="blur"
-                >
-                    <ModalContent>
-                        <ModalHeader className="flex flex-col gap-1">
-                            <h3 className="text-xl font-bold">确认删除</h3>
-                            <p className="text-sm text-default-500">
-                                此操作不可撤销
-                            </p>
-                        </ModalHeader>
-                        <ModalBody>
-                            <div className="flex items-center justify-center py-4">
-                                <div className="bg-danger-50 p-4 rounded-full mb-4">
-                                    <TrashIcon className="h-8 w-8 text-danger" />
-                                </div>
-                            </div>
-                            <p className="text-center">
-                                确定要删除 <span className="font-bold">{selectedCategory?.name}</span> 分类吗？
-                            </p>
-                            <p className="text-center text-default-500 text-sm mt-2">
-                                删除后无法恢复，相关的交易记录将失去分类关联。
-                            </p>
-                        </ModalBody>
-                        <ModalFooter>
-                            <Button
-                                variant="bordered"
-                                onPress={() => setIsDeleteModalOpen(false)}
-                                className="min-w-[80px]"
-                                isDisabled={isDeleting}
-                            >
-                                取消
-                            </Button>
-                            <Button
-                                color="danger"
-                                onPress={handleDeleteConfirm}
-                                className="min-w-[80px]"
-                                isLoading={isDeleting}
-                                isDisabled={isDeleting}
-                            >
-                                删除
-                            </Button>
-                        </ModalFooter>
-                    </ModalContent>
-                </Modal>
+                {renderDefaultCategorySection()}
+                {renderCategoryModals()}
             </div>
         );
     }
@@ -824,211 +822,14 @@ export default function CategoryPage() {
                                 <InboxIcon className="h-16 w-16" />
                             </div>
                             <p className="text-default-600 font-medium mb-2">暂无自定义分类</p>
-                            <p className="text-default-400 text-sm">点击上方"添加分类"按钮创建</p>
+                            <p className="text-default-400 text-sm">点击上方&quot;添加分类&quot;按钮创建</p>
                         </div>
                     )}
                 </CardBody>
             </Card>
 
-            {/* 默认分类 */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
-                <CardBody className="p-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                        <div>
-                            <h2 className="text-2xl font-bold text-primary">默认分类</h2>
-                            <p className="text-sm text-default-500 mt-1">
-                                系统预设的分类{isAdmin ? '，管理员可以修改' : ''}
-                            </p>
-                        </div>
-                        {isAdmin && (
-                            <Button
-                                color="primary"
-                                startContent={<PlusIcon className="h-5 w-5" />}
-                                onPress={handleAddDefaultCategory}
-                                isDisabled={isGuest}
-                                size="md"
-                                className="min-w-[140px]"
-                            >
-                                添加默认分类
-                            </Button>
-                        )}
-                    </div>
-
-                    {defaultCategories.length > 0 ? (
-                        <div className="overflow-x-auto">
-                            <Table
-                                aria-label="默认分类列表"
-                                classNames={{
-                                    base: "min-w-full",
-                                    table: "min-w-full",
-                                    thead: "bg-default-50",
-                                    th: "text-default-700 font-semibold",
-                                    tr: "hover:bg-default-50 transition-colors border-b border-default-100",
-                                }}
-                            >
-                                <TableHeader>
-                                    {columns.map(col => (
-                                        <TableColumn key={col.key} className="text-sm">{col.label}</TableColumn>
-                                    ))}
-                                </TableHeader>
-                                <TableBody items={defaultCategories} emptyContent="暂无默认分类">
-                                    {(category) => (
-                                        <TableRow key={category.id} className="h-14">
-                                            {columns.map(column => (
-                                                <TableCell key={column.key}>
-                                                    {renderCell(category, column.key)}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-12 text-center bg-default-50 rounded-lg">
-                            <div className="text-default-300 mb-4">
-                                <InboxIcon className="h-16 w-16" />
-                            </div>
-                            <p className="text-default-600 font-medium mb-2">暂无默认分类</p>
-                            {isAdmin && (
-                                <p className="text-default-400 text-sm">点击上方"添加默认分类"按钮创建</p>
-                            )}
-                        </div>
-                    )}
-                </CardBody>
-            </Card>
-
-            {/* 编辑/添加模态框 */}
-            <Modal
-                isOpen={isFormOpen}
-                onClose={() => setIsFormOpen(false)}
-                classNames={{
-                    base: "max-w-md mx-auto",
-                    header: "border-b border-default-100 pb-2",
-                    body: "py-6",
-                    footer: "border-t border-default-100 pt-2"
-                }}
-                backdrop="blur"
-            >
-                <ModalContent>
-                    <ModalHeader className="flex flex-col gap-1">
-                        <h3 className="text-xl font-bold">{selectedCategory ? '编辑分类' : '添加分类'}</h3>
-                        <p className="text-sm text-default-500">
-                            {selectedCategory ? '修改分类信息' : '创建新的分类'}
-                        </p>
-                    </ModalHeader>
-                    <ModalBody>
-                        <div className="space-y-6">
-                            <Input
-                                label="名称"
-                                placeholder="请输入分类名称"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                variant="bordered"
-                                labelPlacement="outside"
-                                isRequired
-                                startContent={
-                                    <div className="pointer-events-none flex items-center">
-                                        <span className="text-default-400 text-sm">名称</span>
-                                    </div>
-                                }
-                            />
-                            <Input
-                                label="图标"
-                                placeholder="请输入分类图标"
-                                value={formData.icon}
-                                onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                                variant="bordered"
-                                labelPlacement="outside"
-                                isRequired
-                                startContent={
-                                    <div className="pointer-events-none flex items-center">
-                                        <span className="text-default-400 text-sm">图标</span>
-                                    </div>
-                                }
-                            />
-                            <Select
-                                label="类型"
-                                selectedKeys={formData.type ? [formData.type] : []}
-                                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' })}
-                                variant="bordered"
-                                labelPlacement="outside"
-                                isRequired
-                            >
-                                <SelectItem key="expense" value="expense">支出</SelectItem>
-                                <SelectItem key="income" value="income">收入</SelectItem>
-                            </Select>
-                        </div>
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button
-                            variant="bordered"
-                            onPress={() => setIsFormOpen(false)}
-                            className="min-w-[80px]"
-                        >
-                            取消
-                        </Button>
-                        <Button
-                            color="primary"
-                            onPress={handleSubmit}
-                            className="min-w-[80px]"
-                        >
-                            确定
-                        </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
-
-            {/* 删除确认框 */}
-            <Modal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                classNames={{
-                    base: "max-w-md mx-auto",
-                    header: "border-b border-default-100 pb-2",
-                    body: "py-6",
-                    footer: "border-t border-default-100 pt-2"
-                }}
-                backdrop="blur"
-            >
-                <ModalContent>
-                    <ModalHeader className="flex flex-col gap-1">
-                        <h3 className="text-xl font-bold">确认删除</h3>
-                        <p className="text-sm text-default-500">
-                            此操作不可撤销
-                        </p>
-                    </ModalHeader>
-                    <ModalBody>
-                        <div className="flex items-center justify-center py-4">
-                            <div className="bg-danger-50 p-4 rounded-full mb-4">
-                                <TrashIcon className="h-8 w-8 text-danger" />
-                            </div>
-                        </div>
-                        <p className="text-center">
-                            确定要删除 <span className="font-bold">{selectedCategory?.name}</span> 分类吗？
-                        </p>
-                        <p className="text-center text-default-500 text-sm mt-2">
-                            删除后无法恢复，相关的交易记录将失去分类关联。
-                        </p>
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button
-                            variant="bordered"
-                            onPress={() => setIsDeleteModalOpen(false)}
-                            className="min-w-[80px]"
-                        >
-                            取消
-                        </Button>
-                        <Button
-                            color="danger"
-                            onPress={handleDeleteConfirm}
-                            className="min-w-[80px]"
-                        >
-                            删除
-                        </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+            {renderDefaultCategorySection()}
+            {renderCategoryModals()}
         </div>
     );
-} 
+}

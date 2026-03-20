@@ -32,13 +32,16 @@ RUN find .next -name "*.js" -exec grep -l "NEXT_PUBLIC_API_URL\|/api\|localhost:
 FROM node:18-alpine AS backend-builder
 WORKDIR /app/backend
 
-# 安装pnpm
+# 安装构建工具和pnpm
+RUN apk add --no-cache python3 make g++
 RUN npm install -g pnpm
 
 # 复制包管理文件
 COPY backend/package.json ./
 COPY backend/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts=false || pnpm install --frozen-lockfile
+RUN cd node_modules/.pnpm/sqlite3@5.1.7/node_modules/sqlite3 && npm run install || true
+RUN cd node_modules/.pnpm/bcrypt@5.1.1/node_modules/bcrypt && npm run install || true
 
 # 复制源码并构建
 COPY backend/ ./
@@ -48,7 +51,8 @@ RUN pnpm run build
 FROM node:18-alpine
 WORKDIR /app
 
-# 安装pnpm
+# 安装构建工具、pnpm、curl和nginx（单容器部署）
+RUN apk add --no-cache python3 make g++ curl nginx
 RUN npm install -g pnpm
 
 # 创建数据目录
@@ -59,20 +63,23 @@ COPY --from=backend-builder /app/backend/dist /app/backend/dist
 COPY --from=backend-builder /app/backend/package.json /app/backend/package.json
 COPY --from=backend-builder /app/backend/pnpm-lock.yaml /app/backend/pnpm-lock.yaml
 
+# 直接复制构建阶段的 node_modules（已编译的原生模块）
+COPY --from=backend-builder /app/backend/node_modules /app/backend/node_modules
+
 # 安装后端生产依赖
 WORKDIR /app/backend
-RUN pnpm install --prod --frozen-lockfile
 
-# 复制前端构建产物和依赖信息
-COPY --from=frontend-builder /app/frontend/.next /app/frontend/.next
-COPY --from=frontend-builder /app/frontend/public /app/frontend/public
-COPY --from=frontend-builder /app/frontend/package.json /app/frontend/package.json
-COPY --from=frontend-builder /app/frontend/pnpm-lock.yaml /app/frontend/pnpm-lock.yaml
+# 复制前端 standalone 构建产物
+COPY --from=frontend-builder /app/frontend/.next/standalone /app/frontend/.next/standalone
+COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/standalone/.next/static
+COPY --from=frontend-builder /app/frontend/public /app/frontend/.next/standalone/public
 COPY --from=frontend-builder /app/frontend/next.config.js /app/frontend/next.config.js
 
-# 安装前端生产依赖
+# Standalone 模式已包含所有依赖，无需再次安装
 WORKDIR /app/frontend
-RUN pnpm install --prod --frozen-lockfile
+
+# 添加 Nginx 配置（单容器版本）
+COPY nginx-single.conf /etc/nginx/http.d/default.conf
 
 # 添加启动脚本
 WORKDIR /app
@@ -85,9 +92,9 @@ ENV FRONTEND_URL=http://localhost:3000
 ENV BACKEND_URL=http://localhost:3001
 ENV NEXT_PUBLIC_API_URL=/api
 
-# 暴露端口
-EXPOSE 3000
-EXPOSE 3001
+# 暴露端口（只暴露 Nginx 端口）
+EXPOSE 80
+EXPOSE 443
 
 # 启动服务
 CMD ["./start.sh"] 

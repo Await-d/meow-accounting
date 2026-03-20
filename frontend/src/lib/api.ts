@@ -42,11 +42,6 @@ export function validateApiConfiguration() {
         timestamp: new Date().toISOString()
     };
 
-    // 在开发环境下输出配置信息
-    if (process.env.NODE_ENV !== 'production') {
-        console.log('🔧 API Configuration:', config);
-    }
-
     return config;
 }
 
@@ -209,7 +204,6 @@ export async function fetchAPI<T>(
 
         const data = await response.json();
 
-        console.log("sssssss", data)
         if (!response.ok) {
             // 处理特定状态码
             const handler = statusHandlers[response.status];
@@ -242,7 +236,11 @@ export class ApiPerformanceMonitor {
     private static instance: ApiPerformanceMonitor;
     private requestTimes: Map<string, number> = new Map();
     private responseCache: Map<string, { data: any; timestamp: number; ttl: number }> = new Map();
-    private readonly defaultTtl = 5 * 60 * 1000; // 5分钟缓存
+    private readonly defaultTtl = 5 * 60 * 1000;
+    private responseDurations: number[] = [];
+    private readonly maxDurationSamples = 100;
+    private cacheHits = 0;
+    private cacheMisses = 0;
 
     static getInstance(): ApiPerformanceMonitor {
         if (!ApiPerformanceMonitor.instance) {
@@ -262,9 +260,13 @@ export class ApiPerformanceMonitor {
         const duration = Date.now() - startTime;
         this.requestTimes.delete(endpoint);
 
-        // 记录慢查询
+        if (this.responseDurations.length >= this.maxDurationSamples) {
+            this.responseDurations.shift();
+        }
+        this.responseDurations.push(duration);
+
         if (duration > 3000) {
-            console.warn(`🐌 慢查询检测: ${endpoint} 耗时 ${duration}ms`);
+            console.warn(`慢查询检测: ${endpoint} 耗时 ${duration}ms`);
         }
 
         return duration;
@@ -280,20 +282,26 @@ export class ApiPerformanceMonitor {
 
     getCache(key: string): any | null {
         const cached = this.responseCache.get(key);
-        if (!cached) return null;
+        if (!cached) {
+            this.cacheMisses++;
+            return null;
+        }
 
         const now = Date.now();
         if (now - cached.timestamp > cached.ttl) {
             this.responseCache.delete(key);
+            this.cacheMisses++;
             return null;
         }
 
+        this.cacheHits++;
         return cached.data;
     }
 
     clearCache(): void {
         this.responseCache.clear();
-        console.log('🧹 API缓存已清理');
+        this.cacheHits = 0;
+        this.cacheMisses = 0;
     }
 
     getPerformanceStats(): { averageResponseTime: number; cacheHitRate: number; activeCacheCount: number } {
@@ -308,9 +316,15 @@ export class ApiPerformanceMonitor {
             }
         });
 
+        const totalRequests = this.cacheHits + this.cacheMisses;
+        const cacheHitRate = totalRequests > 0 ? Math.round((this.cacheHits / totalRequests) * 100) : 0;
+        const averageResponseTime = this.responseDurations.length > 0
+            ? Math.round(this.responseDurations.reduce((a, b) => a + b, 0) / this.responseDurations.length)
+            : 0;
+
         return {
-            averageResponseTime: 0, // 这里可以实现更详细的统计
-            cacheHitRate: 0,
+            averageResponseTime,
+            cacheHitRate,
             activeCacheCount: validCacheCount
         };
     }
@@ -369,7 +383,9 @@ export async function exportRouteAnalysisReport(options: {
     if (options.startDate) queryParams.append('startDate', options.startDate);
     if (options.endDate) queryParams.append('endDate', options.endDate);
     if (options.routeIds && options.routeIds.length > 0) {
-        options.routeIds.forEach(id => queryParams.append('routeIds[]', id.toString()));
+        options.routeIds.forEach((id) => {
+            queryParams.append('routeIds[]', id.toString());
+        });
     }
 
     const url = `${API_BASE_URL}/routes/export?${queryParams.toString()}&format=${options.format}`;
@@ -406,7 +422,9 @@ export async function getRouteVisualizationData(params: {
     if (params.startDate) queryParams.append('startDate', params.startDate);
     if (params.endDate) queryParams.append('endDate', params.endDate);
     if (params.routeIds && params.routeIds.length > 0) {
-        params.routeIds.forEach(id => queryParams.append('routeIds[]', id.toString()));
+        params.routeIds.forEach((id) => {
+            queryParams.append('routeIds[]', id.toString());
+        });
     }
 
     const response = await fetchAPI<any>(`/routes/visualization?${queryParams.toString()}`, {
@@ -416,29 +434,44 @@ export async function getRouteVisualizationData(params: {
     return response.data;
 }
 
-// Categories API
-export async function useCategories() {
+export async function getCategories() {
     return fetchAPI<any[]>('/categories');
 }
 
-export async function useCreateCategory(categoryData: any) {
+export async function useCategories() {
+    return getCategories();
+}
+
+export async function createCategory(categoryData: any) {
     return fetchAPI('/categories', {
         method: 'POST',
         body: JSON.stringify(categoryData)
     });
 }
 
-export async function useUpdateCategory(id: number, categoryData: any) {
+export async function useCreateCategory(categoryData: any) {
+    return createCategory(categoryData);
+}
+
+export async function updateCategory(id: number, categoryData: any) {
     return fetchAPI(`/categories/${id}`, {
         method: 'PUT',
         body: JSON.stringify(categoryData)
     });
 }
 
-export async function useDeleteCategory(id: number) {
+export async function useUpdateCategory(id: number, categoryData: any) {
+    return updateCategory(id, categoryData);
+}
+
+export async function deleteCategory(id: number) {
     return fetchAPI(`/categories/${id}`, {
         method: 'DELETE'
     });
+}
+
+export async function useDeleteCategory(id: number) {
+    return deleteCategory(id);
 }
 
 // Transactions API
@@ -493,6 +526,30 @@ export async function toggleRouteActive(id: number) {
 
 export async function getRouteStats(id: number) {
     return fetchAPI(`/routes/${id}/stats`);
+}
+
+// 备份管理 API
+export async function getBackups() {
+    return fetchAPI<any[]>('/settings/backups');
+}
+
+export async function createBackup(name?: string) {
+    return fetchAPI<any>('/settings/backups', {
+        method: 'POST',
+        body: JSON.stringify({ name })
+    });
+}
+
+export async function restoreBackup(id: number) {
+    return fetchAPI(`/settings/backups/${id}/restore`, {
+        method: 'POST'
+    });
+}
+
+export async function deleteBackup(id: number) {
+    return fetchAPI(`/settings/backups/${id}`, {
+        method: 'DELETE'
+    });
 }
 
 // Users API

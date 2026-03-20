@@ -26,7 +26,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
         }
 
         // 剔除敏感信息
-        const { password, ...userProfile } = user;
+        const { password_hash, ...userProfile } = user;
 
         res.json(userProfile);
     } catch (error) {
@@ -77,7 +77,7 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
             const updatedUser = await userModel.getUserById(userId);
             if (updatedUser) {
                 // 剔除敏感信息
-                const { password, ...userProfile } = updatedUser;
+                const { password_hash, ...userProfile } = updatedUser;
                 res.json(userProfile);
             } else {
                 res.status(404).json({ error: '用户不存在' });
@@ -113,7 +113,7 @@ export const updatePassword = async (req: Request, res: Response, next: NextFunc
         }
 
         // 验证当前密码
-        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
         if (!isPasswordValid) {
             return res.status(400).json({ error: '当前密码不正确' });
         }
@@ -122,7 +122,7 @@ export const updatePassword = async (req: Request, res: Response, next: NextFunc
         const hashedPassword = await bcrypt.hash(newPassword, passwordConfig.saltRounds);
 
         // 更新密码
-        await userModel.updateUser(userId, { password: hashedPassword });
+        await userModel.updateUser(userId, { password_hash: hashedPassword });
 
         res.json({ message: '密码更新成功' });
     } catch (error) {
@@ -204,7 +204,7 @@ export const getAllUsers = async (req: Request, res: Response, next: NextFunctio
 
         // 剔除敏感信息
         const safeUsers = users.map(user => {
-            const { password, ...safeUser } = user;
+            const { password_hash, ...safeUser } = user;
             return safeUser;
         });
 
@@ -229,7 +229,7 @@ export const searchUsers = async (req: Request, res: Response, next: NextFunctio
 
         // 剔除敏感信息
         const safeUsers = users.map(user => {
-            const { password, ...safeUser } = user;
+            const { password_hash, ...safeUser } = user;
             return safeUser;
         });
 
@@ -240,7 +240,87 @@ export const searchUsers = async (req: Request, res: Response, next: NextFunctio
     }
 };
 
-// 获取用户个人资料（添加别名以匹配路由中使用的名称）
+export const updateUserById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const targetId = parseInt(req.params.id);
+        if (isNaN(targetId)) {
+            return res.status(400).json({ error: '无效的用户ID' });
+        }
+
+        const userExists = await userModel.getUserById(targetId);
+        if (!userExists) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+
+        const { username, email, role, avatar, nickname } = req.body;
+        await userModel.updateUser(targetId, { username, email, role, avatar, nickname });
+
+        const updated = await userModel.getUserById(targetId);
+        if (!updated) return res.status(404).json({ error: '用户不存在' });
+        const { password_hash, ...safeUser } = updated;
+        res.json({ message: '用户更新成功', data: safeUser });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteUserById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const targetId = parseInt(req.params.id);
+        if (isNaN(targetId)) {
+            return res.status(400).json({ error: '无效的用户ID' });
+        }
+
+        const userExists = await userModel.getUserById(targetId);
+        if (!userExists) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+
+        await userModel.deleteUser(targetId);
+        res.json({ message: '用户已删除' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const freezeUserById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const targetId = parseInt(req.params.id);
+        if (isNaN(targetId)) {
+            return res.status(400).json({ error: '无效的用户ID' });
+        }
+
+        const userExists = await userModel.getUserById(targetId);
+        if (!userExists) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+
+        await userModel.updateUser(targetId, { role: 'frozen' });
+        res.json({ message: '用户已冻结' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const unfreezeUserById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const targetId = parseInt(req.params.id);
+        if (isNaN(targetId)) {
+            return res.status(400).json({ error: '无效的用户ID' });
+        }
+
+        const userExists = await userModel.getUserById(targetId);
+        if (!userExists) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+
+        await userModel.updateUser(targetId, { role: 'user' });
+        res.json({ message: '用户已解冻' });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const getUserProfile = getProfile;
 
 // 更新用户个人资料（添加别名以匹配路由中使用的名称）

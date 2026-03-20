@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as transactionModel from '../models/transaction';
 import * as categoryModel from '../models/category';
+import * as accountModel from '../models/account';
+import * as familyModel from '../models/family';
 import { validateTransaction } from '../utils/validation';
 import { Transaction } from '../types';
 import dayjs from 'dayjs';
@@ -15,7 +17,7 @@ interface MulterRequest extends Request {
 export const createTransaction = async (req: Request, res: Response, next: NextFunction) => {
     try {
         // 支持两种参数名: family_id 和 familyId
-        const { amount, type, category_id, description, date, family_id, familyId } = req.body;
+        const { amount, type, category_id, description, date, family_id, familyId, account_id } = req.body;
         const actualFamilyId = family_id || familyId;
 
         if (!req.user) {
@@ -43,6 +45,62 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
             }
         }
 
+        // 处理账户关联
+        let resolvedAccountId: number | undefined;
+        if (account_id) {
+            const accountId = parseInt(account_id);
+            const account = await accountModel.getAccountById(accountId);
+            if (!account) {
+                return res.status(404).json({ error: '账户不存在' });
+            }
+
+            if (account.family_id) {
+                const isMember = await familyModel.isFamilyMember(account.family_id, userId);
+                if (!isMember) {
+                    return res.status(403).json({ error: '无权访问该账户' });
+                }
+            } else if (account.user_id !== userId) {
+                return res.status(403).json({ error: '无权访问该账户' });
+            }
+
+            resolvedAccountId = accountId;
+        } else if (actualFamilyId) {
+            const familyIdValue = parseInt(actualFamilyId);
+            const familyAccounts = await accountModel.getAccountsByFamilyId(familyIdValue);
+            if (familyAccounts.length > 0) {
+                resolvedAccountId = familyAccounts[0].id as number;
+            } else {
+                const family = await familyModel.getFamilyById(familyIdValue);
+                const newAccount = await accountModel.createAccount({
+                    name: `${family?.name || '家庭'}默认账户`,
+                    type: 'default',
+                    initial_balance: 0,
+                    currency: 'CNY',
+                    description: '系统自动创建的默认家庭账户',
+                    family_id: familyIdValue,
+                    created_by: userId
+                });
+                resolvedAccountId = newAccount.id as number;
+            }
+        } else {
+            const userAccounts = await accountModel.getAccountsByUserId(userId);
+            const personalAccount = userAccounts.find(acc => acc.user_id === userId && !acc.family_id);
+            if (personalAccount) {
+                resolvedAccountId = personalAccount.id as number;
+            } else {
+                const newAccount = await accountModel.createAccount({
+                    name: `${req.user.username || '用户'}默认账户`,
+                    type: 'default',
+                    initial_balance: 0,
+                    currency: 'CNY',
+                    description: '系统自动创建的默认个人账户',
+                    user_id: userId,
+                    created_by: userId
+                });
+                resolvedAccountId = newAccount.id as number;
+            }
+        }
+
         // 创建交易记录
         const transaction = await transactionModel.createTransaction({
             amount: parseFloat(amount),
@@ -51,7 +109,8 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
             description: description || '',
             date,
             user_id: userId,
-            family_id: actualFamilyId ? parseInt(actualFamilyId) : undefined
+            family_id: actualFamilyId ? parseInt(actualFamilyId) : undefined,
+            account_id: resolvedAccountId
         });
 
         res.status(201).json(transaction);
@@ -146,7 +205,7 @@ export const getTransactionById = getTransaction;
 export const updateTransaction = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id = parseInt(req.params.id);
-        const { amount, type, category_id, description, date } = req.body;
+        const { amount, type, category_id, description, date, account_id } = req.body;
 
         if (isNaN(id)) {
             return res.status(400).json({ error: '无效的事务ID' });
@@ -161,11 +220,12 @@ export const updateTransaction = async (req: Request, res: Response, next: NextF
 
         // 更新事务记录
         const updatedTransaction = await transactionModel.updateTransaction(id, {
-            amount: parseFloat(amount),
+            amount: amount !== undefined ? parseFloat(amount) : undefined,
             type,
-            category_id: parseInt(category_id),
+            category_id: category_id !== undefined ? parseInt(category_id) : undefined,
             description: description || '',
-            date
+            date,
+            account_id: account_id !== undefined ? parseInt(account_id) : undefined
         });
 
         res.json(updatedTransaction);

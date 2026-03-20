@@ -7,7 +7,10 @@
  */
 import express from 'express';
 import * as routeController from '../controllers/route.controller';
+import * as routePredictionController from '../controllers/route-prediction.controller';
+import * as routeOptimizationController from '../controllers/route-optimization.controller';
 import { authMiddleware, checkRole } from '../middleware/auth';
+import { checkAdminRole } from '../middleware/admin.middleware';
 
 const router = express.Router();
 
@@ -31,8 +34,8 @@ router.use(authMiddleware);
  *       403:
  *         description: 权限不足
  */
-// 改为始终可访问（临时调试）
-router.get('/all', routeController.getAllRoutes);
+// 管理员专用接口
+router.get('/all', checkAdminRole, routeController.getAllRoutes);
 
 /**
  * @swagger
@@ -75,20 +78,20 @@ router.get('/user/routes', routeController.getUserRoutes);
  */
 router.get('/family/:familyId/routes', routeController.getFamilyRoutes);
 
-// 创建路由
-router.post('/', routeController.createRoute);
+// 创建路由（管理员专用）
+router.post('/', checkAdminRole, routeController.createRoute);
 
 // 获取路由信息
 router.get('/:id', routeController.getRouteById);
 
-// 更新路由
-router.put('/:id', routeController.updateRoute);
+// 更新路由（管理员专用）
+router.put('/:id', checkAdminRole, routeController.updateRoute);
 
-// 删除路由
-router.delete('/:id', routeController.deleteRoute);
+// 删除路由（管理员专用）
+router.delete('/:id', checkAdminRole, routeController.deleteRoute);
 
-// 切换路由状态
-router.put('/:id/toggle', routeController.toggleRouteActive);
+// 切换路由状态（管理员专用）
+router.put('/:id/toggle', checkAdminRole, routeController.toggleRouteActive);
 
 // 检查访问权限
 router.get('/access/:path', routeController.checkAccess);
@@ -96,11 +99,40 @@ router.get('/access/:path', routeController.checkAccess);
 // 获取路由性能统计
 router.get('/stats/report/:id', routeController.getRouteStats);
 
-// 获取路由预测
+// 获取路由性能统计（兼容前端调用）
+router.get('/:id/stats', routeController.getRouteStats);
+
+// ========== 路由预测相关 API ==========
+// 预测下一个可能访问的路由
+router.get('/predict/next', routePredictionController.predictNextRoute);
+
+// 获取综合预测（多算法）
+router.get('/predict/comprehensive', routePredictionController.getComprehensivePredictions);
+
+// 记录路由访问历史
+router.post('/predict/record', routePredictionController.recordRouteAccess);
+
+// 获取路由转移模式
+router.get('/predict/patterns', routePredictionController.getTransitionPatterns);
+
+// 获取路由预测（兼容旧API）
 router.get('/predictions', routeController.getRoutePredictions);
 
+// ========== 路由优化建议 API ==========
+// 生成路由优化建议
+router.post('/:id/optimization/generate', routeOptimizationController.generateOptimizationSuggestions);
+
 // 获取路由优化建议
-router.get('/:id/optimization', routeController.getRouteOptimizationSuggestions);
+router.get('/:id/optimization', routeOptimizationController.getOptimizationSuggestions);
+
+// 标记建议为已实施
+router.put('/optimization/:suggestionId/implement', routeOptimizationController.markSuggestionImplemented);
+
+// 获取优化建议摘要
+router.get('/optimization/summary', routeOptimizationController.getOptimizationSummary);
+
+// 批量生成所有路由的优化建议
+router.post('/optimization/generate-all', routeOptimizationController.generateAllSuggestions);
 
 // 导出路由分析报告
 router.get('/export', routeController.exportRouteAnalysisReport);

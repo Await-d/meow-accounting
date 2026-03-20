@@ -99,7 +99,7 @@ export default function FamilyMembers() {
         }
     };
 
-    const handleUpdateRole = (userId: number, newRole: 'admin' | 'member') => {
+    const handleUpdateRole = React.useCallback((userId: number, newRole: 'admin' | 'member') => {
         if (!currentFamily) return;
 
         try {
@@ -108,7 +108,7 @@ export default function FamilyMembers() {
         } catch (error) {
             showToast('更新角色失败', 'error');
         }
-    };
+    }, [currentFamily, showToast, updateRole]);
 
     const handleRemoveMember = () => {
         if (!currentFamily || !memberToDelete) return;
@@ -124,10 +124,10 @@ export default function FamilyMembers() {
         }
     };
 
-    const openDeleteConfirm = (userId: number, username: string) => {
+    const openDeleteConfirm = React.useCallback((userId: number, username: string) => {
         setMemberToDelete({ id: userId, username });
         setDeleteConfirmOpen(true);
-    };
+    }, []);
 
     const columns = React.useMemo(() => {
         const cols = [
@@ -180,7 +180,7 @@ export default function FamilyMembers() {
             default:
                 return member[columnKey.toString() as keyof FamilyMember];
         }
-    }, [isAdmin, user?.id, handleUpdateRole]);
+    }, [handleUpdateRole, isAdmin, openDeleteConfirm, user?.id]);
 
     if (!currentFamily) {
         return <div>请先选择或创建一个家庭</div>;

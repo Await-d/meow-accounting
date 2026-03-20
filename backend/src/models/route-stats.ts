@@ -111,14 +111,24 @@ export class RouteStatsModel extends BaseModel<RouteStats> {
         }
     }
 
-    async getPerformanceReport(userId: number): Promise<PerformanceReport> {
-        const sql = `
+    async getPerformanceReport(userId: number, startDate?: string, endDate?: string): Promise<PerformanceReport> {
+        let sql = `
             SELECT rs.*, r.path 
             FROM route_stats rs
             JOIN routes r ON rs.route_id = r.id
             WHERE r.user_id = ?
         `;
-        const stats = await this.execute<Array<RouteStats & { path: string }>>(sql, [userId]) || [];
+        const params: any[] = [userId];
+        if (startDate) {
+            sql += ' AND rs.last_accessed >= ?';
+            params.push(startDate);
+        }
+        if (endDate) {
+            sql += ' AND rs.last_accessed <= ?';
+            params.push(endDate + ' 23:59:59');
+        }
+        const rawStats = await this.execute<Array<RouteStats & { path: string }>>(sql, params);
+        const stats: Array<RouteStats & { path: string }> = Array.isArray(rawStats) ? rawStats : (rawStats ? [rawStats as any] : []);
 
         if (stats.length === 0) {
             return {
@@ -203,8 +213,8 @@ export class RouteStatsModel extends BaseModel<RouteStats> {
         await this.execute(sql, params);
     }
 
-    async getCacheStats(userId: number): Promise<{ hits: number; misses: number }> {
-        const sql = `
+    async getCacheStats(userId: number, routeId?: number): Promise<{ hits: number; misses: number }> {
+        let sql = `
             SELECT 
                 SUM(rs.cache_hits) as hits,
                 SUM(rs.cache_misses) as misses
@@ -212,7 +222,14 @@ export class RouteStatsModel extends BaseModel<RouteStats> {
             JOIN routes r ON rs.route_id = r.id
             WHERE r.user_id = ?
         `;
-        const result = await this.execute<[{ hits: number; misses: number }]>(sql, [userId]);
+        const params: Array<number> = [userId];
+
+        if (routeId) {
+            sql += ' AND rs.route_id = ?';
+            params.push(routeId);
+        }
+
+        const result = await this.execute<[{ hits: number; misses: number }]>(sql, params);
         return result[0] || { hits: 0, misses: 0 };
     }
 

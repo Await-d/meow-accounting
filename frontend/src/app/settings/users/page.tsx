@@ -75,7 +75,7 @@ export default function UsersPage() {
         enabled: isAdmin
     });
 
-    const users = (usersResponse as any)?.data || [];
+    const users = React.useMemo(() => (usersResponse as any)?.data ?? [], [usersResponse]);
 
     // 更新用户
     const updateMutation = useMutation({
@@ -378,7 +378,7 @@ export default function UsersPage() {
                 <ModalContent>
                     <ModalHeader>确认删除</ModalHeader>
                     <ModalBody>
-                        <p>确定要删除用户 "{selectedUser?.username}" 吗？此操作不可撤销。</p>
+                        <p>确定要删除用户 &quot;{selectedUser?.username}&quot; 吗？此操作不可撤销。</p>
                     </ModalBody>
                     <ModalFooter>
                         <Button variant="flat" onPress={onCloseDeleteModal}>

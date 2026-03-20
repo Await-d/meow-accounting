@@ -23,6 +23,7 @@ import cacheRoutes from './routes/cache';
 import routeRoutes from './routes/route.routes';
 import accountRoutes from './routes/account.routes';
 import statisticsRoutes from './routes/statistics.routes';
+import backupRoutes from './routes/backup.routes';
 import { createUserTable } from './models/user';
 import { createFamilyTables } from './models/family';
 import { createCategoryTable } from './models/category';
@@ -33,6 +34,12 @@ import dotenv from 'dotenv';
 import { initDefaultCategories } from './models/category';
 import categoryRoutes from './routes/category.routes';
 import debugRoutes from './routes/debug.routes';
+import reportRoutes from './routes/report.routes';
+import * as routeStatsController from './controllers/route-stats.controller';
+import * as routeParamsController from './controllers/route-params.controller';
+import * as settingsController from './controllers/settings.controller';
+import { getSystemSettingsHandler, updateSystemSettingsHandler } from './controllers/system-settings.controller';
+import { authMiddleware } from './middleware/auth';
 
 // 加载环境变量
 dotenv.config();
@@ -47,26 +54,49 @@ app.use(express.json());
 // Swagger文档
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
-// 添加请求体日志中间件
-app.use((req, res, next) => {
-    if (req.method === 'POST' || req.method === 'PUT') {
-        console.log(`${req.method} ${req.url} 请求体:`, req.body);
-    }
-    next();
-});
+if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+        if (req.method === 'POST' || req.method === 'PUT') {
+            console.log(`${req.method} ${req.url} 请求体:`, req.body);
+        }
+        next();
+    });
+}
 
 // 路由
 app.use('/api/auth', authRoutes);
 app.use('/api/families', familyRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/categories', categoryRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/cache', cacheRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/statistics', statisticsRoutes);
-app.use('/api/categories', categoryRoutes);
 app.use('/api/debug', debugRoutes);
+app.use('/api/settings/backups', backupRoutes);
+app.use('/api/reports', reportRoutes);
+
+app.post('/api/routes/stats/access', authMiddleware, routeStatsController.recordAccess);
+app.get('/api/routes/stats/report', authMiddleware, routeStatsController.getPerformanceReport);
+app.delete('/api/routes/stats/:routeId', authMiddleware, routeStatsController.clearPerformanceData);
+app.get('/api/routes/stats/cache/:routeId', authMiddleware, routeStatsController.getCacheStats);
+app.get('/api/routes/stats/preheat', authMiddleware, routeStatsController.getPreheatStatus);
+
+app.post('/api/routes/:routeId/params', authMiddleware, routeParamsController.saveParams);
+app.get('/api/routes/:routeId/params', authMiddleware, routeParamsController.getParams);
+app.delete('/api/routes/:routeId/params', authMiddleware, routeParamsController.clearParams);
+app.get('/api/routes/params/all', authMiddleware, routeParamsController.getAllParams);
+
+app.get('/api/settings/system', getSystemSettingsHandler);
+app.put('/api/settings/system', authMiddleware, updateSystemSettingsHandler);
+
+app.get('/api/users/settings', authMiddleware, settingsController.getSettings);
+app.put('/api/users/settings', authMiddleware, settingsController.updateSettings);
+app.post('/api/users/settings/reset', authMiddleware, settingsController.resetSettings);
+app.get('/api/users/settings/export', authMiddleware, settingsController.exportSettings);
+app.post('/api/users/settings/import', authMiddleware, settingsController.importSettings);
 
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -80,6 +110,9 @@ async function initDatabase() {
         // 确保数据库已连接
         await db.connect();
         console.log('数据库连接成功');
+        
+        // 调试：打印users表schema
+        await db.debugUsersSchema();
 
         // 初始化表
         await createUserTable();

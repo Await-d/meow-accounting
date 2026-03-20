@@ -25,6 +25,8 @@ export function useRouteCache(config: Partial<CacheConfig> = {}) {
     const [cache, setCache] = useState<Map<string, CachedRoute>>(new Map());
     const { getRoutePriority } = useRouteOptimizer();
     const totalSizeRef = useRef<number>(0);
+    const hitCountRef = useRef<number>(0);
+    const missCountRef = useRef<number>(0);
 
     // 估算路由大小
     const estimateRouteSize = useCallback((route: Route) => {
@@ -46,15 +48,21 @@ export function useRouteCache(config: Partial<CacheConfig> = {}) {
     // 获取缓存的路由
     const getCachedRoute = useCallback((path: string) => {
         const cachedRoute = cache.get(path);
-        if (!cachedRoute) return null;
+        if (!cachedRoute) {
+            missCountRef.current += 1;
+            return null;
+        }
 
         // 检查是否过期
         if (isExpired(cachedRoute)) {
             cache.delete(path);
             totalSizeRef.current -= cachedRoute.size;
             setCache(new Map(cache));
+            missCountRef.current += 1;
             return null;
         }
+
+        hitCountRef.current += 1;
 
         // 更新访问时间
         cachedRoute.lastAccessed = Date.now();
@@ -64,29 +72,38 @@ export function useRouteCache(config: Partial<CacheConfig> = {}) {
 
     // 清理缓存以腾出空间
     const evictCache = useCallback((requiredSize: number) => {
-        const entries = Array.from(cache.entries());
+        const entries: Array<[string, CachedRoute]> = [];
+        cache.forEach((route: CachedRoute, path: string) => {
+            entries.push([path, route]);
+        });
 
         // 首先删除过期项
-        const now = Date.now();
-        entries.forEach(([path, route]) => {
+        for (let index = 0; index < entries.length; index += 1) {
+            const [path, route] = entries[index];
             if (isExpired(route)) {
                 cache.delete(path);
                 totalSizeRef.current -= route.size;
             }
-        });
+        }
 
         // 如果仍然需要空间，按 LRU 策略删除
         if (totalSizeRef.current + requiredSize > maxSize) {
-            const sortedEntries = entries
-                .filter(([_, route]) => !isExpired(route))
-                .sort((a, b) => {
-                    // 首先按优先级排序，然后按最后访问时间
-                    const priorityDiff = b[1].priority - a[1].priority;
-                    if (priorityDiff !== 0) return priorityDiff;
-                    return a[1].lastAccessed - b[1].lastAccessed;
-                });
+            const sortedEntries: Array<[string, CachedRoute]> = [];
+            for (let index = 0; index < entries.length; index += 1) {
+                const entry = entries[index];
+                if (!isExpired(entry[1])) {
+                    sortedEntries.push(entry);
+                }
+            }
+            sortedEntries.sort((a, b) => {
+                // 首先按优先级排序，然后按最后访问时间
+                const priorityDiff = b[1].priority - a[1].priority;
+                if (priorityDiff !== 0) return priorityDiff;
+                return a[1].lastAccessed - b[1].lastAccessed;
+            });
 
-            for (const [path, route] of sortedEntries) {
+            for (let index = 0; index < sortedEntries.length; index += 1) {
+                const [path, route] = sortedEntries[index];
                 if (totalSizeRef.current + requiredSize <= maxSize) break;
                 cache.delete(path);
                 totalSizeRef.current -= route.size;
@@ -124,13 +141,18 @@ export function useRouteCache(config: Partial<CacheConfig> = {}) {
     // 清除过期缓存
     const clearExpiredCache = useCallback(() => {
         let hasExpired = false;
-        cache.forEach((route, path) => {
+        const entries: Array<[string, CachedRoute]> = [];
+        cache.forEach((route: CachedRoute, path: string) => {
+            entries.push([path, route]);
+        });
+        for (let index = 0; index < entries.length; index += 1) {
+            const [path, route] = entries[index];
             if (isExpired(route)) {
                 cache.delete(path);
                 totalSizeRef.current -= route.size;
                 hasExpired = true;
             }
-        });
+        }
         if (hasExpired) {
             setCache(new Map(cache));
         }
@@ -138,11 +160,15 @@ export function useRouteCache(config: Partial<CacheConfig> = {}) {
 
     // 获取缓存统计信息
     const getCacheStats = useCallback(() => {
+        const hits = hitCountRef.current;
+        const misses = missCountRef.current;
+        const total = hits + misses;
         return {
             totalSize: totalSizeRef.current,
             itemCount: cache.size,
             maxSize,
-            usage: (totalSizeRef.current / maxSize) * 100
+            usage: (totalSizeRef.current / maxSize) * 100,
+            hitRate: total > 0 ? (hits / total) * 100 : 0
         };
     }, [cache, maxSize]);
 

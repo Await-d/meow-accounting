@@ -7,7 +7,7 @@
  */
 'use client';
 
-import {createContext, type ReactNode, useContext, useEffect, useState} from 'react';
+import {createContext, type ReactNode, useCallback, useContext, useEffect, useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {useToast} from '@/components/Toast';
 import {fetchAPI} from '@/lib/api';
@@ -23,8 +23,7 @@ const apiLogin = async (data: { email: string; password: string }) => {
         method: 'POST',
         body: JSON.stringify(data)
     });
-    console.log("ssss", response)
-    
+
     return response.data;
 };
 
@@ -86,7 +85,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     // 从 token 中解析用户信息并验证
-    const parseAndValidateToken = (token: string): User | null => {
+    const parseAndValidateToken = useCallback((token: string): User | null => {
         try {
             const decoded = jwtDecode<{ exp: number } & User>(token);
 
@@ -113,10 +112,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             localStorage.removeItem('isGuest');
             return null;
         }
-    };
+    }, []);
 
     // 处理路由跳转
-    const handleRouteNavigation = async (user: User) => {
+    const handleRouteNavigation = useCallback(async (user: User) => {
         if (!user || !user.default_route) {
             router.push('/dashboard');
             return;
@@ -148,7 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.error('路由导航失败:', error);
             router.push('/dashboard');
         }
-    };
+    }, [router]);
 
     // 初始化：检查本地存储的 token
     useEffect(() => {
@@ -179,7 +178,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 router.push('/auth/login');
             }
         }
-    }, [router]);
+    }, [handleRouteNavigation, parseAndValidateToken, router]);
 
     // 登录
     const login = async (email: string, password: string) => {

@@ -27,23 +27,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { CategoryStats as CategoryStatsType, TimeRange } from '@/lib/types';
 import Skeleton from './Skeleton';
 import { ArrowUpIcon, ArrowDownIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { colors, cardStyles, emptyStateStyles } from '@/styles/design-system';
 
 // 注册 Chart.js 组件
 ChartJS.register(ArcElement, ChartTooltip, Legend);
 
-// 定义颜色常量
-const CHART_COLORS = [
-    'rgba(54, 162, 235, 0.8)',   // 蓝色
-    'rgba(255, 99, 132, 0.8)',   // 红色
-    'rgba(75, 192, 192, 0.8)',   // 青色
-    'rgba(255, 159, 64, 0.8)',   // 橙色
-    'rgba(153, 102, 255, 0.8)',  // 紫色
-    'rgba(255, 205, 86, 0.8)',   // 黄色
-    'rgba(201, 203, 207, 0.8)',  // 灰色
-    'rgba(100, 255, 100, 0.8)',  // 绿色
-    'rgba(200, 100, 100, 0.8)',  // 棕红色
-    'rgba(100, 100, 255, 0.8)',  // 蓝紫色
-];
+// 使用统一的颜色方案（带透明度）
+const CHART_COLORS = colors.series.map(color => `${color}CC`);
 
 // 图表配置选项
 const CHART_OPTIONS = {
@@ -123,7 +113,7 @@ export default function CategoryStats({
                 labels: ['暂无数据'],
                 datasets: [{
                     data: [1],
-                    backgroundColor: ['#e5e7eb'],
+                    backgroundColor: ['rgba(229, 231, 235, 0.8)'],
                 }]
             };
         }
@@ -151,7 +141,7 @@ export default function CategoryStats({
 
     if (error) {
         return (
-            <Card className="w-full">
+            <Card className={cardStyles.base}>
                 <CardBody className="flex flex-col items-center justify-center p-8 text-center">
                     <ExclamationTriangleIcon className="w-12 h-12 text-warning mb-4" />
                     <h3 className="text-lg font-semibold mb-2">获取分类统计数据失败</h3>
@@ -166,9 +156,9 @@ export default function CategoryStats({
     // 检查是否有统计数据
     if (!stats || stats.length === 0) {
         return (
-            <Card className="w-full">
-                <CardBody className="flex flex-col items-center justify-center p-8 gap-4">
-                    <p className="text-default-500">暂无分类统计数据</p>
+            <Card className={cardStyles.base}>
+                <CardBody className={emptyStateStyles.container}>
+                    <p className={emptyStateStyles.description}>暂无分类统计数据</p>
                     <p className="text-sm text-default-400">添加更多交易记录以查看分类统计</p>
                 </CardBody>
             </Card>
@@ -178,7 +168,7 @@ export default function CategoryStats({
     // 检查当前类型是否有数据
     if (filteredStats.length === 0) {
         return (
-            <Card className="w-full">
+            <Card className={cardStyles.base}>
                 <CardBody className="space-y-4">
                     <div className="flex justify-between items-center">
                         <ButtonGroup>
@@ -330,7 +320,7 @@ export default function CategoryStats({
                         </ButtonGroup>
                     </div>
                     {filteredStats.map((item, index) => (
-                        <Card key={item.name} className="w-full shadow-none border border-default-100 animate-fadeIn" style={{ animationDelay: `${index * 50}ms` }}>
+                        <Card key={item.name} className={`${cardStyles.base} shadow-none animate-fadeIn`} style={{ animationDelay: `${index * 50}ms` }}>
                             <CardBody className="py-2 px-3">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-2">

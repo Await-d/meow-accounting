@@ -1,0 +1,1 @@
+Frontend: Next.js 14 App Router, React, TypeScript, NextUI, Tailwind CSS, React Query, Recharts/Chart.js, React Hook Form + Zod, Framer Motion. Backend: Express.js, TypeScript, SQLite (primary) with optional Redis cache, JWT auth, bcrypt, Zod validation, Swagger docs, Winston logging. Deployment: Docker single-container + Nginx reverse proxy, docker-compose scripts.

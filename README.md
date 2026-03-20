@@ -47,15 +47,53 @@
 - RESTful API
 
 ### 部署
-- Docker 容器化
+- Docker 单容器单端口部署 🚀
+- Nginx 反向代理（自动解决跨域）
 - GitHub Actions CI/CD
 - 多架构支持 (amd64/arm64)
 
 ## 快速开始
 
-### Docker 部署（推荐）
+### Docker 部署（推荐）⚡
 
-#### 1. 使用预构建镜像
+**✨ 单容器单端口方案：**
+- 一个容器包含前端 + 后端 + Nginx
+- 只需开放一个端口（80）
+- 自动解决跨域问题
+- 简化部署和维护
+
+#### 方式 1：一键部署脚本
+
+```bash
+# 克隆项目
+git clone https://github.com/Await-d/meow-accounting.git
+cd meow-accounting
+
+# 运行一键部署脚本
+./docker-deploy.sh
+
+# 访问应用
+# http://localhost
+```
+
+#### 方式 2：手动部署
+
+```bash
+# 复制配置文件
+cp .env.docker .env
+# ⚠️ 必须修改 .env 中的 JWT_SECRET
+
+# 构建并启动
+docker-compose build --build-arg NEXT_PUBLIC_API_URL=/api
+docker-compose up -d
+
+# 查看状态
+docker-compose ps
+```
+
+**详细部署文档**: 查看 [DOCKER_DEPLOY.md](./DOCKER_DEPLOY.md)
+
+#### 旧方式：使用预构建镜像（需要两个端口）
 
 ```bash
 # 拉取最新镜像
@@ -298,7 +336,6 @@ DELETE /api/routes/:id
 ```
 
 ### 性能监控
-
 ```bash
 # 获取性能报告
 GET /api/performance/report
@@ -314,6 +351,60 @@ POST /api/performance/track
   "responseTime": 120,
   "statusCode": 200
 }
+```
+
+### 路由预测
+```bash
+# 预测下一个可能访问的路由
+GET /api/routes/predict/next?currentRouteId=1
+
+# 获取综合预测（多算法）
+GET /api/routes/predict/comprehensive?currentRouteId=1
+
+# 记录路由访问历史
+POST /api/routes/predict/record
+{
+  "routeId": 1,
+  "sessionId": "session-123",
+  "previousRouteId": 5,
+  "loadTime": 150
+}
+
+# 获取路由转移模式
+GET /api/routes/predict/patterns
+```
+
+### 性能优化建议
+```bash
+# 生成路由优化建议
+POST /api/routes/:id/optimization/generate
+
+# 获取路由优化建议
+GET /api/routes/:id/optimization
+
+# 标记建议为已实施
+PUT /api/routes/optimization/:suggestionId/implement
+
+# 获取优化建议摘要
+GET /api/routes/optimization/summary
+
+# 批量生成所有路由的优化建议
+POST /api/routes/optimization/generate-all
+```
+
+### 报告导出
+```bash
+# 导出路由性能报告
+GET /api/reports/export/route-performance?format=json|csv
+
+# 导出财务分析报告
+GET /api/reports/export/financial?format=json|csv&startDate=2025-01-01&endDate=2025-01-31
+
+# 导出综合分析报告
+GET /api/reports/export/comprehensive?format=json|csv|excel&startDate=2025-01-01&endDate=2025-01-31
+
+# 获取可导出报告列表
+GET /api/reports/available
 ```
 
 ## 数据备份与恢复
@@ -390,12 +481,12 @@ docker-compose up -d
 - [x] 参数持久化
 - [x] Docker容器化部署
 - [x] CI/CD自动化流程
-- [ ] 路由预测系统
-- [ ] 性能优化建议
-- [ ] 更多数据可视化
-- [ ] 导出分析报告
-- [ ] 微服务架构支持
-- [ ] 集群部署方案
+- [x] 路由预测系统
+- [x] 性能优化建议
+- [x] 更多数据可视化
+- [x] 导出分析报告
+- [x] 集群部署方案
+- [x] UI风格统一化
 
 ## 贡献指南
 

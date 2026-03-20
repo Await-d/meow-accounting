@@ -14,7 +14,7 @@ export interface User {
     id: number;
     username: string;
     email: string;
-    password: string;
+    password_hash: string;
     role: string;
     avatar?: string;
     nickname?: string;
@@ -48,7 +48,7 @@ export async function createUserTable() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
-                password TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
                 role TEXT DEFAULT 'user',
                 avatar TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -99,7 +99,7 @@ export async function createUser(userData: {
         const { username, email, password, role = 'user', avatar } = userData;
 
         const sql = `
-            INSERT INTO users (username, email, password, role, avatar)
+            INSERT INTO users (username, email, password_hash, role, avatar)
             VALUES (?, ?, ?, ?, ?)
         `;
 
@@ -128,8 +128,13 @@ export async function updateUser(id: number, data: Partial<Omit<User, 'id' | 'cr
         }
 
         if ('password' in data && data.password !== undefined) {
-            updates.push('password = ?');
+            updates.push('password_hash = ?');
             values.push(data.password);
+        }
+
+        if ('password_hash' in data && data.password_hash !== undefined) {
+            updates.push('password_hash = ?');
+            values.push(data.password_hash);
         }
 
         if ('role' in data && data.role !== undefined) {
@@ -222,7 +227,7 @@ export async function searchUsersByEmail(email: string): Promise<User[]> {
 // 验证密码
 export async function verifyPassword(user: User, password: string): Promise<boolean> {
     try {
-        return await bcrypt.compare(password, user.password);
+        return await bcrypt.compare(password, user.password_hash);
     } catch (error) {
         console.error('验证密码失败:', error);
         throw error;
@@ -233,7 +238,7 @@ export async function verifyPassword(user: User, password: string): Promise<bool
 export async function changePassword(userId: number, newPassword: string): Promise<boolean> {
     try {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        await updateUser(userId, { password: hashedPassword });
+        await updateUser(userId, { password_hash: hashedPassword });
         return true;
     } catch (error) {
         console.error('修改密码失败:', error);
@@ -252,22 +257,6 @@ export const updatePrivacySettings = async (
             hashedGuestPassword = await bcrypt.hash(guestPassword, 10);
         }
 
-        // 更新设置
-        const query = `
-            UPDATE user_settings 
-            SET visibility = ?, show_transactions = ?, show_statistics = ?, guest_password = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE user_id = ?
-        `;
-
-        await db.execute(query, [
-            visibility,
-            showTransactions ? 1 : 0,
-            showStatistics ? 1 : 0,
-            hashedGuestPassword,
-            userId
-        ]);
-
-        // 检查是否存在设置记录，如果不存在则创建
         const settingsExist = await db.getValue<number>('SELECT COUNT(*) FROM user_settings WHERE user_id = ?', [userId]);
 
         if (!settingsExist) {
@@ -275,13 +264,25 @@ export const updatePrivacySettings = async (
                 INSERT INTO user_settings (user_id, visibility, show_transactions, show_statistics, guest_password)
                 VALUES (?, ?, ?, ?, ?)
             `;
-
             await db.execute(insertQuery, [
                 userId,
                 visibility,
                 showTransactions ? 1 : 0,
                 showStatistics ? 1 : 0,
                 hashedGuestPassword
+            ]);
+        } else {
+            const updateQuery = `
+                UPDATE user_settings 
+                SET visibility = ?, show_transactions = ?, show_statistics = ?, guest_password = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+            `;
+            await db.execute(updateQuery, [
+                visibility,
+                showTransactions ? 1 : 0,
+                showStatistics ? 1 : 0,
+                hashedGuestPassword,
+                userId
             ]);
         }
 

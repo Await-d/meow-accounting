@@ -1,0 +1,199 @@
+# Kubernetes 监控配置
+# 使用 Prometheus 和 Grafana 进行监控
+
+---
+# ServiceMonitor - Prometheus 监控配置
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: meow-accounting-monitor
+  namespace: meow-accounting
+  labels:
+    app: meow-accounting
+spec:
+  selector:
+    matchLabels:
+      app: meow-accounting
+  endpoints:
+    - port: backend
+      path: /api/metrics
+      interval: 30s
+
+---
+# PrometheusRule - 告警规则
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: meow-accounting-alerts
+  namespace: meow-accounting
+spec:
+  groups:
+    - name: meow-accounting
+      interval: 30s
+      rules:
+        # Pod重启告警
+        - alert: PodRestartingTooOften
+          expr: rate(kube_pod_container_status_restarts_total{namespace="meow-accounting"}[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod重启频繁"
+            description: "{{ $labels.pod }} 在过去15分钟内重启了 {{ $value }} 次"
+
+        # 高CPU使用率告警
+        - alert: HighCPUUsage
+          expr: sum(rate(container_cpu_usage_seconds_total{namespace="meow-accounting"}[5m])) by (pod) > 0.8
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "CPU使用率过高"
+            description: "{{ $labels.pod }} 的CPU使用率超过80%"
+
+        # 高内存使用率告警
+        - alert: HighMemoryUsage
+          expr: sum(container_memory_working_set_bytes{namespace="meow-accounting"}) by (pod) / sum(container_spec_memory_limit_bytes{namespace="meow-accounting"}) by (pod) > 0.9
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "内存使用率过高"
+            description: "{{ $labels.pod }} 的内存使用率超过90%"
+
+        # 应用不可用告警
+        - alert: ApplicationDown
+          expr: up{job="meow-accounting-service"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "应用不可用"
+            description: "喵呜记账应用已经宕机超过5分钟"
+
+        # API响应时间告警
+        - alert: SlowAPIResponse
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{namespace="meow-accounting"}[5m])) > 2
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "API响应时间过长"
+            description: "95%的请求响应时间超过2秒"
+
+        # 错误率告警
+        - alert: HighErrorRate
+          expr: rate(http_requests_total{namespace="meow-accounting",status=~"5.."}[5m]) / rate(http_requests_total{namespace="meow-accounting"}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "错误率过高"
+            description: "应用错误率超过5%"
+
+---
+# NetworkPolicy - 网络策略
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: meow-accounting-network-policy
+  namespace: meow-accounting
+spec:
+  podSelector:
+    matchLabels:
+      app: meow-accounting
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # 允许来自Ingress控制器的流量
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+        - protocol: TCP
+          port: 3001
+    # 允许同namespace内的Pod互相访问
+    - from:
+        - podSelector: {}
+  egress:
+    # 允许访问Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # 允许DNS查询
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # 允许访问外部服务
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+---
+# PodDisruptionBudget - Pod中断预算
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: meow-accounting-pdb
+  namespace: meow-accounting
+spec:
+  minAvailable: 2  # 至少保持2个Pod可用
+  selector:
+    matchLabels:
+      app: meow-accounting
+
+---
+# ResourceQuota - 资源配额
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: meow-accounting-quota
+  namespace: meow-accounting
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    persistentvolumeclaims: "5"
+    services: "10"
+
+---
+# LimitRange - 资源限制范围
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: meow-accounting-limits
+  namespace: meow-accounting
+spec:
+  limits:
+    - max:
+        cpu: "2"
+        memory: 2Gi
+      min:
+        cpu: "100m"
+        memory: 128Mi
+      default:
+        cpu: "500m"
+        memory: 512Mi
+      defaultRequest:
+        cpu: "250m"
+        memory: 256Mi
+      type: Container

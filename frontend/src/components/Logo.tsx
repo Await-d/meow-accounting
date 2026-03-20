@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 interface LogoProps {
@@ -21,6 +22,12 @@ export default function Logo({
         large: 'w-16 h-16'
     };
 
+    const iconSizes = {
+        small: 32,
+        default: 40,
+        large: 64
+    };
+
     const textSizes = {
         small: 'text-xl',
         default: 'text-2xl',
@@ -29,9 +36,11 @@ export default function Logo({
 
     const logoContent = (
         <div className={cn('flex items-center gap-3', className)}>
-            <img
+            <Image
                 src="/icons/icon-192x192.png"
                 alt="喵呜记账"
+                width={iconSizes[variant]}
+                height={iconSizes[variant]}
                 className={cn('rounded-lg shadow-sm', sizes[variant])}
             />
             {showText && (

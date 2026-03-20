@@ -1,0 +1,1 @@
+Project: meow-accounting (喵呜记账) full-stack family finance app with route management/performance monitoring. Frontend + backend separated, TypeScript. Single-container deployment with Nginx reverse proxy (80) to frontend (3000) and backend API (3001). Core features: transactions, categories, family accounts, analytics, route monitoring/optimization/prediction, backups, settings.

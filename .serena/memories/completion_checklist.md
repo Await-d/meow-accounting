@@ -1,0 +1,1 @@
+When done: run LSP diagnostics on changed files; run backend tests/build if applicable; run frontend lint/build if applicable; note any pre-existing issues. Ensure no mock/temporary/simplified logic (per CLAUDE.md).

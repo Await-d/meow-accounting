@@ -20,15 +20,6 @@ import { ExportReportModal } from './components/ExportReportModal';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import PageLayout from '@/components/PageLayout';
 
-// 模拟路由性能数据
-const mockPerformanceData = [
-    { name: '/dashboard', loadTime: 320, errorRate: 0.5, cacheHitRate: 89 },
-    { name: '/transactions', loadTime: 450, errorRate: 1.2, cacheHitRate: 76 },
-    { name: '/statistics', loadTime: 580, errorRate: 0.8, cacheHitRate: 62 },
-    { name: '/settings', loadTime: 280, errorRate: 0.2, cacheHitRate: 94 },
-    { name: '/profile', loadTime: 390, errorRate: 0.7, cacheHitRate: 82 },
-];
-
 export default function RoutesPage() {
     const { user } = useAuth();
     const userId = user?.id;
@@ -81,7 +72,7 @@ export default function RoutesPage() {
             accessorKey: 'name',
             cell: (info: any) => (
                 <div className="flex items-center">
-                    <span className="text-sm">{info.getValue()}</span>
+                    <span className="text-sm">{info.row.original.name}</span>
                 </div>
             )
         },
@@ -89,7 +80,7 @@ export default function RoutesPage() {
             header: '加载时间 (ms)',
             accessorKey: 'loadTime',
             cell: (info: any) => {
-                const value = info.getValue();
+                const value = info.row.original.loadTime;
                 let color = 'success';
                 if (value > 500) color = 'danger';
                 else if (value > 300) color = 'warning';
@@ -105,7 +96,7 @@ export default function RoutesPage() {
             header: '错误率 (%)',
             accessorKey: 'errorRate',
             cell: (info: any) => {
-                const value = info.getValue();
+                const value = info.row.original.errorRate;
                 let color = 'success';
                 if (value > 1.0) color = 'danger';
                 else if (value > 0.5) color = 'warning';
@@ -121,7 +112,7 @@ export default function RoutesPage() {
             header: '缓存命中率 (%)',
             accessorKey: 'cacheHitRate',
             cell: (info: any) => {
-                const value = info.getValue();
+                const value = info.row.original.cacheHitRate;
                 let color = 'success';
                 if (value < 60) color = 'danger';
                 else if (value < 80) color = 'warning';
@@ -136,7 +127,7 @@ export default function RoutesPage() {
         {
             header: '操作',
             cell: (info: any) => {
-                const routeId = info.row.original.id || 1; // 假设有id字段
+                const routeId = info.row.original.id as number | undefined;
                 return (
                     <div className="flex gap-2">
                         <Button
@@ -144,9 +135,12 @@ export default function RoutesPage() {
                             variant="flat"
                             color="primary"
                             startContent={<TrendingUp size={14} />}
+                            isDisabled={!routeId}
                             onPress={() => {
-                                setSelectedRouteId(routeId);
-                                onOptimizationOpen();
+                                if (routeId) {
+                                    setSelectedRouteId(routeId);
+                                    onOptimizationOpen();
+                                }
                             }}
                         >
                             优化建议
@@ -155,8 +149,9 @@ export default function RoutesPage() {
                             size="sm"
                             variant="flat"
                             startContent={<ExternalLink size={14} />}
+                            isDisabled={!routeId}
                             as="a"
-                            href={`/settings/routes?highlight=${routeId}`}
+                            href={routeId ? `/settings/routes?highlight=${routeId}` : '#'}
                             target="_blank"
                         >
                             管理
@@ -226,13 +221,16 @@ export default function RoutesPage() {
                             {isPredictionsLoading ? (
                                 <div className="col-span-3 text-center py-4">加载中...</div>
                             ) : (
-                                (predictions?.topRoutes || Array(3).fill({})).map((prediction: any, index: number) => (
-                                    <RoutePredictionCard
-                                        key={index}
-                                        prediction={prediction}
-                                        isLoading={isPredictionsLoading}
-                                    />
-                                ))
+                                (predictions?.topRoutes || Array(3).fill({})).map((prediction: any) => {
+                                    const predictionKey = prediction?.path || prediction?.name || `prediction-${prediction?.confidence || 'unknown'}`;
+                                    return (
+                                        <RoutePredictionCard
+                                            key={predictionKey}
+                                            prediction={prediction}
+                                            isLoading={isPredictionsLoading}
+                                        />
+                                    );
+                                })
                             )}
                         </div>
                     </CardBody>
@@ -251,7 +249,7 @@ export default function RoutesPage() {
                             <Tab key="table" title="表格视图">
                                 <DataTable
                                     columns={performanceColumns}
-                                    data={visualizationData?.data || mockPerformanceData}
+                                    data={visualizationData?.data || []}
                                     isLoading={isVisualizationLoading}
                                 />
                             </Tab>
@@ -259,7 +257,7 @@ export default function RoutesPage() {
                                 <div className="w-full h-80">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart
-                                            data={visualizationData?.data || mockPerformanceData}
+                                            data={visualizationData?.data || []}
                                             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                                         >
                                             <CartesianGrid strokeDasharray="3 3" />

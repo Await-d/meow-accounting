@@ -114,19 +114,24 @@ function calculateDateRange(range: string) {
     const endDate = dayjs().format('YYYY-MM-DD');
 
     switch (range) {
-        case 'week':
+        case 'week': {
             startDate = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
             break;
-        case 'quarter':
+        }
+        case 'quarter': {
             const quarterStart = Math.floor(dayjs().month() / 3) * 3;
             startDate = dayjs().month(quarterStart).startOf('month').format('YYYY-MM-DD');
             break;
-        case 'year':
+        }
+        case 'year': {
             startDate = dayjs().startOf('year').format('YYYY-MM-DD');
             break;
+        }
         case 'month':
-        default:
+        default: {
             startDate = dayjs().startOf('month').format('YYYY-MM-DD');
+            break;
+        }
     }
 
     return { startDate, endDate };

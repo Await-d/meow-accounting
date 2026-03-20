@@ -24,13 +24,11 @@ export function UnauthorizedHandler() {
         // 设置全局 API 未授权处理函数，使用 useAuth 的 handleUnauthorized 方法
         if (handleUnauthorized) {
             setGlobalUnauthorizedHandler(handleUnauthorized);
-            console.log('已设置全局未授权处理函数');
         }
 
         // 设置全局 Toast 处理函数
         if (showToast) {
             setGlobalToastHandler(showToast);
-            console.log('已设置全局Toast处理函数');
         }
     }, [handleUnauthorized, showToast]);
 

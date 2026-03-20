@@ -223,8 +223,6 @@ export default function InvitationList({ invitations, type, onAccept, onReject, 
 
     // 渲染单元格
     const renderCell = (invitation: Invitation, columnKey: string) => {
-        console.log(`渲染单元格: ${columnKey}`, invitation); // 添加日志，查看渲染过程
-
         switch (columnKey) {
             case 'recipient':
                 return (
@@ -264,8 +262,7 @@ export default function InvitationList({ invitations, type, onAccept, onReject, 
                 );
             case 'status':
                 return getStatusChip(invitation);
-            case 'usage':
-                console.log('渲染使用次数:', invitation.max_uses, invitation.current_uses);
+            case 'usage': {
                 // 确保显示使用次数，即使max_uses为undefined
                 const maxUses = invitation.max_uses || 1;
                 const currentUses = invitation.current_uses || 0;
@@ -285,6 +282,7 @@ export default function InvitationList({ invitations, type, onAccept, onReject, 
                         )}
                     </div>
                 );
+            }
             case 'created_at':
                 return (
                     <div className="text-default-500 text-sm">
@@ -379,7 +377,6 @@ export default function InvitationList({ invitations, type, onAccept, onReject, 
                         </div>
                     );
                 }
-                return null;
             default:
                 return null;
         }
@@ -421,11 +418,9 @@ export default function InvitationList({ invitations, type, onAccept, onReject, 
                 </TableHeader>
                 <TableBody items={invitations} emptyContent={"暂无邀请"}>
                     {(invitation) => {
-                        console.log('渲染行:', invitation); // 添加日志，查看行渲染
                         return (
                             <TableRow key={invitation.id} className="h-14">
                                 {(columnKey) => {
-                                    console.log('渲染列:', columnKey.toString()); // 添加日志，查看列渲染
                                     return (
                                         <TableCell>{renderCell(invitation, columnKey.toString())}</TableCell>
                                     );

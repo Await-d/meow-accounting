@@ -1,6 +1,7 @@
 import React from 'react';
 import { Spinner } from '@nextui-org/react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { colors } from '@/styles/design-system';
 
 type CategoryData = {
     id: number;
@@ -21,7 +22,8 @@ type CategoryPieChartProps = {
     isLoading: boolean;
 };
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#83a6ed', '#8dd1e1', '#82ca9d', '#a4de6c'];
+// 使用统一的颜色方案
+const COLORS = colors.series;
 
 export default function CategoryPieChart({ data, isLoading }: CategoryPieChartProps) {
     if (isLoading) {
@@ -65,7 +67,7 @@ export default function CategoryPieChart({ data, isLoading }: CategoryPieChartPr
                     cy="50%"
                     labelLine={false}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill={colors.primary.DEFAULT}
                     dataKey="amount"
                     nameKey="name"
                     label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}

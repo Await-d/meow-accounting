@@ -16,6 +16,7 @@ import accountRoutes from './account.routes';
 import routeRoutes from './route.routes';
 import statisticsRoutes from './statistics.routes';
 import cacheRoutes from './cache';
+import reportRoutes from './report.routes';
 import * as routeController from '../controllers/route.controller';
 import * as routeStatsController from '../controllers/route-stats.controller';
 import * as routeParamsController from '../controllers/route-params.controller';
@@ -45,6 +46,7 @@ router.use('/accounts', accountRoutes);
 router.use('/routes', routeRoutes);
 router.use('/statistics', statisticsRoutes);
 router.use('/cache', cacheRoutes);
+router.use('/reports', reportRoutes);
 
 // 路由性能监控
 router.post('/routes/stats/access', authMiddleware, routeStatsController.recordAccess);

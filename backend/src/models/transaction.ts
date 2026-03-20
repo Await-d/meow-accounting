@@ -43,8 +43,9 @@ export async function createTransaction(data: {
     date: string;
     user_id: number;
     family_id?: number;
+    account_id?: number;
 }) {
-    const { amount, type, category_id, description = '', date, user_id, family_id } = data;
+    const { amount, type, category_id, description = '', date, user_id, family_id, account_id } = data;
 
     // 构建插入SQL
     let sql = '';
@@ -52,16 +53,16 @@ export async function createTransaction(data: {
 
     if (family_id) {
         sql = `
-            INSERT INTO transactions (amount, type, category_id, description, transaction_date, created_by, family_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO transactions (amount, type, category_id, account_id, description, transaction_date, created_by, family_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        values = [amount, type, category_id, description, date, user_id, family_id];
+        values = [amount, type, category_id, account_id || null, description, date, user_id, family_id];
     } else {
         sql = `
-            INSERT INTO transactions (amount, type, category_id, description, transaction_date, created_by)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO transactions (amount, type, category_id, account_id, description, transaction_date, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        values = [amount, type, category_id, description, date, user_id];
+        values = [amount, type, category_id, account_id || null, description, date, user_id];
     }
 
     try {
@@ -188,6 +189,7 @@ export async function updateTransaction(id: number, data: {
     category_id?: number;
     description?: string;
     date?: string;
+    account_id?: number;
 }) {
     const updates = [];
     const values = [];
@@ -211,6 +213,10 @@ export async function updateTransaction(id: number, data: {
     if (data.date !== undefined) {
         updates.push('transaction_date = ?');
         values.push(data.date);
+    }
+    if (data.account_id !== undefined) {
+        updates.push('account_id = ?');
+        values.push(data.account_id);
     }
 
     if (updates.length === 0) return null;

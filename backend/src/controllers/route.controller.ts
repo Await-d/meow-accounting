@@ -6,10 +6,26 @@
  * @Description: 路由控制器
  */
 import { Request, Response } from 'express';
-import { routeModel, Route } from '../models/route';
-import * as familyModel from '../models/family';
-import { RoutePermission } from '../types';
+import { routeModel } from '../models/route';
 import { APIError } from '../middleware/error';
+import { routePredictionModel } from '../models/route-prediction';
+import { routeOptimizationModel } from '../models/route-optimization';
+import { reportExportService } from '../services/report-export.service';
+import { db } from '../config/database';
+import ExcelJS from 'exceljs';
+import PDFDocument from 'pdfkit';
+
+function parseRouteIdsFromQuery(routeIdsQuery: unknown): number[] {
+    const candidates = Array.isArray(routeIdsQuery)
+        ? routeIdsQuery
+        : routeIdsQuery === undefined
+            ? []
+            : [routeIdsQuery];
+
+    return candidates
+        .map((routeId) => (typeof routeId === 'string' ? Number.parseInt(routeId, 10) : Number.NaN))
+        .filter((routeId) => Number.isFinite(routeId));
+}
 
 // 创建路由
 export async function createRoute(req: Request, res: Response) {
@@ -81,7 +97,7 @@ export async function getRouteById(req: Request, res: Response) {
 }
 
 // 获取所有路由（管理员专用）
-export const getAllRoutes = async (req: Request, res: Response) => {
+export const getAllRoutes = async (_req: Request, res: Response) => {
     try {
         const routes = await routeModel.findMany({});
 
@@ -275,10 +291,70 @@ export async function getRouteStats(req: Request, res: Response) {
             throw new APIError(403, '无权查看此路由');
         }
 
-        // 获取性能统计数据
-        const stats = await routeModel.getRouteStats(routeId);
+        const statsSql = `
+            SELECT
+                access_count,
+                error_count,
+                average_load_time,
+                cache_hits,
+                cache_misses
+            FROM route_stats
+            WHERE route_id = ?
+        `;
 
-        res.json(stats);
+        const stats = await db.findOne<{
+            access_count: number;
+            error_count: number;
+            average_load_time: number;
+            cache_hits: number;
+            cache_misses: number;
+        }>(statsSql, [routeId]);
+
+        const historyRows = await db.findMany<{
+            day: string;
+            avg_load_time: number;
+        }>(
+            `
+                SELECT
+                    strftime('%Y-%m-%d', accessed_at) as day,
+                    AVG(load_time) as avg_load_time
+                FROM route_access_history
+                WHERE route_id = ? AND user_id = ?
+                GROUP BY day
+                ORDER BY day DESC
+                LIMIT 30
+            `,
+            [routeId, userId]
+        );
+
+        const errorRows = await db.findMany<{ day: string; error_count: number }>(
+            `
+                SELECT
+                    strftime('%Y-%m-%d', created_at) as day,
+                    COUNT(*) as error_count
+                FROM route_errors
+                WHERE route_id = ?
+                GROUP BY day
+            `,
+            [routeId]
+        );
+
+        const errorMap = new Map(errorRows.map(row => [row.day, row.error_count]));
+
+        const accessHistory = historyRows.map(row => ({
+            timestamp: row.day,
+            loadTime: Number(row.avg_load_time || 0),
+            errorCount: errorMap.get(row.day) || 0
+        })).reverse();
+
+        res.json({
+            totalAccesses: stats?.access_count || 0,
+            totalErrors: stats?.error_count || 0,
+            averageLoadTime: stats?.average_load_time || 0,
+            cacheHits: stats?.cache_hits || 0,
+            cacheMisses: stats?.cache_misses || 0,
+            accessHistory
+        });
     } catch (error) {
         if (error instanceof APIError) {
             throw error;
@@ -296,32 +372,12 @@ export async function getRoutePredictions(req: Request, res: Response) {
             throw new APIError(401, '未登录');
         }
         
-        // 获取用户的路由访问历史并分析预测
-        // 这里使用模拟数据，实际项目中应该从数据库中查询
-        const topRoutes = [
-            {
-                path: '/dashboard',
-                name: '仪表盘',
-                confidence: 92,
-                lastAccess: new Date().toISOString(),
-                accessCount: 158
-            },
-            {
-                path: '/transactions',
-                name: '交易记录',
-                confidence: 78,
-                lastAccess: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-                accessCount: 85
-            },
-            {
-                path: '/settings/profile',
-                name: '个人资料',
-                confidence: 54,
-                lastAccess: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-                accessCount: 42
-            }
-        ];
-        
+        let topRoutes = await routePredictionModel.predictByTimePattern(userId, 5);
+
+        if (!topRoutes || topRoutes.length === 0) {
+            topRoutes = await routePredictionModel.getMostFrequentRoutes(userId, 5);
+        }
+
         res.json({ topRoutes });
     } catch (error) {
         if (error instanceof APIError) {
@@ -353,42 +409,7 @@ export async function getRouteOptimizationSuggestions(req: Request, res: Respons
             throw new APIError(403, '无权查看此路由');
         }
         
-        // 获取优化建议
-        // 这里使用模拟数据，实际项目中应该基于性能统计生成
-        const suggestions = [
-            {
-                id: '1',
-                title: '启用组件缓存',
-                description: '通过启用React组件缓存，可以减少不必要的重新渲染，提升页面加载速度。',
-                priority: 'high',
-                category: 'performance',
-                impact: '预计可减少30%的加载时间'
-            },
-            {
-                id: '2',
-                title: '优化数据获取',
-                description: '当前路由在进入时发起了多个并行请求，可以合并API调用或使用GraphQL减少请求数量。',
-                priority: 'medium',
-                category: 'performance',
-                impact: '预计可减少40%的网络请求时间'
-            },
-            {
-                id: '3',
-                title: '图片懒加载',
-                description: '实现图片懒加载，仅在需要时加载图片资源。',
-                priority: 'low',
-                category: 'performance',
-                impact: '预计可减少20%的初始加载时间'
-            },
-            {
-                id: '4',
-                title: '提高缓存命中率',
-                description: '当前路由的缓存命中率较低，可以通过调整缓存策略提高命中率。',
-                priority: 'medium',
-                category: 'caching',
-                impact: '预计可提高缓存命中率25%'
-            }
-        ];
+        const suggestions = await routeOptimizationModel.generateSuggestions(routeId, userId);
         
         res.json(suggestions);
     } catch (error) {
@@ -405,60 +426,37 @@ export async function exportRouteAnalysisReport(req: Request, res: Response) {
         const format = req.query.format as string || 'pdf';
         const startDate = req.query.startDate as string;
         const endDate = req.query.endDate as string;
-        const routeIds = req.query['routeIds[]'] ? 
-            (Array.isArray(req.query['routeIds[]']) ? 
-                req.query['routeIds[]'].map(id => parseInt(id as string)) : 
-                [parseInt(req.query['routeIds[]'] as string)]) : 
-            [];
+        const routeIds = parseRouteIdsFromQuery(req.query['routeIds[]']);
         
         const userId = req.user?.id;
         if (!userId) {
             throw new APIError(401, '未登录');
         }
-        
-        // 生成报告数据
-        // 这里使用模拟数据，实际项目中应根据参数从数据库查询生成报告
-        const reportData = {
-            title: '路由分析报告',
-            generatedAt: new Date().toISOString(),
-            period: {
-                startDate: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-                endDate: endDate || new Date().toISOString()
-            },
-            summary: {
-                totalRoutes: 15,
-                totalAccesses: 1243,
-                averageLoadTime: 320,
-                errorRate: 0.8
-            },
-            topRoutes: [
-                { path: '/dashboard', accessCount: 328, averageLoadTime: 280 },
-                { path: '/transactions', accessCount: 215, averageLoadTime: 350 },
-                { path: '/statistics', accessCount: 189, averageLoadTime: 420 }
-            ]
-        };
-        
+
+        const reportData = await buildRoutePerformanceReport(userId, {
+            startDate,
+            endDate,
+            routeIds
+        });
+
         // 根据格式返回不同类型的报告
         switch (format) {
             case 'pdf':
-                // 实际项目中应该生成PDF文件
                 res.setHeader('Content-Type', 'application/pdf');
                 res.setHeader('Content-Disposition', `attachment; filename="route-report-${new Date().toISOString().split('T')[0]}.pdf"`);
-                res.send(Buffer.from(JSON.stringify(reportData)));
+                await streamRouteReportPdf(res, reportData);
                 break;
                 
             case 'excel':
-                // 实际项目中应该生成Excel文件
                 res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
                 res.setHeader('Content-Disposition', `attachment; filename="route-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
-                res.send(Buffer.from(JSON.stringify(reportData)));
+                await streamRouteReportExcel(res, reportData);
                 break;
                 
             case 'csv':
-                // 实际项目中应该生成CSV文件
                 res.setHeader('Content-Type', 'text/csv');
                 res.setHeader('Content-Disposition', `attachment; filename="route-report-${new Date().toISOString().split('T')[0]}.csv"`);
-                res.send(Buffer.from(JSON.stringify(reportData)));
+                res.send(reportExportService.toCSV(reportData));
                 break;
                 
             default:
@@ -478,66 +476,29 @@ export async function getRouteVisualizationData(req: Request, res: Response) {
         const type = req.query.type as string || 'performance';
         const startDate = req.query.startDate as string;
         const endDate = req.query.endDate as string;
-        const routeIds = req.query['routeIds[]'] ? 
-            (Array.isArray(req.query['routeIds[]']) ? 
-                req.query['routeIds[]'].map(id => parseInt(id as string)) : 
-                [parseInt(req.query['routeIds[]'] as string)]) : 
-            [];
+        const routeIds = parseRouteIdsFromQuery(req.query['routeIds[]']);
         
         const userId = req.user?.id;
         if (!userId) {
             throw new APIError(401, '未登录');
         }
-        
-        // 根据类型返回不同的可视化数据
-        let data;
+
+        let data: Array<Record<string, any>> = [];
         switch (type) {
             case 'performance':
-                // 性能数据
-                data = [
-                    { id: 1, name: '/dashboard', loadTime: 320, errorRate: 0.5, cacheHitRate: 89 },
-                    { id: 2, name: '/transactions', loadTime: 450, errorRate: 1.2, cacheHitRate: 76 },
-                    { id: 3, name: '/statistics', loadTime: 580, errorRate: 0.8, cacheHitRate: 62 },
-                    { id: 4, name: '/settings', loadTime: 280, errorRate: 0.2, cacheHitRate: 94 },
-                    { id: 5, name: '/profile', loadTime: 390, errorRate: 0.7, cacheHitRate: 82 }
-                ];
+                data = await getPerformanceVisualizationData(userId, routeIds);
                 break;
                 
             case 'distribution':
-                // 访问分布
-                data = [
-                    { time: '00:00', count: 15 },
-                    { time: '02:00', count: 8 },
-                    { time: '04:00', count: 5 },
-                    { time: '06:00', count: 12 },
-                    { time: '08:00', count: 56 },
-                    { time: '10:00', count: 89 },
-                    { time: '12:00', count: 72 },
-                    { time: '14:00', count: 85 },
-                    { time: '16:00', count: 91 },
-                    { time: '18:00', count: 63 },
-                    { time: '20:00', count: 48 },
-                    { time: '22:00', count: 25 }
-                ];
+                data = await getDistributionVisualizationData(userId, { startDate, endDate, routeIds });
                 break;
                 
             case 'errors':
-                // 错误数据
-                data = [
-                    { id: 1, path: '/dashboard', errorCount: 12, errorRate: 0.5, lastError: new Date().toISOString() },
-                    { id: 2, path: '/transactions', errorCount: 28, errorRate: 1.2, lastError: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-                    { id: 3, path: '/statistics', errorCount: 18, errorRate: 0.8, lastError: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() }
-                ];
+                data = await getErrorVisualizationData(userId, { startDate, endDate, routeIds });
                 break;
                 
             case 'cache':
-                // 缓存数据
-                data = [
-                    { id: 1, path: '/dashboard', cacheHits: 458, cacheMisses: 56, hitRate: 89 },
-                    { id: 2, path: '/transactions', cacheHits: 325, cacheMisses: 102, hitRate: 76 },
-                    { id: 3, path: '/statistics', cacheHits: 215, cacheMisses: 132, hitRate: 62 },
-                    { id: 4, path: '/settings', cacheHits: 120, cacheMisses: 8, hitRate: 94 }
-                ];
+                data = await getCacheVisualizationData(userId, routeIds);
                 break;
                 
             default:
@@ -551,4 +512,420 @@ export async function getRouteVisualizationData(req: Request, res: Response) {
         }
         throw new APIError(500, '获取路由可视化数据失败');
     }
+}
+
+async function buildRoutePerformanceReport(
+    userId: number,
+    options: {
+        startDate?: string;
+        endDate?: string;
+        routeIds?: number[];
+    }
+) {
+    const { startDate, endDate, routeIds } = options;
+    const routeIdFilter = routeIds && routeIds.length > 0;
+    const timeParams: Array<string> = [];
+    let timeFilterSql = '';
+    if (startDate) {
+        timeFilterSql += ' AND datetime(h.accessed_at) >= datetime(?)';
+        timeParams.push(startDate);
+    }
+    if (endDate) {
+        timeFilterSql += ' AND datetime(h.accessed_at) <= datetime(?)';
+        timeParams.push(endDate);
+    }
+
+    let routeFilterSql = '';
+    const routeParams: Array<number> = [];
+    if (routeIdFilter) {
+        routeFilterSql = ` AND r.id IN (${routeIds.map(() => '?').join(', ')})`;
+        routeParams.push(...routeIds);
+    }
+
+    const statsSql = `
+        SELECT
+            r.id,
+            r.path,
+            r.name,
+            COUNT(h.id) as access_count,
+            AVG(h.load_time) as average_load_time,
+            MAX(h.accessed_at) as last_access,
+            COALESCE(rs.cache_hits, 0) as cache_hits,
+            COALESCE(rs.cache_misses, 0) as cache_misses
+        FROM routes r
+        LEFT JOIN route_access_history h
+            ON r.id = h.route_id
+            AND h.user_id = ?
+            ${timeFilterSql}
+        LEFT JOIN route_stats rs ON r.id = rs.route_id
+        WHERE r.user_id = ?
+        ${routeFilterSql}
+        GROUP BY r.id
+        ORDER BY access_count DESC
+    `;
+
+    const statsParams: Array<string | number> = [userId, ...timeParams, userId, ...routeParams];
+    const routeStats: Array<{
+        id: number;
+        path: string;
+        name: string;
+        access_count: number;
+        average_load_time: number;
+        last_access: string | null;
+        cache_hits: number;
+        cache_misses: number;
+    }> = await db.findMany(statsSql, statsParams);
+
+    const errorTimeParams: Array<string> = [];
+    let errorTimeFilter = '';
+    if (startDate) {
+        errorTimeFilter += ' AND datetime(e.created_at) >= datetime(?)';
+        errorTimeParams.push(startDate);
+    }
+    if (endDate) {
+        errorTimeFilter += ' AND datetime(e.created_at) <= datetime(?)';
+        errorTimeParams.push(endDate);
+    }
+
+    let errorRouteFilter = '';
+    const errorRouteParams: Array<number> = [];
+    if (routeIdFilter) {
+        errorRouteFilter = ` AND r.id IN (${routeIds.map(() => '?').join(', ')})`;
+        errorRouteParams.push(...routeIds);
+    }
+
+    const errorSql = `
+        SELECT r.id as route_id, COUNT(e.id) as error_count, MAX(e.created_at) as last_error
+        FROM routes r
+        LEFT JOIN route_errors e ON r.id = e.route_id ${errorTimeFilter}
+        WHERE r.user_id = ?
+        ${errorRouteFilter}
+        GROUP BY r.id
+    `;
+
+    const errorParams: Array<string | number> = [...errorTimeParams, userId, ...errorRouteParams];
+    const errorRows: Array<{ route_id: number; error_count: number; last_error: string | null }> = await db.findMany(
+        errorSql,
+        errorParams
+    );
+
+    const errorMap = new Map<number, { error_count: number; last_error: string | null }>();
+    errorRows.forEach(row => {
+        errorMap.set(row.route_id, row);
+    });
+
+    let totalAccesses = 0;
+    let totalErrors = 0;
+    let totalLoadTime = 0;
+
+    const details = routeStats.map(stat => {
+        const errorInfo = errorMap.get(stat.id);
+        const errorCount = errorInfo?.error_count || 0;
+        const accessCount = stat.access_count || 0;
+        const loadTime = stat.average_load_time || 0;
+        const cacheHits = stat.cache_hits || 0;
+        const cacheMisses = stat.cache_misses || 0;
+        const hitRate = cacheHits + cacheMisses > 0
+            ? (cacheHits / (cacheHits + cacheMisses)) * 100
+            : 0;
+
+        totalAccesses += accessCount;
+        totalErrors += errorCount;
+        totalLoadTime += loadTime * accessCount;
+
+        return {
+            路由: stat.path,
+            名称: stat.name,
+            访问次数: accessCount,
+            错误次数: errorCount,
+            平均响应时间ms: Math.round(loadTime || 0),
+            缓存命中率: `${hitRate.toFixed(1)}%`,
+            最后访问: stat.last_access || ''
+        };
+    });
+
+    const predictions = await routePredictionModel.predictByTimePattern(userId, 10);
+    const optimizationSummary = await routeOptimizationModel.getSuggestionsSummary(userId);
+
+    return {
+        metadata: {
+            reportType: '路由性能分析报告',
+            generatedAt: new Date().toISOString(),
+            userId,
+            dateRange: startDate || endDate ? {
+                start: startDate || '',
+                end: endDate || ''
+            } : undefined
+        },
+        summary: {
+            totalRoutes: routeStats.length,
+            totalAccesses,
+            totalErrors,
+            averageLoadTime: totalAccesses > 0 ? Math.round(totalLoadTime / totalAccesses) : 0,
+            optimizationSuggestions: optimizationSummary.unimplemented,
+            topPredictions: predictions.slice(0, 3).map(p => ({
+                path: p.path,
+                confidence: p.confidence
+            }))
+        },
+        details
+    };
+}
+
+async function getPerformanceVisualizationData(userId: number, routeIds?: number[]) {
+    const routeFilter = routeIds && routeIds.length > 0;
+    const params: Array<number> = [userId];
+    let routeFilterSql = '';
+    if (routeFilter) {
+        routeFilterSql = ` AND r.id IN (${routeIds.map(() => '?').join(', ')})`;
+        params.push(...routeIds);
+    }
+
+    const sql = `
+        SELECT
+            r.id,
+            r.path as name,
+            COALESCE(rs.average_load_time, 0) as load_time,
+            COALESCE(rs.error_count, 0) as error_count,
+            COALESCE(rs.access_count, 0) as access_count,
+            COALESCE(rs.cache_hits, 0) as cache_hits,
+            COALESCE(rs.cache_misses, 0) as cache_misses
+        FROM routes r
+        LEFT JOIN route_stats rs ON r.id = rs.route_id
+        WHERE r.user_id = ?
+        ${routeFilterSql}
+        ORDER BY rs.access_count DESC
+    `;
+
+    const rows: Array<{
+        id: number;
+        name: string;
+        load_time: number;
+        error_count: number;
+        access_count: number;
+        cache_hits: number;
+        cache_misses: number;
+    }> = await db.findMany(sql, params);
+
+    return rows.map(row => {
+        const errorRate = row.access_count > 0 ? (row.error_count / row.access_count) * 100 : 0;
+        const cacheTotal = row.cache_hits + row.cache_misses;
+        const cacheHitRate = cacheTotal > 0 ? (row.cache_hits / cacheTotal) * 100 : 0;
+        return {
+            id: row.id,
+            name: row.name,
+            loadTime: Math.round(row.load_time || 0),
+            errorRate: Number(errorRate.toFixed(2)),
+            cacheHitRate: Number(cacheHitRate.toFixed(1))
+        };
+    });
+}
+
+async function getDistributionVisualizationData(
+    userId: number,
+    options: { startDate?: string; endDate?: string; routeIds?: number[] }
+) {
+    const { startDate, endDate, routeIds } = options;
+    const params: Array<string | number> = [userId];
+    let timeFilter = '';
+    if (startDate) {
+        timeFilter += ' AND datetime(h.accessed_at) >= datetime(?)';
+        params.push(startDate);
+    }
+    if (endDate) {
+        timeFilter += ' AND datetime(h.accessed_at) <= datetime(?)';
+        params.push(endDate);
+    }
+
+    let routeFilter = '';
+    if (routeIds && routeIds.length > 0) {
+        routeFilter = ` AND h.route_id IN (${routeIds.map(() => '?').join(', ')})`;
+        params.push(...routeIds);
+    }
+
+    const sql = `
+        SELECT
+            strftime('%H', h.accessed_at) as hour,
+            COUNT(*) as count
+        FROM route_access_history h
+        JOIN routes r ON r.id = h.route_id
+        WHERE h.user_id = ?
+        ${timeFilter}
+        ${routeFilter}
+        GROUP BY hour
+    `;
+
+    const rows: Array<{ hour: string; count: number }> = await db.findMany(sql, params);
+    const countMap = new Map(rows.map(row => [row.hour, row.count]));
+
+    return Array.from({ length: 24 }, (_, idx) => {
+        const hour = idx < 10 ? `0${idx}` : `${idx}`;
+        return {
+            time: `${hour}:00`,
+            count: countMap.get(hour) || 0
+        };
+    });
+}
+
+async function getErrorVisualizationData(
+    userId: number,
+    options: { startDate?: string; endDate?: string; routeIds?: number[] }
+) {
+    const { startDate, endDate, routeIds } = options;
+    const timeParams: Array<string> = [];
+    let timeFilter = '';
+    if (startDate) {
+        timeFilter += ' AND datetime(e.created_at) >= datetime(?)';
+        timeParams.push(startDate);
+    }
+    if (endDate) {
+        timeFilter += ' AND datetime(e.created_at) <= datetime(?)';
+        timeParams.push(endDate);
+    }
+
+    let routeFilter = '';
+    const routeParams: Array<number> = [];
+    if (routeIds && routeIds.length > 0) {
+        routeFilter = ` AND r.id IN (${routeIds.map(() => '?').join(', ')})`;
+        routeParams.push(...routeIds);
+    }
+
+    const sql = `
+        SELECT
+            r.id,
+            r.path,
+            COUNT(e.id) as error_count,
+            MAX(e.created_at) as last_error,
+            COALESCE(rs.access_count, 0) as access_count
+        FROM routes r
+        LEFT JOIN route_errors e ON r.id = e.route_id ${timeFilter}
+        LEFT JOIN route_stats rs ON r.id = rs.route_id
+        WHERE r.user_id = ?
+        ${routeFilter}
+        GROUP BY r.id
+        ORDER BY error_count DESC
+    `;
+
+    const params: Array<string | number> = [...timeParams, userId, ...routeParams];
+    const rows: Array<{ id: number; path: string; error_count: number; last_error: string | null; access_count: number }> = await db.findMany(
+        sql,
+        params
+    );
+
+    return rows.map(row => ({
+        id: row.id,
+        path: row.path,
+        errorCount: row.error_count,
+        errorRate: row.access_count > 0 ? Number(((row.error_count / row.access_count) * 100).toFixed(2)) : 0,
+        lastError: row.last_error
+    }));
+}
+
+async function getCacheVisualizationData(userId: number, routeIds?: number[]) {
+    const params: Array<number> = [userId];
+    let routeFilter = '';
+    if (routeIds && routeIds.length > 0) {
+        routeFilter = ` AND r.id IN (${routeIds.map(() => '?').join(', ')})`;
+        params.push(...routeIds);
+    }
+
+    const sql = `
+        SELECT
+            r.id,
+            r.path,
+            COALESCE(rs.cache_hits, 0) as cache_hits,
+            COALESCE(rs.cache_misses, 0) as cache_misses
+        FROM routes r
+        LEFT JOIN route_stats rs ON r.id = rs.route_id
+        WHERE r.user_id = ?
+        ${routeFilter}
+        ORDER BY r.path ASC
+    `;
+
+    const rows: Array<{ id: number; path: string; cache_hits: number; cache_misses: number }> = await db.findMany(sql, params);
+
+    return rows.map(row => {
+        const total = row.cache_hits + row.cache_misses;
+        const hitRate = total > 0 ? (row.cache_hits / total) * 100 : 0;
+        return {
+            id: row.id,
+            path: row.path,
+            cacheHits: row.cache_hits,
+            cacheMisses: row.cache_misses,
+            hitRate: Number(hitRate.toFixed(1))
+        };
+    });
+}
+
+async function streamRouteReportExcel(res: Response, reportData: any) {
+    const workbook = new ExcelJS.Workbook();
+    const summarySheet = workbook.addWorksheet('概览');
+    const detailSheet = workbook.addWorksheet('详情');
+
+    summarySheet.addRow(['报告类型', reportData.metadata.reportType]);
+    summarySheet.addRow(['生成时间', reportData.metadata.generatedAt]);
+    if (reportData.metadata.dateRange) {
+        summarySheet.addRow(['开始时间', reportData.metadata.dateRange.start]);
+        summarySheet.addRow(['结束时间', reportData.metadata.dateRange.end]);
+    }
+    summarySheet.addRow([]);
+    summarySheet.addRow(['总路由数', reportData.summary.totalRoutes]);
+    summarySheet.addRow(['总访问量', reportData.summary.totalAccesses]);
+    summarySheet.addRow(['总错误数', reportData.summary.totalErrors]);
+    summarySheet.addRow(['平均响应时间(ms)', reportData.summary.averageLoadTime]);
+
+    const detailRows = reportData.details || [];
+    if (detailRows.length > 0) {
+        const headers = Object.keys(detailRows[0]);
+        detailSheet.addRow(headers);
+        detailRows.forEach((row: Record<string, any>) => {
+            const values = headers.map(header => row[header]);
+            detailSheet.addRow(values);
+        });
+    }
+
+    await workbook.xlsx.write(res);
+    res.end();
+}
+
+async function streamRouteReportPdf(res: Response, reportData: any) {
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    doc.pipe(res);
+
+    doc.fontSize(18).text(reportData.metadata.reportType, { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(10).text(`生成时间: ${reportData.metadata.generatedAt}`);
+    if (reportData.metadata.dateRange) {
+        doc.text(`日期范围: ${reportData.metadata.dateRange.start || '-'} 至 ${reportData.metadata.dateRange.end || '-'}`);
+    }
+    doc.moveDown();
+
+    doc.fontSize(12).text('摘要');
+    doc.fontSize(10);
+    for (const key in reportData.summary) {
+        if (!Object.prototype.hasOwnProperty.call(reportData.summary, key)) continue;
+        const value = reportData.summary[key];
+        doc.text(`${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`);
+    }
+
+    doc.moveDown();
+    doc.fontSize(12).text('详情');
+    doc.fontSize(9);
+
+    const details = reportData.details || [];
+    details.slice(0, 50).forEach((row: Record<string, any>) => {
+        const parts: string[] = [];
+        for (const key in row) {
+            if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+            parts.push(`${key}: ${row[key]}`);
+        }
+        doc.text(parts.join(' | '));
+    });
+
+    if (details.length > 50) {
+        doc.moveDown();
+        doc.text(`仅展示前50条记录，实际总数 ${details.length} 条。`);
+    }
+
+    doc.end();
 }

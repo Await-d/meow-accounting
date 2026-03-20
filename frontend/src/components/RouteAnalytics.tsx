@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { Card, CardBody, CardHeader, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Button, Tabs, Tab } from '@nextui-org/react';
 import { useRoute } from '@/hooks/useRoute';
 import { BarChart, Bar, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LineChart, Line } from 'recharts';
+import { colors, cardStyles } from '@/styles/design-system';
 
-// 图表颜色
-const COLORS = ['#8884d8', '#83a6ed', '#8dd1e1', '#82ca9d', '#a4de6c', '#d0ed57', '#ffc658'];
+// 使用统一的颜色方案
+const COLORS = colors.series;
 
 export default function RouteAnalytics() {
     const { getPerformanceReport, userRoutes, familyRoutes } = useRoute();
@@ -68,7 +69,7 @@ export default function RouteAnalytics() {
     if (!data) return null;
 
     return (
-        <Card>
+        <Card className={cardStyles.base}>
             <CardHeader className="flex justify-between items-center">
                 <h2 className="text-xl font-bold">路由分析</h2>
                 <Button
@@ -82,7 +83,7 @@ export default function RouteAnalytics() {
             <CardBody className="gap-6">
                 {/* 概览数据 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card>
+                    <Card className={cardStyles.base}>
                         <CardBody>
                             <div className="text-center">
                                 <p className="text-sm text-default-500">总路由数</p>
@@ -90,7 +91,7 @@ export default function RouteAnalytics() {
                             </div>
                         </CardBody>
                     </Card>
-                    <Card>
+                    <Card className={cardStyles.base}>
                         <CardBody>
                             <div className="text-center">
                                 <p className="text-sm text-default-500">总访问量</p>
@@ -98,7 +99,7 @@ export default function RouteAnalytics() {
                             </div>
                         </CardBody>
                     </Card>
-                    <Card>
+                    <Card className={cardStyles.base}>
                         <CardBody>
                             <div className="text-center">
                                 <p className="text-sm text-default-500">错误率</p>
@@ -121,7 +122,7 @@ export default function RouteAnalytics() {
                                     <YAxis />
                                     <Tooltip />
                                     <Legend />
-                                    <Bar dataKey="value" fill="#8884d8" />
+                                    <Bar dataKey="value" fill={colors.primary.DEFAULT} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -153,8 +154,8 @@ export default function RouteAnalytics() {
                         <div className="w-full overflow-x-auto h-80">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={data.lineData}>
-                                    <Line type="monotone" dataKey="loadTime" stroke="#8884d8" name="加载时间" />
-                                    <Line type="monotone" dataKey="errors" stroke="#ff0000" name="错误数" />
+                                    <Line type="monotone" dataKey="loadTime" stroke={colors.primary.DEFAULT} name="加载时间" />
+                                    <Line type="monotone" dataKey="errors" stroke={colors.charts.red[5]} name="错误数" />
                                     <Tooltip />
                                     <Legend />
                                 </LineChart>

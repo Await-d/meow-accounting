@@ -28,7 +28,6 @@ function LoginForm() {
         const redirect = searchParams.get('redirect');
         if (redirect) {
             setRedirectPath(redirect);
-            console.log('登录后将重定向到:', redirect);
         }
     }, [searchParams]);
 
@@ -42,14 +41,12 @@ function LoginForm() {
             }
             // 否则默认跳转到首页（由useAuth中的login函数处理）
         } catch (error) {
-            // showToast(error instanceof Error ? error.message : '登录失败', 'error');
+            showToast(error instanceof Error ? error.message : '登录失败', 'error');
         }
     };
 
     return (
         <PageLayout
-            title="登录喵呜记账"
-            description={redirectPath ? '登录后将自动跳转回先前页面。' : '欢迎回来，继续管理您的家庭财务。'}
             backgroundVariant="default"
             maxWidth="lg"
             padding="lg"
@@ -57,8 +54,10 @@ function LoginForm() {
             <Card className="w-full max-w-md mx-auto border border-default-100 bg-background/80 backdrop-blur">
                 <CardBody className="gap-4">
                     <div className="text-center mb-2">
-                        <h1 className="text-2xl font-bold">账号登录</h1>
-                        <p className="text-default-500">请输入您的邮箱和密码</p>
+                        <h1 className="text-2xl font-bold">登录喵呜记账</h1>
+                        <p className="text-default-500">
+                            {redirectPath ? '登录后将自动跳转回先前页面。' : '欢迎回来，继续管理您的家庭财务。'}
+                        </p>
                         {redirectPath && (
                             <p className="text-sm text-primary mt-2">登录后将返回: {redirectPath}</p>
                         )}

@@ -6,15 +6,13 @@
  * @Description: 请填写简介
  */
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { Providers } from '@/providers';
+// 使用系统字体以避免构建时网络问题
+import './tailwind-generated.css';
+import { Providers } from './providers';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ToastProvider } from '@/components/Toast';
 import { RouteProvider } from '@/hooks/useRoute';
 import { UnauthorizedHandler } from '@/components/UnauthorizedHandler';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
     title: '喵呜记账',
@@ -57,7 +55,7 @@ export default function RootLayout({
                 <meta name="msapplication-tap-highlight" content="no" />
                 <meta name="theme-color" content="#000000" />
             </head>
-            <body className={inter.className} suppressHydrationWarning>
+            <body className="font-sans" suppressHydrationWarning>
                 <Providers>
                     <ToastProvider>
                         <AuthProvider>

@@ -112,17 +112,11 @@ export default function FamilyPage() {
 
     // 在组件加载时刷新用户邀请
     useEffect(() => {
-        console.log('刷新用户邀请');
         refetchUserInvitations().catch(error => {
             console.error('刷新用户邀请失败:', error);
             showToast('获取邀请失败', 'error');
         });
     }, [refetchUserInvitations, showToast]);
-
-    // 打印收到的邀请数据，用于调试
-    useEffect(() => {
-        console.log('收到的邀请数据:', userInvitations);
-    }, [userInvitations]);
 
     // 当获取到设置时更新表单
     useEffect(() => {
@@ -231,7 +225,6 @@ export default function FamilyPage() {
 
     const handleRemoveMember = (member: FamilyMember) => {
         if (!currentFamily) return;
-        console.log('准备移除成员:', member);
         setSelectedMember(member);
         onOpenDelete();
     };
@@ -1209,7 +1202,6 @@ export default function FamilyPage() {
                             color="danger"
                             onPress={selectedFamily ? handleDeleteConfirm : () => {
                                 if (selectedMember && currentFamily) {
-                                    console.log('确认移除成员:', selectedMember, '家庭ID:', currentFamily.id);
                                     removeMember({
                                         familyId: currentFamily.id,
                                         memberId: selectedMember.user_id! // 使用user_id而不是id

@@ -36,7 +36,11 @@ export async function getPerformanceReport(req: Request, res: Response) {
         }
 
         const { start_date, end_date } = req.query;
-        const report = await routeStatsModel.getPerformanceReport(userId);
+        const report = await routeStatsModel.getPerformanceReport(
+            userId,
+            start_date as string | undefined,
+            end_date as string | undefined
+        );
 
         res.json(report);
     } catch (error) {
@@ -72,7 +76,7 @@ export async function getCacheStats(req: Request, res: Response) {
         }
 
         const routeId = parseInt(req.params.routeId);
-        const stats = await routeStatsModel.getCacheStats(routeId);
+        const stats = await routeStatsModel.getCacheStats(userId, isNaN(routeId) ? undefined : routeId);
 
         res.json(stats);
     } catch (error) {

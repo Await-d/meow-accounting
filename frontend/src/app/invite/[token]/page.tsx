@@ -61,7 +61,6 @@ export default function InvitePage({ params }: { params: { token: string } }) {
         if (!user) {
             setRedirected(true);
             const redirectUrl = `/auth/login?redirect=/invite/${token}`;
-            console.log('重定向到登录页面:', redirectUrl);
             router.push(redirectUrl);
         }
     }, [user, token, router, loading, redirected]);

@@ -22,18 +22,9 @@ import {
     Spinner
 } from '@nextui-org/react';
 import { useQuery } from '@tanstack/react-query';
+import { createBackup, deleteBackup, getBackups, restoreBackup } from '@/lib/api';
 import { Download, Upload, RefreshCcw, Database, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-// 模拟备份数据
-const mockBackups = Array.from({ length: 10 }, (_, i) => ({
-    id: i + 1,
-    name: `backup_${new Date(Date.now() - i * 86400000).toISOString().split('T')[0]}.zip`,
-    size: Math.floor(Math.random() * 1000) + 'MB',
-    createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-    type: ['完整备份', '增量备份'][Math.floor(Math.random() * 2)],
-    status: '完成'
-}));
 
 export default function BackupPage() {
     const { isOpen, onOpen, onClose } = useDisclosure();
@@ -44,27 +35,8 @@ export default function BackupPage() {
     const { data: backups, refetch } = useQuery({
         queryKey: ['backups'],
         queryFn: async () => {
-            // 实现实际的API调用
-            try {
-                const response = await fetch('/api/settings/backups', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include'
-                });
-
-                if (!response.ok) {
-                    throw new Error('获取备份列表失败');
-                }
-
-                return await response.json();
-            } catch (error) {
-                // 如果API尚未实现，使用模拟数据
-                console.warn('备份API未实现，使用模拟数据:', error);
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                return mockBackups;
-            }
+            const response = await getBackups();
+            return response.data;
         }
     });
 
@@ -73,20 +45,7 @@ export default function BackupPage() {
         setIsLoading(true);
         try {
             // 实现实际的备份创建逻辑
-            const response = await fetch('/api/settings/backups', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({ name: backupName || `backup_${new Date().toISOString().split('T')[0]}` })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || '创建备份失败');
-            }
-
+            await createBackup(backupName || `backup_${new Date().toISOString().split('T')[0]}`);
             toast.success('备份创建成功');
             onClose();
             refetch();
@@ -102,19 +61,7 @@ export default function BackupPage() {
     const handleRestoreBackup = async (backupId: number) => {
         try {
             // 实现实际的备份恢复逻辑
-            const response = await fetch(`/api/settings/backups/${backupId}/restore`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || '恢复备份失败');
-            }
-
+            await restoreBackup(backupId);
             toast.success('备份恢复成功');
         } catch (error) {
             console.error('备份恢复失败:', error);
@@ -126,19 +73,7 @@ export default function BackupPage() {
     const handleDeleteBackup = async (backupId: number) => {
         try {
             // 实现实际的备份删除逻辑
-            const response = await fetch(`/api/settings/backups/${backupId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || '删除备份失败');
-            }
-
+            await deleteBackup(backupId);
             toast.success('备份删除成功');
             refetch();
         } catch (error) {
@@ -182,7 +117,6 @@ export default function BackupPage() {
                     <Table aria-label="备份列表">
                         <TableHeader>
                             <TableColumn>备份名称</TableColumn>
-                            <TableColumn>类型</TableColumn>
                             <TableColumn>大小</TableColumn>
                             <TableColumn>创建时间</TableColumn>
                             <TableColumn>状态</TableColumn>
@@ -196,21 +130,18 @@ export default function BackupPage() {
                                 <TableRow key={item.id}>
                                     <TableCell>{item.name}</TableCell>
                                     <TableCell>
+                                        {item.size_bytes ? `${(item.size_bytes / 1024 / 1024).toFixed(2)} MB` : '0 MB'}
+                                    </TableCell>
+                                    <TableCell>
+                                        {new Date(item.created_at).toLocaleString()}
+                                    </TableCell>
+                                    <TableCell>
                                         <Chip
-                                            color={item.type === '完整备份' ? 'primary' : 'secondary'}
+                                            color={item.status === 'failed' ? 'danger' : item.status === 'restored' ? 'secondary' : 'success'}
                                             variant="flat"
                                             size="sm"
                                         >
-                                            {item.type}
-                                        </Chip>
-                                    </TableCell>
-                                    <TableCell>{item.size}</TableCell>
-                                    <TableCell>
-                                        {new Date(item.createdAt).toLocaleString()}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip color="success" variant="flat" size="sm">
-                                            {item.status}
+                                            {item.status === 'created' ? '已创建' : item.status === 'restored' ? '已恢复' : '失败'}
                                         </Chip>
                                     </TableCell>
                                     <TableCell>

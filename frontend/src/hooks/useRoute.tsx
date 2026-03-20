@@ -77,6 +77,7 @@ interface RouteContextType {
         itemCount: number;
         maxSize: number;
         usage: number;
+        hitRate: number;
     };
     getPreheatStatus: () => {
         preheating: string[];
@@ -102,7 +103,7 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
     const [isLoadingUserRoutes, setIsLoadingUserRoutes] = useState(false);
     const [isLoadingFamilyRoutes, setIsLoadingFamilyRoutes] = useState(false);
     const {showToast} = useToast();
-    const {getCachedRoute, cacheRoute, clearExpiredCache} = useRouteCache();
+    const {getCachedRoute, cacheRoute, clearExpiredCache, getCacheStats} = useRouteCache();
     const {preloadRoute, preloadRoutes} = useRoutePreload();
     const {
         addToHistory,
@@ -129,7 +130,7 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
     // 解析URL参数
     const parseUrlParams = useCallback((): RouteParams => {
         const params: RouteParams = {};
-        searchParams.forEach((value, key) => {
+        searchParams.forEach((value: string, key: string) => {
             if (key === 'page' || key === 'limit') {
                 params[key] = parseInt(value);
             } else {
@@ -140,15 +141,15 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
     }, [searchParams]);
 
     // 构建URL查询字符串
-    const buildQueryString = (params: RouteParams): string => {
+    const buildQueryString = useCallback((params: RouteParams): string => {
         const query = new URLSearchParams();
-        Object.entries(params).forEach(([key, value]) => {
+        Object.entries(params).forEach(([key, value]: [string, unknown]) => {
             if (value !== undefined && value !== null) {
                 query.append(key, String(value));
             }
         });
         return query.toString();
-    };
+    }, []);
 
     // 验证参数
     const validateParams = useCallback((params: RouteParams): boolean => {
@@ -169,7 +170,7 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
                 saveParams(pathname, updatedParams);
             }
         }
-    }, [params, pathname, router, validateParams, saveParams]);
+    }, [params, pathname, router, validateParams, saveParams, buildQueryString]);
 
     // 使用URL和持久化存储的参数
     useEffect(() => {
@@ -242,7 +243,7 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
     const createRoute = useCallback(async (data: CreateRouteData) => {
         if (!user) return;
         try {
-            const response = await fetchAPI<{ id: number }>('/api/routes', {
+            const response = await fetchAPI<{ id: number }>('/routes', {
                 method: 'POST',
                 body: JSON.stringify(data)
             });
@@ -263,7 +264,7 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
     const updateRoute = useCallback(async ({id, data}: { id: number, data: UpdateRouteData }) => {
         if (!user) return;
         try {
-            await fetchAPI(`/api/routes/${id}`, {
+            await fetchAPI(`/routes/${id}`, {
                 method: 'PUT',
                 body: JSON.stringify(data)
             });
@@ -281,7 +282,7 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
     const deleteRoute = useCallback(async (id: number) => {
         if (!user) return;
         try {
-            await fetchAPI(`/api/routes/${id}`, {
+            await fetchAPI(`/routes/${id}`, {
                 method: 'DELETE'
             });
             fetchUserRoutes();
@@ -305,14 +306,14 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
     }, []);
 
     // 检查路由访问权限
-    const checkAccess = (route: Route): boolean => {
+    const checkAccess = useCallback((route: Route): boolean => {
         return checkRoutePermission(
             route.type,
             route.permission,
             user?.id,
             user?.currentFamilyId
         );
-    };
+    }, [user?.id, user?.currentFamilyId]);
 
     // 预加载相关路由
     useEffect(() => {
@@ -410,17 +411,18 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
     // 获取性能报告
     const getRoutePerformanceReport = useCallback(() => {
         const report = getPerformanceReport();
+        const cacheStats = getCacheStats();
         // 添加缓存命中率和预热状态
         const {preheated, preheating} = getPreheatStatus();
         return {
             ...report,
-            cacheHitRate: 0, // 这里可以计算实际的缓存命中率
+            cacheHitRate: Number(cacheStats.hitRate.toFixed(1)),
             preheatingStatus: {
                 total: preheating.length + preheated.length,
                 completed: preheated.length
             }
         };
-    }, [getPerformanceReport, getPreheatStatus]);
+    }, [getPerformanceReport, getPreheatStatus, getCacheStats]);
 
     const value = {
         currentRoute,
@@ -441,12 +443,7 @@ function RouteProviderInner({children}: { children: React.ReactNode }) {
         handleGoForward,
         getHistorySummary,
         getPerformanceReport: getRoutePerformanceReport,
-        getCacheStats: () => ({
-            totalSize: 0, // This is a placeholder implementation
-            itemCount: 0, // This is a placeholder implementation
-            maxSize: 0, // This is a placeholder implementation
-            usage: 0 // This is a placeholder implementation
-        }),
+        getCacheStats,
         getPreheatStatus,
         updateParams,
         validateParams,

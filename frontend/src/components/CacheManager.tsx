@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { ChangeEvent, useCallback, useEffect, useState } from 'react';
 import {
     Card,
     Table,
@@ -13,13 +13,10 @@ import {
     Tab,
     TableHeader
 } from '@nextui-org/react';
-import { RefreshCw, Trash2, Database } from 'lucide-react';
+import { RefreshCw, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
-// Temporary cache API stubs
+import { fetchAPI } from '@/lib/api';
 interface CacheStats {
-    totalKeys: number;
-    memoryUsage: number;
-    hitRate: number;
     redis: {
         keys: number;
         memory: number;
@@ -39,17 +36,23 @@ interface CacheStats {
     };
 }
 
-const getCacheStats = async (): Promise<CacheStats> => ({
-    totalKeys: 0,
-    memoryUsage: 0,
-    hitRate: 0,
-    redis: { keys: 0, memory: 0, hits: 0, misses: 0 },
-    local: { size: 0, capacity: 100 },
-    total: { keys: 0, memory: 0, hits: 0, misses: 0, hitRate: 0 }
-});
-const clearCachePattern = async (pattern: string): Promise<void> => {};
-const clearAllCache = async (): Promise<void> => {};
-const monitorMemory = (threshold?: number): void => {};
+const getCacheStats = async (): Promise<CacheStats> => {
+    const response = await fetchAPI<CacheStats>('/cache/stats');
+    return response.data;
+};
+const clearCachePattern = async (pattern: string): Promise<number> => {
+    const response = await fetchAPI<{ deletedCount: number }>(`/cache/pattern/${encodeURIComponent(pattern)}`, {
+        method: 'DELETE'
+    });
+    return response.data.deletedCount;
+};
+const clearAllCache = async (): Promise<void> => {
+    await fetchAPI('/cache/all', { method: 'DELETE' });
+};
+const monitorMemory = async (threshold?: number): Promise<void> => {
+    const param = threshold ? `?threshold=${threshold}` : '';
+    await fetchAPI(`/cache/memory${param}`, { method: 'GET' });
+};
 
 const CacheManager: React.FC = () => {
     const [stats, setStats] = useState<CacheStats | null>(null);
@@ -58,20 +61,20 @@ const CacheManager: React.FC = () => {
     const [activeTab, setActiveTab] = useState('stats');
     const { showToast } = useToast();
 
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const data = await getCacheStats();
             setStats(data);
         } catch (error) {
             showToast('获取缓存统计失败', 'error');
         }
-    };
+    }, [showToast]);
 
     useEffect(() => {
         fetchStats();
         const interval = setInterval(fetchStats, 30000); // 每30秒更新一次
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchStats]);
 
     const handleClearPattern = async () => {
         if (!pattern) {
@@ -140,7 +143,10 @@ const CacheManager: React.FC = () => {
         },
         {
             metric: '命中率',
-            redis: `${((stats.redis.hits / (stats.redis.hits + stats.redis.misses)) * 100).toFixed(2)}%`,
+            redis: `${((stats.redis.hits + stats.redis.misses) > 0
+                ? (stats.redis.hits / (stats.redis.hits + stats.redis.misses)) * 100
+                : 0
+            ).toFixed(2)}%`,
             local: 'N/A',
             total: `${(stats.total.hitRate * 100).toFixed(2)}%`,
         },
@@ -150,7 +156,7 @@ const CacheManager: React.FC = () => {
         <div className="p-6">
             <Tabs
                 selectedKey={activeTab}
-                onSelectionChange={(key) => setActiveTab(key as string)}
+                onSelectionChange={(key: React.Key) => setActiveTab(String(key))}
             >
                 <Tab key="stats" title="缓存统计">
                     <div className="flex gap-4 mb-4">
@@ -178,8 +184,8 @@ const CacheManager: React.FC = () => {
                             <TableColumn>总计</TableColumn>
                         </TableHeader>
                         <TableBody>
-                            {statsData.map((row, index) => (
-                                <TableRow key={index}>
+                                    {statsData.map((row) => (
+                                        <TableRow key={row.metric}>
                                     <TableCell>{row.metric}</TableCell>
                                     <TableCell>{row.redis}</TableCell>
                                     <TableCell>{row.local}</TableCell>
@@ -211,7 +217,7 @@ const CacheManager: React.FC = () => {
                                     <Input
                                         placeholder="输入缓存模式，如：user:*"
                                         value={pattern}
-                                        onChange={(e) => setPattern(e.target.value)}
+                                        onChange={(event: ChangeEvent<HTMLInputElement>) => setPattern(event.target.value)}
                                         className="flex-1"
                                     />
                                     <Button

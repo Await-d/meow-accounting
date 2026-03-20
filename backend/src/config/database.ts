@@ -112,6 +112,11 @@ export class DB {
     }
 
     private async createTables(): Promise<void> {
+        // 为确保schema正确，先删除users表（开发环境）
+        // 生产环境应使用迁移工具
+        await this.db?.run('DROP TABLE IF EXISTS users');
+        console.log('已删除旧的users表');
+        
         // 创建users表（基础表，其他表依赖它）
         await this.db?.run(`
             CREATE TABLE IF NOT EXISTS users (
@@ -119,8 +124,9 @@ export class DB {
                 username VARCHAR(50) UNIQUE NOT NULL,
                 email VARCHAR(100) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(20) DEFAULT 'user',
                 display_name VARCHAR(100),
-                avatar_url VARCHAR(255),
+                avatar VARCHAR(255),
                 is_active BOOLEAN DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -153,6 +159,7 @@ export class DB {
                 amount DECIMAL(15,2) NOT NULL,
                 type VARCHAR(20) NOT NULL,
                 category_id INTEGER,
+                account_id INTEGER,
                 description TEXT,
                 transaction_date DATE NOT NULL,
                 created_by INTEGER NOT NULL,
@@ -161,11 +168,20 @@ export class DB {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP,
                 FOREIGN KEY (category_id) REFERENCES categories(id),
+                FOREIGN KEY (account_id) REFERENCES accounts(id),
                 FOREIGN KEY (created_by) REFERENCES users(id),
                 FOREIGN KEY (updated_by) REFERENCES users(id),
                 FOREIGN KEY (family_id) REFERENCES families(id)
             )
         `);
+
+        // 确保transactions表包含account_id列（兼容旧表结构）
+        const transactionColumns = await this.db?.all<{ name: string }[]>(
+            'PRAGMA table_info(transactions)'
+        );
+        if (transactionColumns && !transactionColumns.some(column => column.name === 'account_id')) {
+            await this.db?.run('ALTER TABLE transactions ADD COLUMN account_id INTEGER');
+        }
 
         // 创建families表
         await this.db?.run(`
@@ -209,6 +225,28 @@ export class DB {
                 updated_at TIMESTAMP,
                 FOREIGN KEY (family_id) REFERENCES families(id),
                 FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        `);
+
+        // 创建accounts表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(100) NOT NULL,
+                type VARCHAR(50) NOT NULL,
+                initial_balance DECIMAL(15,2) DEFAULT 0,
+                currency VARCHAR(10) DEFAULT 'CNY',
+                description TEXT,
+                family_id INTEGER,
+                user_id INTEGER,
+                created_by INTEGER NOT NULL,
+                updated_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (family_id) REFERENCES families(id),
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (created_by) REFERENCES users(id),
+                FOREIGN KEY (updated_by) REFERENCES users(id)
             )
         `);
 
@@ -324,6 +362,92 @@ export class DB {
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         `);
+
+        // 创建路由访问历史表（用于预测）
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS route_access_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                previous_route_id INTEGER,
+                session_id TEXT NOT NULL,
+                load_time REAL NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (route_id) REFERENCES routes(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (previous_route_id) REFERENCES routes(id) ON DELETE SET NULL
+            )
+        `);
+
+        // 创建路由访问历史索引
+        await this.db?.run(`
+            CREATE INDEX IF NOT EXISTS idx_route_access_user_route
+            ON route_access_history(user_id, route_id, accessed_at)
+        `);
+
+        await this.db?.run(`
+            CREATE INDEX IF NOT EXISTS idx_route_access_session
+            ON route_access_history(session_id, accessed_at)
+        `);
+
+        await this.db?.run(`
+            CREATE INDEX IF NOT EXISTS idx_route_access_transition
+            ON route_access_history(user_id, previous_route_id, route_id)
+        `);
+
+        // 创建路由优化建议表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS route_optimization_suggestions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route_id INTEGER NOT NULL,
+                suggestion_type TEXT NOT NULL,
+                priority TEXT NOT NULL CHECK(priority IN ('high', 'medium', 'low')),
+                category TEXT NOT NULL CHECK(category IN ('performance', 'caching', 'error', 'other')),
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                impact TEXT NOT NULL,
+                implemented BOOLEAN DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (route_id) REFERENCES routes(id) ON DELETE CASCADE
+            )
+        `);
+
+        // 创建备份记录表
+        await this.db?.run(`
+            CREATE TABLE IF NOT EXISTS backups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(255) NOT NULL,
+                file_path TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL DEFAULT 0,
+                status VARCHAR(20) NOT NULL DEFAULT 'created',
+                created_by INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                restored_at TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        `);
+
+        // 创建优化建议索引
+        await this.db?.run(`
+            CREATE INDEX IF NOT EXISTS idx_optimization_route
+            ON route_optimization_suggestions(route_id, implemented)
+        `);
+    }
+
+    // 调试：打印users表schema
+    public async debugUsersSchema(): Promise<void> {
+        if (!this.db) await this.connect();
+        try {
+            const schema = await this.db!.all('PRAGMA table_info(users)');
+            console.log('=== Users表Schema ===');
+            console.log(JSON.stringify(schema, null, 2));
+            console.log('====================');
+        } catch (error) {
+            console.error('获取users表schema失败:', error);
+        }
     }
 
     public async close(): Promise<void> {

@@ -4,7 +4,8 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { DayPicker } from 'react-day-picker';
-import 'react-day-picker/dist/style.css';
+// 移除CSS导入以避免编译错误 - 使用内联样式
+// import 'react-day-picker/dist/style.css';
 
 interface DatePickerProps {
     date: Date;

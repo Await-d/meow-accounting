@@ -46,6 +46,7 @@ import RecentTransactions from '@/components/dashboard/RecentTransactions';
 import { WalletIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { useToast } from '@/hooks/useToast';
 import { useFamily } from '@/hooks/useFamily';
+import type { Family } from '@/hooks/useFamily';
 import { Logo, LoadingScreen } from '@/components';
 import { motion } from 'framer-motion';
 import AdminActionButton from '@/components/dashboard/AdminActionButton';
@@ -127,18 +128,6 @@ export default function DashboardPage() {
         timeRange
     );
 
-    // 刷新所有数据
-    const refreshAllData = () => {
-        fetchTransactions();
-    };
-
-    // 当模式切换时，刷新数据
-    useEffect(() => {
-        if (user) {
-            refreshAllData();
-        }
-    }, [isPersonalMode, currentFamily?.id]);
-
     // 修改确保家庭模式有效的函数，增加加载状态检查
     const ensureFamilyModeValid = useCallback(() => {
         // 只有在家庭数据加载完成后，且用户确实没有家庭时，才切换到个人模式
@@ -153,38 +142,16 @@ export default function DashboardPage() {
         }
     }, [isPersonalMode, families, familiesLoading, showToast]);
 
-    // 添加加载状态
-    const [isPageLoading, setIsPageLoading] = useState(true);
+    const isPageLoading = familiesLoading || isLoading || statsLoading || categoryLoading;
     const [currentTransaction, setCurrentTransaction] = useState<Transaction | undefined>(undefined);
 
-    // 页面加载处理 - 合并逻辑，确保只有一个控制页面初始加载的useEffect
-    useEffect(() => {
-        // 模拟页面加载
-        const timer = setTimeout(() => {
-            setIsPageLoading(false);
 
-            // 页面加载完成后检查家庭状态，但只在家庭数据加载完成时才进行判断
-            if (!familiesLoading && (!families || families.length === 0)) {
-                setIsPersonalMode(true);
-            }
-        }, 1000);
-
-        return () => clearTimeout(timer);
-    }, [families, familiesLoading, setIsPersonalMode]);
-
-    useEffect(() => {
-        if (user) {
-            fetchTransactions();
-        }
-    }, [user?.id, isPersonalMode, currentFamily?.id]);
-
-    const fetchTransactions = async () => {
+    const fetchTransactions = useCallback(async () => {
         // 避免未登录时加载
         if (!user) return;
 
         // 设置加载状态，无条件执行
         setIsLoading(true);
-        console.log('开始加载交易数据...');
 
         try {
             let queryParams: Record<string, string> = {};
@@ -198,14 +165,11 @@ export default function DashboardPage() {
                 queryParams.family_id = String(currentFamily.id);
             }
 
-            console.log('查询参数:', queryParams);
             const data = await getTransactions(queryParams);
-            console.log('获取到的交易数据:', data);
 
             // 确保data是数组
             if (Array.isArray(data)) {
                 setTransactions(data);
-                console.log('成功设置交易数据，数量:', data.length);
             } else {
                 console.error('返回的交易数据不是数组格式', data);
                 setTransactions([]);
@@ -216,9 +180,12 @@ export default function DashboardPage() {
             setTransactions([]);
         } finally {
             setIsLoading(false);
-            console.log('加载状态已重置为false');
         }
-    };
+    }, [user, isPersonalMode, currentFamily]);
+
+    useEffect(() => {
+        fetchTransactions();
+    }, [fetchTransactions]);
 
     // 导出数据为CSV
     const exportToCSV = () => {
@@ -269,14 +236,14 @@ export default function DashboardPage() {
 
     // 交易创建成功后的回调
     const handleTransactionSuccess = () => {
-        refreshAllData();
+        fetchTransactions();
         // 关闭模态框
         setIsAddTransactionModalOpen(false);
     };
 
     // 处理家庭切换
     const handleFamilyChange = (familyId: number) => {
-        const selectedFamily = families?.find(f => f.id === familyId);
+        const selectedFamily = families?.find((family: Family) => family.id === familyId);
         if (selectedFamily) {
             setCurrentFamily(selectedFamily);
             setIsPersonalMode(false); // 切换到家庭后，自动切换到家庭模式
@@ -299,17 +266,8 @@ export default function DashboardPage() {
         }
     };
 
-    // 在其他useEffect之后添加日志记录
-    useEffect(() => {
-        console.log('RecentTransactions组件状态:', {
-            isLoading,
-            transactionsCount: transactions?.length || 0,
-            hasTransactions: Array.isArray(transactions) && transactions.length > 0
-        });
-    }, [transactions, isLoading]);
-
     // 加载更多交易数据
-    const loadAllTransactions = async () => {
+    const loadAllTransactions = useCallback(async () => {
         try {
             setIsLoading(true);
             let queryParams: Record<string, string> = {};
@@ -321,14 +279,12 @@ export default function DashboardPage() {
                 queryParams.family_id = String(currentFamily.id);
             }
 
-            console.log('加载所有交易数据的查询参数:', queryParams);
             // 请求一个较大的数据量，便于分页显示
             const data = await getTransactions(queryParams, { pageSize: 100 });
 
             if (Array.isArray(data)) {
                 setTotalTransactions(data);
                 setTotalPages(Math.ceil(data.length / pageSize));
-                console.log('加载到的所有交易数据:', data.length);
             } else {
                 console.error('返回的所有交易数据不是数组格式', data);
                 setTotalTransactions([]);
@@ -339,7 +295,7 @@ export default function DashboardPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user, isPersonalMode, currentFamily, pageSize]);
 
     // 处理查看更多交易
     const handleViewMoreTransactions = useCallback(() => {
@@ -352,7 +308,7 @@ export default function DashboardPage() {
         if (isTransactionListModalOpen) {
             loadAllTransactions();
         }
-    }, [isTransactionListModalOpen]);
+    }, [isTransactionListModalOpen, loadAllTransactions]);
 
     // 过滤和分页显示交易数据
     const getPagedTransactions = useCallback(() => {
@@ -402,7 +358,7 @@ export default function DashboardPage() {
     // 在关键点调用检查函数
     useEffect(() => {
         ensureFamilyModeValid();
-    }, [ensureFamilyModeValid, isPersonalMode]);
+    }, [ensureFamilyModeValid]);
 
     // 当家庭列表加载后，如果没有选中的家庭，自动选择第一个
     useEffect(() => {
@@ -513,6 +469,7 @@ export default function DashboardPage() {
                         className="hidden dark:block text-yellow-300"
                         fill="currentColor"
                     >
+                        <title>切换到浅色主题</title>
                         <path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" />
                     </svg>
                     <svg
@@ -523,6 +480,7 @@ export default function DashboardPage() {
                         className="block dark:hidden text-blue-900"
                         fill="currentColor"
                     >
+                        <title>切换到深色主题</title>
                         <path d="M10 6C10 10.4183 13.5817 14 18 14C19.4386 14 20.7885 13.6203 21.9549 12.9556C21.4738 18.0175 17.1419 22 12 22C6.47715 22 2 17.5228 2 12C2 6.85808 5.98249 2.5262 11.0444 2.04506C10.3797 3.21152 10 4.56142 10 6ZM4 12C4 16.4183 7.58172 20 12 20C14.9654 20 17.5757 18.3788 18.9571 15.9546C18.6407 15.9848 18.3212 16 18 16C12.4772 16 8 11.5228 8 6C8 5.67879 8.01524 5.35933 8.04536 5.04293C5.62119 6.42426 4 9.03458 4 12Z" />
                     </svg>
                 </Button>
@@ -532,7 +490,7 @@ export default function DashboardPage() {
                 isIconOnly
                 variant="light"
                 aria-label="刷新数据"
-                onPress={refreshAllData}
+                onPress={fetchTransactions}
                 radius="full"
             >
                 <RefreshCw className="h-4 w-4" />
@@ -883,6 +841,7 @@ export default function DashboardPage() {
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             startContent={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-default-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <title>搜索</title>
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                             </svg>}
                                             className="w-full"

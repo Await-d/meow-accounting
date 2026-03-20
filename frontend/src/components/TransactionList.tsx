@@ -60,8 +60,62 @@ export default function TransactionList() {
     const filteredTransactions = useMemo(() => {
         if (!transactions) return [];
         return transactions.filter((t: Transaction) => {
-            // 根据filter实现过滤逻辑
-            // 这里简化处理，可根据实际需求添加条件
+            if (filter.type && filter.type !== t.type) {
+                return false;
+            }
+
+            if (filter.types && filter.types.length > 0 && !filter.types.includes(t.type)) {
+                return false;
+            }
+
+            if (filter.categoryId !== undefined && filter.categoryId !== null) {
+                const categoryId = typeof filter.categoryId === 'string' ? Number.parseInt(filter.categoryId, 10) : filter.categoryId;
+                if (Number.isFinite(categoryId) && t.category_id !== categoryId) {
+                    return false;
+                }
+            }
+
+            if (
+                filter.categoryIds &&
+                filter.categoryIds.length > 0
+            ) {
+                const transactionCategoryId = t.category_id;
+                if (typeof transactionCategoryId !== 'number' || !filter.categoryIds.includes(transactionCategoryId)) {
+                    return false;
+                }
+            }
+
+            if (filter.startDate) {
+                const txDate = dayjs(t.date);
+                if (txDate.isBefore(dayjs(filter.startDate), 'day')) {
+                    return false;
+                }
+            }
+
+            if (filter.endDate) {
+                const txDate = dayjs(t.date);
+                if (txDate.isAfter(dayjs(filter.endDate), 'day')) {
+                    return false;
+                }
+            }
+
+            if (typeof filter.minAmount === 'number' && t.amount < filter.minAmount) {
+                return false;
+            }
+
+            if (typeof filter.maxAmount === 'number' && t.amount > filter.maxAmount) {
+                return false;
+            }
+
+            if (filter.search && filter.search.trim().length > 0) {
+                const keyword = filter.search.trim().toLowerCase();
+                const categoryName = String(t.category ?? '').toLowerCase();
+                const description = String(t.description ?? '').toLowerCase();
+                if (!categoryName.includes(keyword) && !description.includes(keyword)) {
+                    return false;
+                }
+            }
+
             return true;
         });
     }, [transactions, filter]);
@@ -193,8 +247,7 @@ export default function TransactionList() {
                                         </div>
                                     )}
                                     <div
-                                        className="p-3 rounded-lg hover:bg-default-100 transition-colors cursor-pointer flex justify-between items-center border-b border-default-100"
-                                        onClick={() => handleEdit(transaction)}
+                                        className="p-3 rounded-lg hover:bg-default-100 transition-colors flex justify-between items-center border-b border-default-100"
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className={`p-2 rounded-full ${transaction.type === 'expense'
@@ -216,31 +269,33 @@ export default function TransactionList() {
                                                 {formatAmount(transaction.amount, transaction.type)}
                                             </div>
                                             <div className="flex gap-1 mt-1">
-                                                <span onClick={(e) => e.stopPropagation()}>
-                                                    <Button
-                                                        isIconOnly
-                                                        size="sm"
-                                                        variant="light"
-                                                        onPress={() => handleEdit(transaction)}
-                                                        className="h-6 w-6 min-w-0"
-                                                        isDisabled={isGuest}
-                                                    >
-                                                        <PencilIcon className="h-3 w-3" />
-                                                    </Button>
-                                                </span>
-                                                <span onClick={(e) => e.stopPropagation()}>
-                                                    <Button
-                                                        isIconOnly
-                                                        size="sm"
-                                                        color="danger"
-                                                        variant="light"
-                                                        onPress={() => handleDelete(transaction)}
-                                                        className="h-6 w-6 min-w-0"
-                                                        isDisabled={isGuest}
-                                                    >
-                                                        <TrashIcon className="h-3 w-3" />
-                                                    </Button>
-                                                </span>
+                                                <Button
+                                                    isIconOnly
+                                                    size="sm"
+                                                    variant="light"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        handleEdit(transaction);
+                                                    }}
+                                                    className="h-6 w-6 min-w-0"
+                                                    isDisabled={isGuest}
+                                                >
+                                                    <PencilIcon className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                    isIconOnly
+                                                    size="sm"
+                                                    color="danger"
+                                                    variant="light"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        handleDelete(transaction);
+                                                    }}
+                                                    className="h-6 w-6 min-w-0"
+                                                    isDisabled={isGuest}
+                                                >
+                                                    <TrashIcon className="h-3 w-3" />
+                                                </Button>
                                             </div>
                                         </div>
                                     </div>
